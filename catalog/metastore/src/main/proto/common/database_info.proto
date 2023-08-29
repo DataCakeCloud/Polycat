@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "DatabaseInfoProto";
+option java_multiple_files = true;
+
+message DatabaseInfo {
+  map<string, string> properties = 1;
+  required string location = 2;
+  optional int64 create_time = 3;
+  optional string description = 4;
+  optional string user_id = 5;
+  optional int64 dropped_time = 6;
+  optional string auth_source_type = 7;
+  optional string account_id = 8;
+  optional string owner_type = 9;
+  optional string owner = 10;
+}
+

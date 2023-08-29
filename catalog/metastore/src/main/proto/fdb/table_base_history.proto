@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "TableBaseHistoryProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_base_info.proto";
+
+//-----------------stored table-----------------------------
+// store history base info of the table
+message TableBaseHistory {
+  required string event_id = 1;
+  optional bytes version = 2;
+  required TableBaseInfo tableBaseInfo = 3;
+}
+
+message TableBaseHistoryUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required TableBaseHistory _tableBaseHistory = 1;
+}

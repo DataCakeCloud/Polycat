@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "TableIndexInfoSetProto";
+option java_multiple_files = true;
+
+import "common/table_index_info.proto";
+
+// Stores Index information in parent table store
+message TableIndexInfoSet {
+  repeated TableIndexInfo index_Infos = 1;
+}

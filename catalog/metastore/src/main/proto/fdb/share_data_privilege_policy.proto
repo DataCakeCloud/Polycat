@@ -1,0 +1,25 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ShareDataPrivilegePolicyProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message ShareDataPrivilegePolicyRecord {
+  required string policy_id = 1;
+  required string project_id = 2;
+  required int32 principal_type = 3;
+  required int32 principal_source = 4;
+  required string principal_id = 5;
+  required string obs_path = 6;
+  required string obs_endpoint = 7;
+
+  required int32 permission = 8;
+  required int64 update_time = 9;
+}
+
+message ShareDataPrivilegePolicyRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required ShareDataPrivilegePolicyRecord share_data_privilege_policy = 1;
+}

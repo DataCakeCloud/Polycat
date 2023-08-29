@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "IndexPartitionHistoryProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "fdb/index_partition.proto";
+
+// store the partition mapping history information for index (materialized view)
+message IndexPartitionHistory {
+  required string event_id = 1;
+  map<string, ParentTablePartition> parent_table_partition_map = 2;
+  optional bytes version = 3;
+}
+
+message IndexPartitionHistoryUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required IndexPartitionHistory indexPartitionHistory = 1;
+}

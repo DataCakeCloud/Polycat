@@ -1,0 +1,16 @@
+xbuild: 1.0.0
+type: simple_rpm
+rpms:
+  - name: dlc-polycat
+    dest_direction: {PACKAGE_ROOT}/repo
+    def_attr:
+      group: servicegroup
+      owner: service
+      file_mode: 640
+      dir_mode: 750
+    file_list:
+      - source_file: {PROJECT_ROOT}/deploy/catalog/*
+        install_path: /opt/cloud/components/DLC_1.0.0/polycat
+        attr:
+          file_mode: 500
+

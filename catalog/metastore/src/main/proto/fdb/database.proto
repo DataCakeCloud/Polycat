@@ -1,0 +1,25 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "DatabaseProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message Database {
+  //there is only one value, fixed 0 to indicate the primary key
+  required int32 primary_key = 1;
+  required string name = 2;
+  map<string, string> properties = 3;
+  required string location = 4;
+  optional int64 create_time = 5;
+  optional string description = 6;
+  optional string user_id = 7;
+}
+
+
+message DatabaseUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required Database database = 1;
+}
+

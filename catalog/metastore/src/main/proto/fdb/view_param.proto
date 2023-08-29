@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ViewParamProto";
+option java_multiple_files = true;
+
+import "fdb/view_policy.proto";
+
+
+message ViewRecord {
+  required string project_id = 1;
+  required string catalog_id = 2;
+  required string database_id = 3;
+  required string view_id = 4;
+  required string name = 5;
+  required int64  created_time = 6;
+  optional string comment = 7;
+  repeated ViewPolicy view_policy = 8;
+}
+
+

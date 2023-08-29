@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "PartitionSetTypeProto";
+option java_multiple_files = true;
+
+//-----------------stored table-----------------------------
+//-----------------stored table-----------------------------
+enum PartitionSetType {
+  INIT = 1;
+  DATA = 2;
+  INDEX = 3;
+}
+

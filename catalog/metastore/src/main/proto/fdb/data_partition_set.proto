@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "DataPartitionSetProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_data_partition_set.proto";
+
+message DataPartitionSet {
+  required string set_id = 1;
+  required string catalog_id = 2;
+  required string database_id = 3;
+  required string table_id = 4;
+  required TableDataPartitionSetInfo data_partition_set_info = 5;
+}
+
+message DataPartitionSetUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required DataPartitionSet data_partition_set = 1;
+}

@@ -1,0 +1,32 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "StorageInfoProto";
+option java_multiple_files = true;
+
+message SerDeInfo {
+  required string name = 1;
+  required string serialization_library = 2;
+  map<string, string> parameters = 3;
+}
+
+message Order {
+  optional string column = 1;
+  optional int32 sort_order = 2;
+}
+
+message StorageInfo {
+  required string location = 1;
+  required string source_short_name = 2 [default = "carbon"];
+  optional string file_format = 3 [default = "parquet"];
+  optional string input_format = 4;
+  optional string output_format = 5;
+  map<string, string> parameters = 6;
+
+  optional bool compressed = 8;
+  optional int32 number_of_buckets = 9;
+  repeated string bucket_columns = 10;
+  optional SerDeInfo serde_info = 11;
+  repeated Order sort_columns = 12;
+  optional bool stored_as_sub_directories = 13;
+}

@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "TableReferenceProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_base_info.proto";
+import "common/schema_info.proto";
+import "common/storage_info.proto";
+
+//-----------------stored table-----------------------------
+
+// store table id, current name and latest modified message
+message TableReference {
+  //there is only one value, fixed 0 to indicate the primary key
+  required string table_id = 1;
+
+  // String of system clock, updated when table meta or data is inserted/update,
+  // used for transaction conflict detection in underlying store, Ex. FoundationDB
+  required int64 update_time = 2;
+}
+
+message TableReferenceUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required TableReference _tableReference = 1;
+}

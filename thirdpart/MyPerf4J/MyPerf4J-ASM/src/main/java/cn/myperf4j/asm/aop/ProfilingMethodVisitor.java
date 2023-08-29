@@ -1,0 +1,102 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package cn.myperf4j.asm.aop;
+
+import cn.myperf4j.asm.ASMRecorderMaintainer;
+import cn.myperf4j.base.MethodTag;
+import cn.myperf4j.base.config.MetricsConfig;
+import cn.myperf4j.base.config.RecorderConfig;
+import cn.myperf4j.core.recorder.AbstractRecorderMaintainer;
+import cn.myperf4j.core.MethodTagMaintainer;
+import cn.myperf4j.base.config.ProfilingConfig;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
+
+/**
+ * Created by LinShunkang on 2018/4/15
+ */
+public class ProfilingMethodVisitor extends AdviceAdapter {
+
+    private static final String PROFILING_ASPECT_INNER_NAME = Type.getInternalName(ProfilingAspect.class);
+
+    private static final MethodTagMaintainer methodTagMaintainer = MethodTagMaintainer.getInstance();
+
+    private final AbstractRecorderMaintainer maintainer = ASMRecorderMaintainer.getInstance();
+
+    private final MetricsConfig metricsConf = ProfilingConfig.metricsConfig();
+
+    private final RecorderConfig recorderConf = ProfilingConfig.recorderConfig();
+
+    private final String innerClassName;
+
+    private final String methodName;
+
+    private final int methodTagId;
+
+    private int startTimeIdentifier;
+
+    public ProfilingMethodVisitor(int access,
+                                  String name,
+                                  String desc,
+                                  MethodVisitor mv,
+                                  String innerClassName,
+                                  String fullClassName,
+                                  String simpleClassName,
+                                  String classLevel,
+                                  String humanMethodDesc) {
+        super(ASM5, mv, access, name, desc);
+        this.methodName = name;
+        this.methodTagId = methodTagMaintainer.addMethodTag(
+                getMethodTag(fullClassName, simpleClassName, classLevel, name, humanMethodDesc));
+        this.innerClassName = innerClassName;
+    }
+
+    private MethodTag getMethodTag(String fullClassName,
+                                   String simpleClassName,
+                                   String classLevel,
+                                   String methodName,
+                                   String humanMethodDesc) {
+        String methodParamDesc = metricsConf.showMethodParams() ? humanMethodDesc : "";
+        return MethodTag.getGeneralInstance(fullClassName, simpleClassName, classLevel, methodName, methodParamDesc);
+    }
+
+    @Override
+    protected void onMethodEnter() {
+        if (profiling()) {
+            maintainer.addRecorder(methodTagId, recorderConf.getProfilingParam(innerClassName + "/" + methodName));
+
+            mv.visitMethodInsn(INVOKESTATIC, "java/lang/System", "nanoTime", "()J", false);
+            startTimeIdentifier = newLocal(Type.LONG_TYPE);
+            mv.visitVarInsn(LSTORE, startTimeIdentifier);
+        }
+    }
+
+    @Override
+    protected void onMethodExit(int opcode) {
+        if (profiling() && ((IRETURN <= opcode && opcode <= RETURN) || opcode == ATHROW)) {
+            mv.visitVarInsn(LLOAD, startTimeIdentifier);
+            mv.visitLdcInsn(methodTagId);
+            mv.visitMethodInsn(INVOKESTATIC, PROFILING_ASPECT_INNER_NAME, "profiling", "(JI)V", false);
+        }
+    }
+
+    private boolean profiling() {
+        return methodTagId >= 0;
+    }
+}

@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "RolePropertiesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message RoleProperties {
+  //there is only one value, fixed 0 to indicate the primary key
+  required string role_id = 1;
+  required string name = 2;
+  required int64 create_time = 3;
+  required string owner_id = 4;
+  optional string comment = 5;
+}
+
+message RolePropertiesUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required RoleProperties role = 1;
+}
+
+

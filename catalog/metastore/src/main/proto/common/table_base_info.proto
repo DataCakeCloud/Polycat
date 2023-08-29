@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "TableBaseInfoProto";
+option java_multiple_files = true;
+
+message TableBaseInfo {
+  required int64 create_time = 1;
+  optional string auth_source_type = 2;
+  optional string account_id = 3;
+  optional string owner_type = 4;
+  optional string owner = 5;
+  optional string description = 6;
+  optional int32 retention = 7;
+  optional string table_type = 9;
+  map<string, string> parameters = 10;
+  optional string view_original_text = 11;
+  optional string view_expanded_text = 12;
+
+  //todo: after delete commit_partition
+  optional bool lms_mvcc = 13;
+}

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.UsageProfileMapper">
+    <update id="createUsageProfileSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_usage_profile_detail;
+        CREATE TABLE schema_${projectId}.table_usage_profile_detail
+        (
+        id VARCHAR(64) NOT NULL,
+        catalog_name VARCHAR(255) NOT NULL,
+        database_name VARCHAR(255) NOT NULL,
+        table_name VARCHAR(255) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        create_day_time BIGINT NOT NULL,
+        op_type VARCHAR(64) NOT NULL,
+        count BIGINT NOT NULL,
+        user_id VARCHAR(128) DEFAULT NULL,
+        task_id VARCHAR(255) DEFAULT NULL,
+        tag VARCHAR(255) DEFAULT NULL,
+        create_time BIGINT NOT NULL
+        );
+    </update>
+
+    <update id="createUsageProfilePreStatSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_usage_profile_prestat;
+        CREATE TABLE schema_${projectId}.table_usage_profile_prestat
+        (
+        id VARCHAR(64) PRIMARY KEY,
+        catalog_name VARCHAR(255) NOT NULL,
+        database_name VARCHAR(255) NOT NULL,
+        table_name VARCHAR(255) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        create_day_time BIGINT NOT NULL,
+        op_type VARCHAR(64) NOT NULL,
+        sum_count BIGINT NOT NULL,
+        start_time BIGINT NOT NULL,
+        end_time BIGINT NOT NULL
+        );
+    </update>
+
+    <update id="createUsageProfileAccessStatSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_usage_profile_access_stat;
+        CREATE TABLE schema_${projectId}.table_usage_profile_access_stat
+        (
+        id VARCHAR(64) PRIMARY KEY,
+        catalog_name VARCHAR(255) NOT NULL,
+        database_name VARCHAR(255) NOT NULL,
+        table_name VARCHAR(255) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        create_day_time BIGINT NOT NULL,
+        op_type VARCHAR(64) NOT NULL,
+        sum_count BIGINT NOT NULL,
+        user_id VARCHAR(128) DEFAULT NULL,
+        start_time BIGINT NOT NULL,
+        end_time BIGINT NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_tupas_index
+        ON schema_${projectId}.table_usage_profile_access_stat(catalog_name, database_name, table_name);
+    </update>
+
+    <insert id="insertUsageProfileDetail">
+        INSERT INTO schema_${projectId}.table_usage_profile_detail
+        VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId},
+        #{data.createDayTime}, #{data.opType}, #{data.count}, #{data.userId}, #{data.taskId}, #{data.tag},
+        #{data.createTime})
+    </insert>
+
+    <select id="getUsageProfilePreStat" resultType="io.polycat.catalog.common.model.UsageProfilePrePreStatObject">
+        SELECT * FROM schema_${projectId}.table_usage_profile_prestat WHERE catalog_name = #{data.catalogName} AND
+        database_name = #{data.databaseName} AND table_name = #{data.tableName} AND
+        create_day_time = #{data.createDayTime} AND op_type = #{data.opType}
+    </select>
+
+    <insert id="insertUsageProfilePreStat">
+        INSERT INTO schema_${projectId}.table_usage_profile_prestat
+        VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId},
+        #{data.createDayTime}, #{data.opType}, #{data.sumCount}, #{data.startTime}, #{data.endTime})
+    </insert>
+
+    <update id="updateUsageProfilePreStat">
+        UPDATE schema_${projectId}.table_usage_profile_prestat
+        SET sum_count = #{data.sumCount}, end_time = #{data.endTime} WHERE id = #{data.id}
+    </update>
+
+    <select id="getUsageProfileAccessStat" resultType="io.polycat.catalog.common.model.UsageProfileAccessStatObject">
+        SELECT * FROM schema_${projectId}.table_usage_profile_access_stat WHERE catalog_name = #{data.catalogName} AND
+        database_name = #{data.databaseName} AND table_name = #{data.tableName} AND create_day_time = #{data.createDayTime}
+        AND user_id = #{data.userId} AND op_type = #{data.opType} LIMIT 1
+    </select>
+
+    <insert id="insertUsageProfileAccessStat">
+        INSERT INTO schema_${projectId}.table_usage_profile_access_stat
+        VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId}, #{data.createDayTime}, #{data.opType},
+        #{data.sumCount}, #{data.userId}, #{data.startTime}, #{data.endTime})
+    </insert>
+
+    <update id="updateUsageProfileAccessStat">
+        UPDATE schema_${projectId}.table_usage_profile_access_stat
+        SET sum_count = #{data.sumCount}, end_time = #{data.endTime} WHERE id = #{data.id}
+    </update>
+
+    <select id="listUsageProfilePreStatByFilter" resultType="io.polycat.catalog.common.model.UsageProfilePrePreStatObject">
+        SELECT * FROM schema_${projectId}.table_usage_profile_prestat
+        WHERE ${filter}
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="getUsageProfileAccessStatListByFilter" resultType="io.polycat.catalog.common.model.UsageProfileAccessStatObject">
+        SELECT catalog_name, database_name, table_name, user_id, sum_count, start_time, end_time FROM (
+            SELECT
+                catalog_name, database_name, table_name, user_id, sum(sum_count) sum_count, min(start_time) start_time, max(end_time) end_time
+            FROM schema_${projectId}.table_usage_profile_access_stat
+            WHERE ${filter}
+            GROUP BY catalog_name, database_name, table_name, user_id
+        ) tmp order by sum_count ${sortOrder}
+    </select>
+
+    <select id="getTableAccessUsers" resultType="java.lang.String">
+        SELECT user_id FROM schema_${projectId}.table_usage_profile_access_stat
+        WHERE catalog_name = #{catalogName} AND database_name = #{databaseName} AND table_name = #{tableName}
+        GROUP BY user_id
+    </select>
+
+    <select id="getUsageProfileDetailsByCondition" resultType="io.polycat.catalog.common.model.UsageProfileObject">
+        SELECT * FROM schema_${projectId}.table_usage_profile_detail
+        WHERE ${filter}
+        ORDER BY create_time DESC LIMIT #{rowCount}
+    </select>
+</mapper>

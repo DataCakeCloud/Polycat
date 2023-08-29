@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "AcceleratorObjectNameProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// when object type is ACCELERATOR, store it into this table
+message AcceleratorObjectName {
+  required string catalog_id = 1;
+  required string database_id = 2;
+  required string name = 3;
+  required string accelerator_id = 4;
+}
+
+message AcceleratorObjectNameUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required AcceleratorObjectName accelerator_object_name = 1;
+}

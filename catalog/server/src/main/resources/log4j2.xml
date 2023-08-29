@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<Configuration status="WARN" monitorInterval="30"><!--每半分钟重点加载一次配置文件，用于服务器上热修改 -->
+  <!-- Logging Properties -->
+  <Properties>
+    <!-- 去除非安全符号 -->
+    <Property name="UNSAFE_CHAR">[&lt;&gt;\[\]]+</Property><!--非安全字符正则表达式 -->
+    <!--<Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS}|%-5p|%t|%F:%L|%replace{%msg}{${UNSAFE_CHAR}}{}%n-->
+    <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS}|%-5p|%t|%c{1.}:%L|%replace{%msg}{${UNSAFE_CHAR}}{}%n
+    </Property>
+    <Property name="LOG_DIR">/data/logs/polycat</Property>
+    <Property name="SERVER_LOG_PREFIX">server_${hostName}</Property>
+    <Property name="AUDIT_LOG_PREFIX">audit_${hostName}</Property>
+    <Property name="LOG_PATTERN_AUDIT_LOG">%m%n</Property>
+  </Properties>
+
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${LOG_PATTERN}" />
+    </Console>
+
+    <!-- 调试日志 -->
+    <RollingFile name="ServerDebugRollingFile"
+                 filename="${LOG_DIR}/${SERVER_LOG_PREFIX}.log"
+                 filePattern="${LOG_DIR}/${SERVER_LOG_PREFIX}_%d{yyyyMMdd}.log.%i">
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+      <!--      <ThresholdFilter level="warn" onMatch="ACCEPT" />-->
+      <Policies>
+        <TimeBasedTriggeringPolicy
+                interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy
+                size="200MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="20"/>
+    </RollingFile>
+
+    <!-- audit log -->
+    <RollingFile name="AuditLogRollingFile"
+                 filename="${LOG_DIR}/${AUDIT_LOG_PREFIX}.log"
+                 filePattern="${LOG_DIR}/${AUDIT_LOG_PREFIX}_%d{yyyyMMdd}.log.%i">
+      <PatternLayout pattern="%m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy
+                interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy
+                size="200MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="5"/>
+    </RollingFile>
+
+    <Routing name="Routing">
+      <Routes pattern="$${ctx:LOG_ROUTING}">
+        <!-- This route is chosen if ThreadContext has value 'role' for key LOG_ROUTING. -->
+        <Route key="role">
+          <RollingFile name="AuditLogRollingFile-role"
+                       fileName="${LOG_DIR}/${AUDIT_LOG_PREFIX}-${ctx:LOG_ROUTING}.log"
+                       filePattern="${LOG_DIR}/${AUDIT_LOG_PREFIX}-${ctx:LOG_ROUTING}_%d{yyyyMMdd}.log.%i">
+            <PatternLayout pattern="${LOG_PATTERN_AUDIT_LOG}"/>
+            <Policies>
+              <TimeBasedTriggeringPolicy
+                      interval="1" modulate="true"/>
+              <SizeBasedTriggeringPolicy
+                      size="200MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+          </RollingFile>
+        </Route>
+        <!-- This route is chosen if ThreadContext has no value for key ROUTINGKEY. -->
+        <Route key="$${ctx:LOG_ROUTING}">
+          <RollingFile name="AuditLogRollingFile-default" fileName="${LOG_DIR}/${AUDIT_LOG_PREFIX}.log"
+                       filePattern="${LOG_DIR}/${AUDIT_LOG_PREFIX}_%d{yyyyMMdd}.log.%i">
+            <PatternLayout pattern="${LOG_PATTERN_AUDIT_LOG}"/>
+            <Policies>
+              <TimeBasedTriggeringPolicy
+                      interval="1" modulate="true"/>
+              <SizeBasedTriggeringPolicy
+                      size="200MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+          </RollingFile>
+        </Route>
+        <!-- This route is chosen if ThreadContext has a value for ROUTINGKEY
+             (other than the value 'role' which had its own route above).
+             The value dynamically determines the name of the log file. -->
+        <Route>
+          <RollingFile name="AuditLogRollingFile-${ctx:LOG_ROUTING}"
+                       fileName="${LOG_DIR}/${AUDIT_LOG_PREFIX}-${ctx:LOG_ROUTING}.log"
+                       filePattern="${LOG_DIR}/${AUDIT_LOG_PREFIX}-${ctx:LOG_ROUTING}_%d{yyyyMMdd}.log.%i">
+            <PatternLayout pattern="${LOG_PATTERN_AUDIT_LOG}"/>
+            <Policies>
+              <TimeBasedTriggeringPolicy
+                      interval="1" modulate="true"/>
+              <SizeBasedTriggeringPolicy
+                      size="200MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+          </RollingFile>
+        </Route>
+      </Routes>
+    </Routing>
+
+  </Appenders>
+
+  <Loggers>
+    <Root level="info">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="ServerDebugRollingFile"/>
+    </Root>
+
+    <Logger name="io.polycat.catalog.audit.impl.AuditLogStoreFileImpl" level="INFO" additivity="false">
+      <!--<AppenderRef ref="AuditLogRollingFile"/>-->
+      <AppenderRef ref="Routing"/>
+    </Logger>
+  </Loggers>
+</Configuration>

@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "BackendTaskRecordProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+enum TaskType {
+  DROP_TABLE_PURGE = 0;
+}
+
+message BackendTaskRecord {
+  // primary key start
+  required string task_id = 1;
+  // primary key end
+  required string task_name = 2;
+  required TaskType task_type= 3;
+  required string project_id = 4;
+  map<string, string> params = 5;
+}
+
+message BackendTaskRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required BackendTaskRecord backend_task_record = 1;
+}

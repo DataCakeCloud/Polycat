@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ViewPolicyProto";
+option java_multiple_files = true;
+
+message ViewPolicy {
+  required string catalog_id = 1;
+  required string database_id = 2;
+  required string object_type = 3;
+  required string object_id = 4;
+  required bool   column_flag = 5;
+  repeated string column_name = 6;
+  repeated string expression = 7;
+  required bool   filter_flag = 8;
+  repeated ViewFilter view_filter = 9;
+}
+
+message ViewFilter {
+  required string operator = 1;
+  required string column_name = 2;
+  required string value = 3;
+}
+

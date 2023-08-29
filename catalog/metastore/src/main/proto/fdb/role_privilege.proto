@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "RolePrivilegeProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message RolePrivilege {
+  required string role_id = 1;
+  required string object_type = 2;
+  required string object_id = 3;
+  required int64 privilege = 4;
+  optional string catalog_id = 5;
+  optional string database_id = 6;
+}
+
+message RolePrivilegeUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required RolePrivilege role_privilege = 1;
+}
+

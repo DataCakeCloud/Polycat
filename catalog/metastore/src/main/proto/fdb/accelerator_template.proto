@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "AcceleratorTemplateProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message AcceleratorTemplate {
+    required string accelerator_id = 1;
+    required string catalog_id = 2;
+    required string database_id = 3;
+    required string table_id = 4;
+    required int32 hash_code = 5;
+    required string sql_template = 6;
+    required bool compiled = 7;
+    optional string bin_file_path = 8;
+}
+
+message AcceleratorTemplateUnion {
+    option (com.apple.foundationdb.record.record).usage = UNION;
+    required AcceleratorTemplate accelerator_template = 1;
+}

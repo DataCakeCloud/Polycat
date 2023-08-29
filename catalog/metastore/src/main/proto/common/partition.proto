@@ -1,0 +1,54 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "PartitionProto";
+option java_multiple_files = true;
+
+import "common/column_info.proto";
+
+message Partition {
+  required string name = 1;
+  required PartitionType type = 2;
+  optional string partition_id = 3;
+  optional bytes schema_version = 4;  // link to TableSchemaHistory
+  optional bool invisible = 5;        // indicate from which subspace to find schema
+  optional string location = 6;
+  repeated ColumnInfo column = 7;
+  repeated DataFile file = 8;
+  repeated FileStats stats = 9;
+  optional string partition_index_url = 10;
+  optional string file_format = 11;
+  optional string input_format = 12;
+  optional string output_format = 13;
+  optional string serde = 14;
+  map<string, string> properties = 15;
+  optional int64 start_time = 16;
+  optional int64 end_time = 17;
+}
+
+message DataFile {
+  required string file_name = 1;
+  required int64 offset = 2;
+  required int64 length = 3;
+  required int64 row_count = 4;
+}
+
+message FileStats {
+  repeated bytes min_value = 1;
+  repeated bytes max_value = 2;
+}
+
+enum PartitionType {
+  INTERNAL = 1;
+  EXTERNAL = 2;
+  CACHE = 3;
+}
+
+message FileGroup {
+  required string name = 1;
+  required string base_location = 2;
+  repeated DataFile data_file = 3;
+  repeated ColumnInfo column = 4;
+  optional string partition_index_url = 5;
+}
+

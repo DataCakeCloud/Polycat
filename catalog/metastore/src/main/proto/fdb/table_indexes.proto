@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "TableIndexesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_index_info.proto";
+
+// Stores the index info created on the corresponding table
+message TableIndexes {
+  required int32 primary_key = 1;
+  repeated TableIndexInfo table_index = 2;
+}
+
+
+message TableIndexesUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required TableIndexes tableIndex = 1;
+}

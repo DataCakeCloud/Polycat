@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "TableHistoryProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_data_info.proto";
+
+//-----------------stored table-----------------------------
+//-----------------stored table-----------------------------
+
+// store history of TableReference and all partition information
+message TableHistory {
+  required string event_id = 1;
+  optional bytes version = 2;    //get fill
+  required TableDataInfo table_data_info = 3;
+
+}
+
+message TableHistoryUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required TableHistory _tableHistory = 1;
+}

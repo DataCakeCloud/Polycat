@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "TableProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_base_info.proto";
+import "common/schema_info.proto";
+import "common/storage_info.proto";
+
+//-----------------stored table-----------------------------
+
+message Table {
+  required string table_id = 1;
+  required string name = 2;
+  required int32 history_subspace_flag = 3;
+  required TableBaseInfo base_info = 4;
+  required SchemaInfo schema_info = 5;
+  required StorageInfo storage_info = 6;
+}
+
+message TableUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required Table _table = 1;
+}

@@ -1,0 +1,94 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: hivemetastore-configmap
+  namespace: default
+data:
+  core-site.xml: |
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+      <property>
+        <name>fs.obs.impl</name>
+        <value>org.apache.hadoop.fs.obs.OBSFileSystem</value>
+      </property>
+      <property>
+        <name>fs.obs.access.key</name>
+        <value>xxxxx</value>
+        <description>the access key for obs</description>
+      </property>
+      <property>
+        <name>fs.obs.secret.key</name>
+        <value>xxxxx</value>
+        <description>the secret key for obs</description>
+      </property>
+      <property>
+        <name>fs.obs.endpoint</name>
+        <value>obs.xxxxx.myhuaweicloud.com</value>
+        <description>the region endpoint for obs</description>
+      </property>
+    </configuration>
+  hive-site.xml: |
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+    <property>
+      <name>javax.jdo.option.ConnectionDriverName</name>
+      <value>com.mysql.cj.jdbc.Driver</value>
+    </property>
+     <property>
+      <name>javax.jdo.option.ConnectionURL</name>
+      <value>jdbc:mysql://xxxxxip:port/hive_meta?createDatabaseIfNotExist=true</value>
+      <description>the connection url for mysql</description>
+    </property>
+    <property>
+      <name>javax.jdo.option.ConnectionUserName</name>
+      <value>xxxxxx</value>
+      <description>the connection username for mysql</description>
+    </property>
+    <property>
+      <name>javax.jdo.option.ConnectionPassword</name>
+      <value>xxxxxx</value>
+      <description>the connection passed for mysql</description>
+    </property>
+    <property>
+      <name>hive.metastore.warehouse.dir</name>
+      <value>obs://$(bucketname)/</value>
+    </property>
+    <property>
+      <name>hive.metastore.port</name>
+      <value>9083</value>
+    </property>
+    <property>
+      <name>hive.metastore.schema.verification</name>
+      <value>false</value>
+      <description>version check</description>
+    </property>
+    <property>
+      <name>datanucleus.schema.autoCreateAll</name>
+      <value>true</value>
+      <description>creates necessary schema on a startup if one doesn't exist. set this to false, after creating it once</description>
+    </property>
+    <property>
+      <name>hive.metastore.rawstore.impl</name>
+      <value>io.polycat.catalog.hms.hive2.HMSBridgeStore</value>
+    </property>
+    </configuration>

@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "GlobalShareConsumerProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// 支持最多50个子用户
+message GlobalShareConsumer {
+  required string project_id = 1;
+  required string share_id = 2;
+  required string consumer_id = 3;
+  required string manager_user = 4;
+  map<string, string> users = 5;
+}
+
+message GlobalShareConsumerUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required GlobalShareConsumer share_consumer = 1;
+}

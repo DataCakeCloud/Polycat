@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "IndexSchemaProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// store current schema of the index. Index can be materialized view or secondary index
+message IndexSchema {
+  //there is only one value, fixed 0 to indicate the primary key
+  required int32 primary_key = 1;
+  optional string query_sql = 2;
+  map<string, string> properties = 3;
+  map<string, ColumnValue> column_map = 4;
+  optional bool is_time_series = 5;
+}
+
+message IndexSchemaUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required IndexSchema indexSchema = 1;
+}
+
+message ColumnValue {
+  repeated string columnInfo = 1;
+}

@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "SubBranchRecordProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message SubBranchRecord {
+  required string catalog_id = 1;
+  required bytes parent_version = 2;
+  optional string parent_type = 3; // CATALOG, SHARE
+}
+
+
+message SubBranchRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required SubBranchRecord subbranch_record = 1;
+}

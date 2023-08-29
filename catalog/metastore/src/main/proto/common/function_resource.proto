@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "FunctionResourceProto";
+option java_multiple_files = true;
+
+message ResourceUri {
+  required string type = 1;
+  required string uri = 2;
+}
+
+message ResourceUris {
+  repeated ResourceUri resource = 1;
+}

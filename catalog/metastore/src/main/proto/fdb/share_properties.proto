@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "SharePropertiesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message ShareProperties {
+  required string share_id = 1;
+  required string name = 2;
+  required string owner_account = 3;
+  optional string owner_user_id = 4;
+  required int64 create_time = 5;
+  optional string catalog_id = 6;
+  optional string comment = 7;
+  map<string, string> properties = 8;
+}
+
+message SharePropertiesUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required ShareProperties share = 1;
+}

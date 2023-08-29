@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "TableDataPartitionSetInfoProto";
+option java_multiple_files = true;
+
+import "common/partition.proto";
+
+message TableDataPartitionSetInfo {
+  required int64 partitions_size = 1;
+  repeated Partition data_partitions = 2;
+}

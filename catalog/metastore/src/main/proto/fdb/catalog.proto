@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "CatalogProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/catalog_info.proto";
+
+message Catalog {
+  required string catalog_id = 1;
+  required string name = 2;
+  required string root_catalog_id = 3;
+  required CatalogInfo catalog_info = 4;
+}
+
+message CatalogUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required Catalog catalog = 1;
+}

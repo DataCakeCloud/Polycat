@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "UsageProfileProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message UsageProfileRecord {
+  required string project_name = 1;
+  required string catalog_name = 2;
+  required string database_name = 3;
+  required string table_name = 4;
+  required string table_id = 5;
+  required int64  create_day = 6;
+  required string op_type =7;
+  required int64  count = 8;
+  optional string user_id = 9;
+  optional string task_id = 10;
+  optional int64 create_time = 11;
+ }
+
+message UsageProfileRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required UsageProfileRecord usage_profile = 1;
+}

@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "CatalogCommitProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// store catalog level commit summary list
+message CatalogCommit {
+  required string commit_id = 1;
+  required int64 commit_time = 2;
+  required string operation = 3;
+  required string detail = 4;
+  optional bytes version = 5;
+}
+
+message CatalogCommitUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required CatalogCommit catalog_commit = 1;
+}

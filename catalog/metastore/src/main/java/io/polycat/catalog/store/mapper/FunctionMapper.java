@@ -1,0 +1,48 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.polycat.catalog.store.mapper;
+
+import io.polycat.catalog.store.gaussdb.pojo.FunctionInfoRecord;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
+public interface FunctionMapper {
+
+    void createFunctionSubspace(@Param("projectId") String projectId);
+
+    @Update("DROP TABLE IF EXISTS schema_${projectId}.function_info")
+    void dropFunctionSubspace(String projectId);
+
+    @Select("SELECT EXISTS(SELECT true FROM schema_${projectId}.function_info WHERE catalog_id=#{catalogId} AND\n" +
+            "        database_id=#{databaseId} AND function_name=#{functionName})")
+    Boolean functionExist(@Param("projectId") String projectId, @Param("catalogId") String catalogId, @Param("databaseId") String databaseId, @Param("functionName") String functionName);
+
+    FunctionInfoRecord getFunction(@Param("projectId") String projectId, @Param("catalogId") String catalogId, @Param("databaseId") String databaseId, @Param("functionName") String functionName);
+
+    List<FunctionInfoRecord> listFunction(@Param("projectId") String projectId, @Param("catalogId") String catalogId, @Param("databaseId") String databaseId, @Param("pattern") String pattern);
+
+    void deleteFunction(@Param("projectId") String projectId, @Param("catalogId") String catalogId, @Param("databaseId") String databaseId, @Param("functionName") String functionName);
+
+    boolean insertFunction(@Param("projectId") String projectId, @Param("record") FunctionInfoRecord record);
+
+}

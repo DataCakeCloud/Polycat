@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.CatalogMapper">
+    <update id="createCatalogSubspace">
+        CREATE TABLE schema_${projectId}.catalog
+        (
+        catalog_id VARCHAR(64) PRIMARY KEY,
+        catalog_name VARCHAR(128) NOT NULL,
+        root_catalog_id VARCHAR(64) NOT NULL,
+        catalog_info BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_catalog_index ON schema_${projectId}.catalog (catalog_name)
+    </update>
+
+    <insert id="insertCatalog">
+        INSERT INTO schema_${projectId}.catalog
+        VALUES (#{catalogId}, #{catalogName}, #{rootCatalogId}, #{catalogInfo})
+    </insert>
+    <select id="getCatalogId" resultType="io.polycat.catalog.common.model.CatalogId">
+        SELECT catalog_id as catalogId, root_catalog_id as rootCatalogId
+        FROM schema_${projectId}.catalog WHERE catalog_name = #{catalogName}
+    </select>
+    <select id="getCatalogById" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogRecord">
+        SELECT * FROM schema_${projectId}.catalog WHERE catalog_id = #{catalogId}
+    </select>
+    <select id="getCatalogByName" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogRecord">
+        SELECT * FROM schema_${projectId}.catalog WHERE catalog_name = #{catalogName}
+    </select>
+    <select id="listCatalog" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogRecord">
+        SELECT * FROM schema_${projectId}.catalog LIMIT #{count} OFFSET #{offset}
+    </select>
+
+    <update id="createCatalogHistorySubspace">
+        CREATE TABLE schema_${projectId}.catalog_history
+        (
+        ch_id VARCHAR(64) PRIMARY KEY,
+        version VARCHAR(64) NOT NULL,
+        catalog_id VARCHAR(64) NOT NULL,
+        catalog_name VARCHAR(128) NOT NULL,
+        root_catalog_id VARCHAR(64) NOT NULL,
+        catalog_info BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_catalog_history_index
+        ON schema_${projectId}.catalog_history (catalog_id, version);
+    </update>
+    <insert id="insertCatalogHistory">
+        INSERT INTO schema_${projectId}.catalog_history
+        VALUES (#{chId}, #{version}, #{catalogId}, #{catalogName}, #{rootCatalogId}, #{catalogInfo})
+    </insert>
+    <select id="getLatestCatalogHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogHistoryRecord">
+        SELECT * from schema_${projectId}.catalog_history WHERE catalog_id = #{catalogId} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="getCatalogHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogHistoryRecord">
+        SELECT * from schema_${projectId}.catalog_history WHERE catalog_id = #{catalogId} AND version = #{version}
+    </select>
+
+
+    <update id="createCatalogCommitSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.catalog_commit;
+        CREATE TABLE schema_${projectId}.catalog_commit
+        (
+        commit_id VARCHAR(64) PRIMARY KEY,
+        catalog_id VARCHAR(64) NOT NULL,
+        version VARCHAR(64) NOT NULL,
+        commit_time BIGINT NOT NULL,
+        operation VARCHAR(64) NOT NULL,
+        detail VARCHAR(8192) NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_index_catalog_commit_version
+        ON schema_${projectId}.catalog_commit (catalog_id, version);
+    </update>
+    <insert id="insertCatalogCommit">
+        INSERT INTO schema_${projectId}.catalog_commit
+        VALUES (#{commitId}, #{catalogId}, #{version}, #{commitTime}, #{operation}, #{detail})
+    </insert>
+    <select id="getLatestCatalogCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogCommitRecord">
+        SELECT * from schema_${projectId}.catalog_commit WHERE catalog_id = #{catalogId} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="listCatalogCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogCommitRecord">
+        SELECT * from schema_${projectId}.catalog_commit WHERE catalog_id = #{catalogId} ORDER BY version DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+    <select id="getCatalogCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.CatalogCommitRecord">
+        SELECT * from schema_${projectId}.catalog_commit WHERE catalog_id = #{catalogId} AND commit_id = #{commitId} LIMIT 1
+    </select>
+
+    <update id="createBranchSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.branch;
+        CREATE TABLE schema_${projectId}.branch
+        (
+        branch_catalog_id VARCHAR(64) PRIMARY KEY,
+        catalog_id VARCHAR(64) NOT NULL,
+        parent_version VARCHAR(64) NOT NULL,
+        parent_type VARCHAR(64) NOT NULL
+        );
+    </update>
+    <insert id="insertBranch">
+        INSERT INTO schema_${projectId}.branch
+        VALUES (#{branchCatalogId}, #{catalogId}, #{parentVersion}, #{parentType})
+    </insert>
+    <select id="listBranch" resultType="io.polycat.catalog.store.gaussdb.pojo.BranchRecord">
+        SELECT * from schema_${projectId}.branch WHERE catalog_id = #{catalogId} LIMIT #{count}
+    </select>
+</mapper>

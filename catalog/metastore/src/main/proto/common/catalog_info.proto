@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "CatalogInfoProto";
+option java_multiple_files = true;
+
+message CatalogInfo {
+  required int64 create_time = 1;
+  optional string auth_source_type = 2;
+  optional string account_id = 3;
+  optional string owner_type = 4;
+  optional string owner = 5;
+  optional string description = 6;
+  optional string location = 7;
+  optional string parent_type = 8;
+  optional string parent_id = 9;
+  optional string parent_version = 10;
+  optional bool invisible = 11;
+  map<string, string> parameters = 12;
+}
+

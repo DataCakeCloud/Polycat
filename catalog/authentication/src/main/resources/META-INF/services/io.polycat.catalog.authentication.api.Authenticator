@@ -1,0 +1,2 @@
+io.polycat.catalog.authentication.impl.LocalAuthenticator
+io.polycat.catalog.authentication.impl.IMCAuthenticator

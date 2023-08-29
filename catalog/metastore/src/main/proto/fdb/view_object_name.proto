@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ViewObjectNameProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// when object type is TABLE, store it into this table
+message ViewObjectName {
+  required string name = 1;
+  required string object_id = 2;
+}
+
+message ViewObjectNameUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required ViewObjectName view_object_name = 1;
+}

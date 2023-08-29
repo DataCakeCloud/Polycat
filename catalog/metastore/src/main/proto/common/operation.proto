@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "OperationProto";
+option java_multiple_files = true;
+
+message Operation {
+  required string operation = 1;
+  optional int64 added_nums = 2;
+  optional int64 deleted_nums = 3;
+  optional int64 updated_nums = 4;
+  optional int32 file_count = 5;
+}
+
+message OperationList {
+  repeated Operation operation = 1;
+}

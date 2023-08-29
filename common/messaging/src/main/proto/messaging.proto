@@ -1,0 +1,45 @@
+/*
+ * This file is part of the Enigma project
+ * Copyright (c) 2020 Huawei Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.polycat.common.messaging.grpc.generated";
+
+package io.polycat.common.messaging;
+
+// 消息服务定义
+service Server {
+  // 发送消息
+  rpc invoke(Request) returns (Response) {}
+
+  rpc invokeStream(Request) returns (stream Response) {}
+
+  rpc notify(Request) returns (NotifyResponse) {}
+}
+
+message Request {
+  bytes data = 1;
+}
+
+message Response {
+  bytes data = 1;
+}
+
+// GRPC中只能通过定义空消息来定义无返回值的RPC调用
+message NotifyResponse {
+}

@@ -1,0 +1,64 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: hivemetastore
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hivemetastore
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: hivemetastore
+        version: v1
+    spec:
+      volumes:
+        - name: hmsconf
+          configMap:
+            name: hivemetastore-configmap
+            items:
+              - key: core-site.xml
+                path: core-site.xml
+              - key: hive-site.xml
+                path: hive-site.xml
+      containers:
+        - name: hivemetastore-container-0
+          image: 'swr.cn-north-1.myhuaweicloud.com/cloud-dash/hive:v2.3.7'
+          command:
+            - /bin/sh
+          args:
+            - '-c'
+            - hive --service metastore;
+          env:
+            - name: CATALOG_HOST
+              value: catalog.default.svc.cluster.local
+          volumeMounts:
+            - name: hmsconf
+              readOnly: true
+              mountPath: /opt/apache-hive-2.3.7-bin/conf
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0

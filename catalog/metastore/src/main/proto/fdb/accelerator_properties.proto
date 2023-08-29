@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "AcceleratorPropertiesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message AcceleratorProperties {
+    required string accelerator_id = 1;
+    required string name = 2;
+    required string lib = 3;
+    required string sql_statement = 4;
+    required string location = 5;
+    required bool compiled = 6;
+    map<string, string> properties = 7;
+}
+
+message AcceleratorPropertiesUnion {
+    option (com.apple.foundationdb.record.record).usage = UNION;
+    required AcceleratorProperties accelerator = 1;
+}

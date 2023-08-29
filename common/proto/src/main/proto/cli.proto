@@ -1,0 +1,237 @@
+/*
+ * This file is part of the Enigma project
+ * Copyright (c) 2020 Huawei Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+syntax = "proto3";
+
+package io.polycat.gateway.client;
+
+option java_multiple_files = true;
+option java_package = "io.polycat.gateway.client.grpc.generated";
+
+/*
+ * CLI interface
+ */
+service CLIService {
+
+  /*
+   * Set up a session to the CarbonSQL Server.
+   * Server creates a new session to serve the client and
+   * returns the session_id in the response message.
+   */
+  rpc connect(ConnectRequest) returns (ConnectResponse) {}
+
+  /*
+   * Shut down the existing session.
+   * Server will release all resources associated with this session,
+   * any future request to this session will be rejected.
+   */
+  rpc disconnect(DisconnectRequest) returns (DisconnectResponse) {}
+
+  /*
+   * Execute a statement in the session. Statement can be DDL,
+   * DML, and Select Query.
+   * For DDL and DML statement, server may execute it and return
+   * the result directly in the response message.
+   * For Select Query statement, based on the result size estimation,
+   * Server may choose to return the location of the worker that
+   * contains the query result, then Client can fetch result from those
+   * workers in parallel.
+   */
+  rpc execute(ExecuteRequest) returns (stream ExecuteResponse) {}
+
+  /*
+   * Import a local data file to target table.
+   */
+  rpc importData(ImportRequest) returns (ExecuteResponse) {}
+
+  /*
+   * After a session is created, Client should send heartbeats to
+   * the server every 30 seconds.
+   * If the server does not receive heartbeat within 30 seconds,
+   * it may wait for another cycle or release the session immediately.
+   */
+  rpc heartbeat(HeartbeatMessage) returns (HeartbeatMessage) {}
+}
+
+/*
+ * RPC provided by Worker to Client
+ */
+service ResultStreamService {
+
+  /*
+   * After invoking QueryService.execute API,
+   * Client calls this API to fetch the query result.
+   * Result is returned as a stream of batch records.
+   */
+  rpc fetchResult(FetchResultRequest) returns (stream FetchResultResponse) {}
+}
+
+message ConnectRequest {
+  BasicAuth basic_auth = 1;
+}
+
+message BasicAuth {
+  string user_name = 1;
+  string password = 2;
+}
+
+message ConnectResponse {
+  int32 errcode = 1;
+  string message = 2;
+  uint64 session_id = 3;
+  string current_catalog = 4;
+  string current_database = 5;
+}
+
+message DisconnectRequest {
+  uint64 session_id = 1;
+}
+
+message DisconnectResponse {
+  int32 errcode = 1;
+  string message = 2;
+}
+
+message ExecuteRequest {
+  uint64 session_id = 1;
+  string sql_statement = 2;
+}
+
+message ExecuteResponse {
+  int32 errcode = 1;
+  /*
+   * error message if execution is failed
+   */
+  string error_message = 2;
+
+  string current_catalog = 3;
+  string current_database = 4;
+
+  /*
+ * schema of the result data
+ */
+  Schema result_schema = 5;
+
+  /*
+   * result data for DDL and DML operation
+   */
+  bytes result_data = 6;
+
+  /*
+   * For query statement, fetch the result from these streams
+   * Call RPC ResultStreamService.fetchResult
+   */
+  repeated StreamLocation result_streams = 7;
+
+  bool single_response = 8;
+}
+
+message HeartbeatMessage {
+  uint64 session_id = 1;
+  string current_catalog = 2;
+  string current_database = 3;
+}
+
+message StreamLocation {
+  /*
+   * version of the protocol for fetching result from
+   * the stream
+   */
+  uint32 protocol_version = 1;
+
+  /*
+   * host name of the stream
+   */
+  string host = 2;
+
+  /*
+   * port number of the stream
+   */
+  int32 port = 3;
+
+  /*
+   * token to fetch the result
+   */
+  string token = 4;
+}
+
+message FetchResultRequest {
+  /*
+   * Token returned by Server in QueryService.execute API
+   * Worker will reject to return the result if token is not valid
+   */
+  string token = 1;
+
+  /*
+   * Number of records that required by the Client
+   */
+  int32 required_row_count = 2;
+}
+
+message FetchResultResponse {
+  /*
+   * Application specific metadata
+   */
+  bytes metadata = 1;
+
+  /*
+   * A batch of result records
+   */
+  bytes data = 2;
+}
+
+message ImportRequest {
+  uint64 session_id = 1;
+
+  /*
+   * UTF-8 encoded data file content
+   */
+  string data_file_content = 2;
+
+  /*
+   * target catalog name
+   */
+  string catalog_name = 3;
+
+  /*
+   * target database name
+   */
+  string database_name = 4;
+
+  /*
+   * target table name
+   */
+  string table_name = 5;
+}
+
+message Column {
+  string column_id = 1;
+  string name = 2;
+  string data_type = 3;
+  int32 ordinal = 4;
+  map<string, string> properties = 5;
+  int32 scale = 6;
+  int32 precision = 7;
+  bool notNull = 8;
+  bytes default_value = 9;
+  string comment = 10;
+  bool invisible = 11;
+}
+
+message Schema {
+  repeated Column columns = 1;
+}

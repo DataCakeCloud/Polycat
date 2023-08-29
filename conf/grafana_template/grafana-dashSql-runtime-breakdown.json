@@ -1,0 +1,552 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 4,
+  "links": [],
+  "panels": [
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 13,
+        "x": 0,
+        "y": 0
+      },
+      "hiddenSeries": false,
+      "id": 2,
+      "interval": "100ms",
+      "legend": {
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "maxDataPoints": 50000,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.5",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sql_exec_overview_sum{jobId=~\".*\"}",
+          "interval": "",
+          "legendFormat": "total runtime",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"prepare-stream\", phase=\"total\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "prepare-stream step time",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"running_stream\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "running_stream step time",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "sql runtime overview",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:2043",
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:2044",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "hiddenSeries": false,
+      "id": 3,
+      "interval": "100ms",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "maxDataPoints": 50000,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.5",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"prepare-stream\", phase=\"total\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "prepare-stream step time total",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"prepare-stream\", phase=\"compile\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "compile",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"prepare-stream\", phase=\"analyze\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "analyze",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"prepare-stream\", phase=\"optimize\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "optimize",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"prepare-stream\", phase=\"handleJob\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "handleJob",
+          "refId": "E"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "prepare-step runtime breakdown",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:2043",
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:2044",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "hiddenSeries": false,
+      "id": 4,
+      "interval": "100ms",
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "maxDataPoints": 50000,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.5",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"6\", step=\"prepare-stream\", phase=\"handleJob\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "handleJob total",
+          "refId": "E"
+        },
+        {
+          "exemplar": true,
+          "expr": "query_breakdown_job_id_6_sum{phase=\"build_DAG\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "build_DAG",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "query_breakdown_job_id_6_sum{phase=\"allocate_cores\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "allocate_cores",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "query_breakdown_job_id_6_sum{phase=\"build_stages\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "build_stages",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "query_breakdown_job_id_6_sum{phase=\"deploy_stages\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "deploy_stages",
+          "refId": "D"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "prepare-step -> query handler runtime breakdown",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:2043",
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:2044",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "hiddenSeries": false,
+      "id": 5,
+      "interval": "100ms",
+      "legend": {
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "maxDataPoints": 50000,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.5",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sql_runtime_breakdown_sum{jobId=\"4\", step=\"running_stream\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "running_stream step time total",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "{__name__=~\"jobId_4_stageNo_0_.*_sum\", }",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "QueryHandler",
+          "refId": "J"
+        },
+        {
+          "exemplar": true,
+          "expr": "{__name__=~\"jobId_4_.*_CollectProcessor_.*_sum\",}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "CollectProcessor",
+          "refId": "I"
+        },
+        {
+          "exemplar": true,
+          "expr": "{__name__=~\"jobId_._.*_sum\"}",
+          "hide": true,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "G"
+        },
+        {
+          "exemplar": true,
+          "expr": "{__name__=~\"jobId_4_.*_QueryHandler_.*_sum\", phase=\"PROCESS_INPUT\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "WRITE_SEGMENT",
+          "refId": "H"
+        },
+        {
+          "exemplar": true,
+          "expr": "{__name__=~\"jobId_4_.*_sum\", phase=\"SEND_DATA\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "SEND_DATA",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "{__name__=~\"jobId_4_.*_SourceWriteProcessor_.*_sum\", phase=\"PROCESS_INPUT\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "SourceWrite",
+          "refId": "E"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum({__name__=~\"jobId_4_.*_SourceReadProcessor_.*_sum\", })",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "SourceRead",
+          "refId": "F"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "runing-step runtime breakdown",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:2043",
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:2044",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2021-08-03T13:02:50.107Z",
+    "to": "2021-08-03T13:05:39.322Z"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "runtime break down",
+  "uid": "xfeAtHMnk",
+  "version": 6
+}

@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "ColumnInfoProto";
+option java_multiple_files = true;
+
+message ColumnInfo {
+  required string name = 1;
+  required int32 ordinal = 2;
+  required string type = 3;
+  required string comment = 4;
+}

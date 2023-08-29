@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ObjectNameMapProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message ObjectNameMapRecord {
+  required string object_type = 1;  //ObjectType
+  required string upper_object_name = 2;
+  required string object_name = 3;
+  required string top_object_id = 4;
+  required string upper_object_id = 5;
+  required string object_id = 6;
+}
+
+message ObjectNameMapRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required ObjectNameMapRecord object_name_map = 1;
+}

@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "PartitionFileInfoProto";
+option java_multiple_files = true;
+
+import "common/column_info.proto";
+import "common/partition.proto";
+
+message PartitionFileInfo {
+  repeated DataFile file = 1;
+  repeated FileStats stats = 2;
+  map<string, string> properties = 3;
+}

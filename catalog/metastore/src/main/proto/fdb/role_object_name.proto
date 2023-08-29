@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "RoleObjectNameProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message RoleObjectName {
+  required string name = 1;
+  required string object_id = 2;
+}
+
+message RoleObjectNameUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required RoleObjectName role_object_name = 1;
+}

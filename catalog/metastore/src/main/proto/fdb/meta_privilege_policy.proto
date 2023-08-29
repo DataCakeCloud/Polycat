@@ -1,0 +1,28 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "MetaPrivilegePolicyProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message MetaPrivilegePolicyRecord {
+  required string policy_id = 1;
+  required int32 principal_type = 2;
+  required int32 principal_source = 3;
+  required string principal_id = 4;
+  required int32 object_type = 5;
+  required string object_id = 6;
+  required bool  effect = 7;
+  required int64 privilege = 8;
+
+  optional string condition = 9;
+  optional string obligation = 10;
+  required bool   grant_able = 11;
+  required int64 update_time = 12;
+}
+
+message MetaPrivilegePolicyRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required MetaPrivilegePolicyRecord meta_privilege_policy = 1;
+}

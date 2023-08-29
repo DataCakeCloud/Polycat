@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "GlobalSharePropertiesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message GlobalShareProperties {
+  required string project_id = 1;
+  required string share_id = 2;
+  required string share_name = 3;
+  required string owner_account = 4;
+  optional string owner_user_id = 5;
+  required int64 create_time = 6;
+  optional string catalog_id = 7;
+  optional string comment = 8;
+  map<string, string> properties = 9;
+}
+
+message GlobalSharePropertiesUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required GlobalShareProperties share = 1;
+}

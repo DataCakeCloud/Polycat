@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "DroppedObjectNameProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message DroppedObjectName {
+  required string type = 1;
+  required string parent_id = 2;
+  required string name = 3;
+  required string object_id = 4;
+  required int64 dropped_time = 5;
+}
+
+message DroppedObjectNameUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required DroppedObjectName dropped_object_name = 1;
+}

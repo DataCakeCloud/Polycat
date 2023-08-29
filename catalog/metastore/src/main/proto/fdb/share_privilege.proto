@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "SharePrivilegeProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message SharePrivilege {
+  required string database_id = 1;
+  required string object_type = 2;
+  required string object_id = 3;
+  required int64 privilege = 4;
+}
+
+message SharePrivilegeUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required SharePrivilege share_privilege = 1;
+}

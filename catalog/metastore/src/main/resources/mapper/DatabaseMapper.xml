@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.DatabaseMapper">
+    <update id="createDatabaseSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.database;
+        CREATE TABLE schema_${projectId}.database
+        (
+        catalog_id VARCHAR(64) NOT NULL,
+        database_id VARCHAR(64) NOT NULL,
+        database_name VARCHAR(128) NOT NULL,
+        database_info BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_index_database
+        ON schema_${projectId}.database (catalog_id, database_id);
+    </update>
+    <insert id="insertDatabase">
+        INSERT INTO schema_${projectId}.database (catalog_id, database_id, database_name, database_info)
+        VALUES (#{catalogId}, #{databaseId}, #{databaseName}, #{databaseInfo})
+    </insert>
+    <select id="getDatabaseById" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseRecord">
+        SELECT * FROM schema_${projectId}.database WHERE catalog_id = #{catalogId} AND database_id = #{databaseId}
+    </select>
+    <select id="getDatabasesByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseRecord">
+        SELECT * FROM schema_${projectId}.database WHERE ${filter}
+    </select>
+    <select id="listDatabaseName" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseNameRecord">
+        SELECT * FROM schema_${projectId}.database WHERE catalog_id = #{catalogId} ORDER BY database_id DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+    <select id="listDatabaseId" resultType="string">
+        SELECT database_id FROM schema_${projectId}.database WHERE catalog_id = #{catalogId} ORDER BY database_id DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+    <select id="getDatabaseId" resultType="string">
+        SELECT database_id FROM schema_${projectId}.database WHERE catalog_id = #{catalogId} AND database_name = #{databaseName}
+    </select>
+    <update id="createDatabaseHistorySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.database_history;
+        CREATE TABLE schema_${projectId}.database_history
+        (
+        catalog_id VARCHAR(64) NOT NULL,
+        database_id VARCHAR(64) NOT NULL,
+        dbh_id VARCHAR(64) NOT NULL,
+        version VARCHAR(64) NOT NULL,
+        database_name VARCHAR(128) NOT NULL,
+        database_info BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_index_database_history
+        ON schema_${projectId}.database_history (catalog_id, database_id);
+    </update>
+    <insert id="insertDatabaseHistory">
+        INSERT INTO schema_${projectId}.database_history
+        VALUES (#{catalogId}, #{databaseId}, #{dbhId}, #{version}, #{databaseName}, #{databaseInfo})
+    </insert>
+    <select id="getLatestDatabaseHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord">
+        SELECT * from schema_${projectId}.database_history WHERE catalog_id = #{catalogId} AND database_id = #{databaseId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="getLatestDatabaseHistoryByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord">
+        SELECT * from (
+            SELECT ROW_NUMBER() OVER (partition BY catalog_id, database_id ORDER BY version DESC) rn, * FROM schema_${projectId}.database_history WHERE ${filter}
+        ) t1 WHERE rn=1
+    </select>
+    <select id="getDatabaseHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord">
+        SELECT * from schema_${projectId}.database_history WHERE catalog_id = #{catalogId} AND database_id = #{databaseId} AND version = #{version}
+    </select>
+    <select id="listDatabaseHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord">
+        SELECT * from schema_${projectId}.database_history WHERE catalog_id = #{catalogId} AND database_id = #{databaseId} AND version &lt;= #{version} ORDER BY version DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+    <update id="createDroppedDatabaseNameSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.dropped_database;
+        CREATE TABLE schema_${projectId}.dropped_database
+        (
+        catalog_id VARCHAR(64) NOT NULL,
+        database_id VARCHAR(64) NOT NULL,
+        database_name VARCHAR(128) NOT NULL,
+        drop_time BIGINT NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_index_dropped_database
+        ON schema_${projectId}.dropped_database (catalog_id, database_id);
+    </update>
+    <insert id="insertDroppedDatabaseName">
+        INSERT INTO schema_${projectId}.dropped_database
+        VALUES (#{catalogId}, #{databaseId}, #{databaseName}, #{dropTime})
+    </insert>
+    <select id="getDroppedDatabaseName" resultType="io.polycat.catalog.store.gaussdb.pojo.DroppedDatabaseNameRecord">
+        SELECT * FROM schema_${projectId}.dropped_database WHERE catalog_id = #{catalogId} AND database_id = #{databaseId} AND database_name= #{databaseName}
+    </select>
+    <select id="listDroppedDatabaseName" resultType="io.polycat.catalog.store.gaussdb.pojo.DroppedDatabaseNameRecord">
+        SELECT * from schema_${projectId}.dropped_database WHERE catalog_id = #{catalogId} ORDER BY database_id DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+
+</mapper>

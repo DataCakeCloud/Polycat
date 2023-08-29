@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.TableDataMapper">
+  <update id="createTableDataHistorySubspace">
+    DROP TABLE IF EXISTS schema_${projectId}.table_data_history;
+    CREATE TABLE schema_${projectId}.table_data_history
+    (
+    data_his_id VARCHAR(64) PRIMARY KEY,
+    version VARCHAR(64) NOT NULL,
+    catalog_id VARCHAR(64) NOT NULL,
+    table_id VARCHAR(64) NOT NULL,
+    data BYTEA NOT NULL
+    );
+    CREATE INDEX schema_${projectId}_data_his_index
+    ON schema_${projectId}.table_data_history (version, catalog_id, table_id);
+  </update>
+
+  <insert id="insertTableDataHistory">
+    INSERT INTO schema_${projectId}.table_data_history
+    VALUES (#{dataHisId}, #{version}, #{catalogId}, #{tableId}, #{data})
+  </insert>
+
+  <select id="getLatestTableDataHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableDataHistoryRecord">
+    SELECT * from schema_${projectId}.table_data_history
+    WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+  </select>
+
+  <select id="getTableDataHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableDataHistoryRecord">
+    SELECT * from schema_${projectId}.table_data_history WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version = #{version}
+  </select>
+
+  <update id="createTableDataPartitionSetSubspace">
+    DROP TABLE IF EXISTS schema_${projectId}.table_data_partition_set;
+    CREATE TABLE schema_${projectId}.table_data_partition_set
+    (
+    set_id VARCHAR(64) PRIMARY KEY,
+    catalog_id VARCHAR(64) NOT NULL,
+    database_id VARCHAR(64) NOT NULL,
+    table_id VARCHAR(64) NOT NULL,
+    data_partition_set_info BYTEA
+    );
+  </update>
+
+  <update id="createTableIndexPartitionSetSubspace">
+    DROP TABLE IF EXISTS schema_${projectId}.table_index_partition_set;
+    CREATE TABLE schema_${projectId}.table_index_partition_set
+    (
+    set_id VARCHAR(64) PRIMARY KEY,
+    catalog_id VARCHAR(64) NOT NULL,
+    database_id VARCHAR(64) NOT NULL,
+    table_id VARCHAR(64) NOT NULL,
+    index_partition_set_info BYTEA NOT NULL
+    );
+  </update>
+
+  <update id="createTablePartitionInfo">
+    DROP TABLE IF EXISTS schema_${projectId}.table_partition_info_${tableId};
+    CREATE TABLE schema_${projectId}.table_partition_info_${tableId}
+    (
+    partition_id VARCHAR(64) PRIMARY KEY,
+    partition_type int NOT NULL,
+    partition_name VARCHAR(1024) NOT NULL,
+    schema_version VARCHAR(64),
+    invisible BOOLEAN,
+    location VARCHAR(4000),
+    partition_file_info BYTEA,
+    partition_index_url VARCHAR(1024),
+    file_format VARCHAR(4000),
+    input_format VARCHAR(4000),
+    output_format VARCHAR(4000),
+    serde VARCHAR(4000),
+    start_time bigint,
+    end_time bigint,
+    set_id VARCHAR(64),
+    table_id VARCHAR(64),
+    CONSTRAINT table_partition_info_${tableId}_unique_key UNIQUE (partition_name)
+    );
+  </update>
+
+  <update id="createTablePartitionColumnInfo">
+    DROP TABLE IF EXISTS schema_${projectId}.table_partition_column_info_${tableId};
+    CREATE TABLE schema_${projectId}.table_partition_column_info_${tableId}
+    (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    value VARCHAR(255),
+    ordinal int,
+    type VARCHAR(256),
+    comment VARCHAR(256),
+    partition_id VARCHAR(64),
+    table_id VARCHAR(64)
+    );
+  </update>
+
+  <insert id="insertTableDataPartitionSet">
+    INSERT INTO schema_${projectId}.table_data_partition_set
+    VALUES (#{setId}, #{catalogId}, #{databaseId}, #{tableId})
+  </insert>
+
+  <insert id="insertTablePartitionInfo" parameterType="java.util.List">
+    INSERT INTO schema_${projectId}.table_partition_info_${tableId}
+    values
+    <foreach collection="partitionInfoList" item="data"  separator=",">
+      (#{data.id}, #{data.type}, #{data.name}, #{data.schemaVersion}, #{data.invisible}, #{data.location},
+      #{data.partitionFileInfo}, #{data.partitionIndexUrl}, #{data.fileFormat}, #{data.inputFormat},
+      #{data.outputFormat}, #{data.serde}, #{data.startTime}, #{data.endTime}, #{data.setId}, #{data.tableId})
+    </foreach>
+  </insert>
+
+  <insert id="insertTablePartitionColumnInfo" parameterType="java.util.List">
+    INSERT INTO schema_${projectId}.table_partition_column_info_${tableId}
+    VALUES
+    <foreach collection="partitionColumnInfos" item="partitionColumnInfo"  separator=",">
+      (#{partitionColumnInfo.id}, #{partitionColumnInfo.name}, #{partitionColumnInfo.value},
+      #{partitionColumnInfo.ordinal}, #{partitionColumnInfo.type}, #{partitionColumnInfo.comment},
+      #{partitionColumnInfo.partitionId}, #{partitionColumnInfo.tableId})
+    </foreach>
+  </insert>
+
+  <insert id="insertTableIndexPartitionSet">
+    INSERT INTO schema_${projectId}.table_index_partition_set_${tableId}
+    VALUES (#{setId}, #{catalogId}, #{databaseId}, #{tableId}, #{setInfo})
+  </insert>
+
+<!--  <update id="updateTableDataPartitionSet">
+    INSERT INTO schema_${projectId}.table_data_partition_set
+    VALUES (#{setId}, #{catalogId}, #{databaseId},
+    #{tableId}, #{setInfo})
+    ON DUPLICATE KEY UPDATE
+    set_id = #{setId}, catalog_id = #{catalogId},
+    database_id = #{databaseId},  table_id = #{tableId},
+    data_partition_set_info = #{setInfo}
+  </update>
+
+  <update id="updateTableIndexPartitionSet">
+    INSERT INTO schema_${projectId}.table_index_partition_set_${tableId}
+    VALUES (#{setId}, #{catalogId}, #{databaseId},
+    #{tableId}, #{setInfo})
+    ON DUPLICATE KEY UPDATE
+    set_id = #{setId}, catalog_id = #{catalogId},
+    database_id = #{databaseId},  table_id = #{tableId},
+    index_partition_set_info = #{setInfo}
+  </update>-->
+
+  <select id="getTableDataPartitionSet" resultType="io.polycat.catalog.store.gaussdb.pojo.TableDataPartitionSetRecord">
+    SELECT * from schema_${projectId}.table_data_partition_set WHERE set_id = #{setId}
+  </select>
+
+  <resultMap type="io.polycat.catalog.common.model.PartitionInfo" id="partitionInfoMap">
+    <result property="id" column="partition_id" jdbcType="VARCHAR"/>
+    <result property="name" column="partition_name" jdbcType="VARCHAR"/>
+    <result property="type" column="partition_type" jdbcType="INTEGER"/>
+    <result property="schemaVersion" column="schema_version" jdbcType="VARCHAR"/>
+    <result property="invisible" column="invisible" jdbcType="BOOLEAN"/>
+    <result property="location" column="location" jdbcType="VARCHAR"/>
+    <result property="partitionFileInfo" column="partition_file_info" jdbcType="VARCHAR"/>
+    <result property="partitionIndexUrl" column="partition_index_url" jdbcType="VARCHAR"/>
+    <result property="fileFormat" column="file_format" jdbcType="VARCHAR"/>
+    <result property="inputFormat" column="input_format" jdbcType="VARCHAR"/>
+    <result property="outputFormat" column="output_format" jdbcType="VARCHAR"/>
+    <result property="serde" column="serde" jdbcType="VARCHAR"/>
+    <result property="startTime" column="start_time" jdbcType="TIMESTAMP"/>
+    <result property="endTime" column="end_time" jdbcType="TIMESTAMP"/>
+    <result property="setId" column="set_id" jdbcType="VARCHAR"/>
+    <result property="tableId" column="table_id" jdbcType="VARCHAR"/>
+  </resultMap>
+
+  <resultMap type="io.polycat.catalog.common.model.PartitionInfo" id="partitionInfoMapWithColumnInfo">
+    <result property="id" column="partition_id" jdbcType="VARCHAR"/>
+    <result property="name" column="partition_name" jdbcType="VARCHAR"/>
+    <result property="type" column="partition_type" jdbcType="INTEGER"/>
+    <result property="schemaVersion" column="schema_version" jdbcType="VARCHAR"/>
+    <result property="invisible" column="invisible" jdbcType="BOOLEAN"/>
+    <result property="location" column="location" jdbcType="VARCHAR"/>
+    <result property="partitionFileInfo" column="partition_file_info" jdbcType="VARCHAR"/>
+    <result property="partitionIndexUrl" column="partition_index_url" jdbcType="VARCHAR"/>
+    <result property="fileFormat" column="file_format" jdbcType="VARCHAR"/>
+    <result property="inputFormat" column="input_format" jdbcType="VARCHAR"/>
+    <result property="outputFormat" column="output_format" jdbcType="VARCHAR"/>
+    <result property="serde" column="serde" jdbcType="VARCHAR"/>
+    <result property="startTime" column="start_time" jdbcType="TIMESTAMP"/>
+    <result property="endTime" column="end_time" jdbcType="TIMESTAMP"/>
+    <result property="setId" column="set_id" jdbcType="VARCHAR"/>
+    <result property="tableId" column="table_id" jdbcType="VARCHAR"/>
+    <collection property="partitionColumnInfos" ofType="io.polycat.catalog.common.model.PartitionColumnInfo">
+      <result property="id" column="id" jdbcType="VARCHAR"/>
+      <result property="name" column="name" jdbcType="VARCHAR"/>
+      <result property="value" column="value" jdbcType="VARCHAR"/>
+      <result property="ordinal" column="ordinal" jdbcType="INTEGER"/>
+      <result property="type" column="type" jdbcType="VARCHAR"/>
+      <result property="comment" column="comment" jdbcType="VARCHAR"/>
+      <result property="tableId" column="table_id" jdbcType="VARCHAR"/>
+      <result property="partitionId" column="partition_id" jdbcType="VARCHAR"/>
+    </collection>
+  </resultMap>
+
+  <select id="listTablePartitionInfos" resultMap="partitionInfoMap">
+<!--    SELECT * FROM (SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId}) AS p
+    JOIN (SELECT * FROM schema_${projectId}.table_partition_column_info_${tableId} WHERE table_id = #{tableId} ) AS c
+    ON p.partition_id = c.partition_id
+    LIMIT ${maxParts}-->
+    SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId} LIMIT ${maxParts}
+  </select>
+
+  <select id="getTablePartitionInfoByName" resultMap="partitionInfoMap" >
+    <!--SELECT * FROM (SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId}
+    <foreach collection="partitionNames" item="partitionName" open=" AND partition_name IN (" separator="," close=")">
+      #{partitionName}
+    </foreach>
+    ) AS p
+    JOIN schema_${projectId}.table_partition_column_info_${tableId} AS c
+    ON p.partition_id = c.partition_id
+    LIMIT ${maxParts}-->
+    SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId}
+    <foreach collection="partitionNames" item="partitionName" open=" AND partition_name IN (" separator="," close=")">
+      #{partitionName}
+    </foreach>
+    LIMIT ${maxParts}
+  </select>
+
+  <select id="getTablePartitionInfoByNameWithColumnInfo" resultMap="partitionInfoMapWithColumnInfo" >
+    SELECT * FROM (SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId}
+    <foreach collection="partitionNames" item="partitionName" open=" AND partition_name IN (" separator="," close=")">
+      #{partitionName}
+    </foreach>
+    ) AS p
+    JOIN schema_${projectId}.table_partition_column_info_${tableId} AS c
+    ON p.partition_id = c.partition_id
+    LIMIT ${maxParts}
+  </select>
+
+  <select id="getTablePartitionInfoByFilter" resultMap="partitionInfoMap" >
+    SELECT * FROM (SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId}
+    ) AS p
+      ${filter}
+    LIMIT ${maxParts}
+  </select>
+
+  <select id="getTablePartitionInfoBySqlFilter" resultMap="partitionInfoMap" >
+    SELECT * FROM schema_${projectId}.table_partition_info_${tableId}
+    WHERE ${filter}
+    LIMIT ${maxParts}
+  </select>
+
+  <delete id="deletePartitionInfoByName">
+    WITH
+    p AS (DELETE  FROM schema_${projectId}.table_partition_info_${tableId}
+    WHERE set_id = #{setId}
+    <foreach collection="partitionNames" item="partitionName" open=" AND partition_name IN (" separator="," close=")">
+      #{partitionName}
+    </foreach>
+    RETURNING partition_id
+    )
+    DELETE FROM schema_${projectId}.table_partition_column_info_${tableId}
+    WHERE partition_id IN (SELECT partition_id FROM p)
+
+<!--    DELETE  FROM schema_${projectId}.table_partition_info_${tableId} p USING schema_${projectId}.table_partition_column_info_${tableId} c
+    ON p.partition_id = c.partition_id
+    WHERE set_id = #{setId}
+    <foreach collection="partitionNames" item="partitionName" open=" AND p.partition_name IN (" separator="," close=")">
+      #{partitionName}
+    </foreach>
+    AND
+    c.table_id = #{tableId}-->
+  </delete>
+
+  <select id="getTableIndexPartitionSet" resultType="io.polycat.catalog.store.gaussdb.pojo.TableIndexPartitionSetRecord">
+    SELECT * from schema_${projectId}.table_index_partition_set_${tableId} WHERE set_id = #{setId}
+  </select>
+
+  <update id="createTableIndexHistorySubspace">
+    DROP TABLE IF EXISTS schema_${projectId}.table_index_history;
+    CREATE TABLE schema_${projectId}.table_index_history
+    (
+    index_his_id VARCHAR(64) PRIMARY KEY,
+    version VARCHAR(64) NOT NULL,
+    catalog_id VARCHAR(64) NOT NULL,
+    table_id VARCHAR(64) NOT NULL,
+    index_info BYTEA NOT NULL
+    );
+  </update>
+
+  <update id="createTableIndexSubspace">
+    DROP TABLE IF EXISTS schema_${projectId}.table_index;
+    CREATE TABLE schema_${projectId}.table_index
+    (
+    catalog_id VARCHAR(64) NOT NULL,
+    table_id VARCHAR(64) NOT NULL,
+    index_info BYTEA NOT NULL
+    );
+  </update>
+
+  <insert id="insertTableIndexHistory">
+    INSERT INTO schema_${projectId}.table_index_history
+    VALUES (#{indexHisId}, #{version}, #{catalogId}, #{tableId}, #{indexInfo})
+  </insert>
+
+  <select id="getLatestTableIndexHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableIndexHistoryRecord">
+    SELECT * from schema_${projectId}.table_index_history
+    WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+  </select>
+
+  <insert id="insertTableIndex">
+    INSERT INTO schema_${projectId}.table_index
+    VALUES (#{catalogId}, #{tableId}, #{indexInfo})
+  </insert>
+
+  <select id="getTableIndex" resultType="io.polycat.catalog.store.gaussdb.pojo.TableIndexRecord">
+    SELECT * from schema_${projectId}.table_index WHERE catalog_id=#{catalogId} AND table_id=#{tableId}
+  </select>
+
+</mapper>

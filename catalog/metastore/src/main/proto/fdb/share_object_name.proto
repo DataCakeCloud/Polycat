@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ShareObjectNameProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message ShareObjectName {
+  required string name = 1;
+  required string share_id = 2;
+}
+
+message ShareObjectNameUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required ShareObjectName share_object_name = 1;
+}

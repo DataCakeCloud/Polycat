@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.TableMetaMapper">
+    <!-- table subspace -->
+    <update id="createTableSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_${catalogId};
+        CREATE TABLE schema_${projectId}.table_${catalogId}
+        (
+        table_id VARCHAR(64) PRIMARY KEY,
+        database_id VARCHAR(64) NOT NULL,
+        table_name VARCHAR(128) NOT NULL,
+        history_subspace_flag INTEGER NOT NULL,
+        base BYTEA NOT NULL,
+        schema BYTEA NOT NULL,
+        storage BYTEA NOT NULL,
+        CONSTRAINT table_${catalogId}_unique_key UNIQUE (database_id, table_name)
+        );
+        CREATE INDEX schema_${projectId}_table_index_${catalogId}
+        ON schema_${projectId}.table_${catalogId} (database_id,table_name);
+    </update>
+    <insert id="insertTable" parameterType="io.polycat.catalog.store.gaussdb.pojo.TableRecord">
+        INSERT INTO schema_${tableRecord.projectId}.table_${tableRecord.catalogId} (table_id, database_id, table_name, history_subspace_flag, base, schema, storage)
+        VALUES (#{tableRecord.tableId}, #{tableRecord.databaseId}, #{tableRecord.tableName},
+        #{tableRecord.historySubspaceFlag}, #{tableRecord.base}, #{tableRecord.schema}, #{tableRecord.storage});
+    </insert>
+    <update id="updateTable" parameterType="io.polycat.catalog.store.gaussdb.pojo.TableRecord">
+        INSERT INTO schema_${tableRecord.projectId}.table_${tableRecord.catalogId}
+        VALUES (#{tableRecord.tableId}, #{tableRecord.databaseId}, #{tableRecord.tableName},
+        #{tableRecord.historySubspaceFlag}, #{tableRecord.base}, #{tableRecord.schema}, #{tableRecord.storage})
+        ON CONFLICT ON CONSTRAINT table_${tableRecord.catalogId}_unique_key DO UPDATE SET
+        history_subspace_flag = #{tableRecord.historySubspaceFlag},
+        base = #{tableRecord.base}, schema = #{tableRecord.schema}, storage = #{tableRecord.storage}
+    </update>
+    <select id="getTable" resultType="io.polycat.catalog.store.gaussdb.pojo.TableRecord">
+        SELECT *
+        FROM schema_${projectId}.table_${catalogId} WHERE table_id = #{tableId}
+    </select>
+    <select id="getTableId" resultType="string">
+        SELECT table_id FROM schema_${projectId}.table_${catalogId}
+        WHERE database_id = #{databaseId} AND table_name = #{tableName} FOR SHARE
+    </select>
+    <select id="listTableObjectName" resultType="io.polycat.catalog.common.model.TableNameObject">
+        SELECT table_id as objectId, table_name as name
+        FROM schema_${projectId}.table_${catalogId} WHERE database_id = #{databaseId} ORDER BY name LIMIT #{count} OFFSET #{offset}
+    </select>
+
+    <update id="createTableObjectNameTmpTable">
+        CREATE TEMPORARY TABLE ${tmpTableName} ON COMMIT DROP AS (
+            SELECT table_id, table_name
+            FROM schema_${projectId}.table_${catalogId} WHERE database_id = #{databaseId}
+        )
+    </update>
+
+    <select id="getTableBase" resultType="io.polycat.catalog.store.gaussdb.pojo.TableBaseRecord">
+        SELECT base FROM schema_${projectId}.table_${catalogId} WHERE table_id = #{tableId}
+    </select>
+    <select id="getTableSchema" resultType="io.polycat.catalog.store.gaussdb.pojo.TableSchemaRecord">
+        SELECT schema FROM schema_${projectId}.table_${catalogId} WHERE table_id = #{tableId}
+    </select>
+    <select id="getTableStorage" resultType="io.polycat.catalog.store.gaussdb.pojo.TableStorageRecord">
+        SELECT storage FROM schema_${projectId}.table_${catalogId} WHERE table_id = #{tableId}
+    </select>
+
+    <!--table reference subspace-->
+    <update id="createTableReferenceSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_reference_${catalogId};
+        CREATE TABLE schema_${projectId}.table_reference_${catalogId}
+        (
+        table_id VARCHAR(64) PRIMARY KEY,
+        update_time BIGINT NOT NULL
+        );
+    </update>
+
+    <!-- table base history subspace -->
+    <update id="createTableBaseHistorySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_base_history;
+        CREATE TABLE schema_${projectId}.table_base_history
+        (
+        base_his_id VARCHAR(64) PRIMARY KEY,
+        version VARCHAR(64) NOT NULL,
+        catalog_id VARCHAR(64) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        base BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_base_his_index
+        ON schema_${projectId}.table_base_history (version, catalog_id, table_id);
+    </update>
+    <insert id="insertTableBaseHistory">
+        INSERT INTO schema_${projectId}.table_base_history (base_his_id, version, catalog_id, table_id, base)
+        VALUES (#{baseHisId}, #{version}, #{catalogId}, #{tableId}, #{base})
+    </insert>
+    <select id="getLatestTableCommitByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord">
+        SELECT * from (
+            SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_commit WHERE ${filter}
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableCommitByTmpFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_commit WHERE ${filter} AND table_id IN (SELECT table_id FROM ${tmpTable})
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableSchemaByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableSchemaHistoryRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_schema_history WHERE ${filter}
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableSchemaByTmpFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableSchemaHistoryRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_schema_history WHERE ${filter} AND table_id IN (SELECT table_id FROM ${tmpTable})
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableStorageByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableStorageHistoryRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_storage_history WHERE ${filter}
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableStorageByTmpFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableStorageHistoryRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_storage_history WHERE ${filter} AND table_id IN (SELECT table_id FROM ${tmpTable})
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableBaseHistoryByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableBaseHistoryRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_base_history WHERE ${filter}
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableBaseHistoryByTmpFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.TableBaseHistoryRecord">
+        SELECT * from (
+        SELECT ROW_NUMBER() OVER (partition BY catalog_id, table_id ORDER BY version DESC) rn, * FROM schema_${projectId}.table_base_history WHERE ${filter} AND table_id IN (SELECT table_id FROM ${tmpTable})
+        ) t1 WHERE rn=1
+    </select>
+
+    <select id="getLatestTableBaseHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableBaseHistoryRecord">
+        SELECT * from schema_${projectId}.table_base_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="listTableBaseHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableBaseHistoryRecord">
+        SELECT * from schema_${projectId}.table_base_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+    <select id="traverseTableCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.TableBaseHistoryRecord">
+        SELECT * from schema_${projectId}.table_base_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version >= #{startVersion} AND version &lt;= #{endVersion} ORDER BY version
+    </select>
+
+    <!-- table schema history subspace -->
+    <update id="createTableSchemaHistorySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_schema_history;
+        CREATE TABLE schema_${projectId}.table_schema_history
+        (
+        schema_his_id VARCHAR(64) PRIMARY KEY,
+        version VARCHAR(64) NOT NULL,
+        catalog_id VARCHAR(64) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        schema BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_schema_his_index
+        ON schema_${projectId}.table_schema_history (version, catalog_id, table_id);
+    </update>
+    <insert id="insertTableSchemaHistory">
+        INSERT INTO schema_${projectId}.table_schema_history (schema_his_id, version, catalog_id, table_id, schema)
+        VALUES (#{schemaHisId}, #{version}, #{catalogId}, #{tableId}, #{schema})
+    </insert>
+    <select id="getLatestTableSchemaHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableSchemaHistoryRecord">
+        SELECT * from schema_${projectId}.table_schema_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="listTableSchemaHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableSchemaHistoryRecord">
+        SELECT * from schema_${projectId}.table_schema_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+
+    <!-- table storage history subspace -->
+    <update id="createTableStorageHistorySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_storage_history_;
+        CREATE TABLE schema_${projectId}.table_storage_history
+        (
+        storage_his_id VARCHAR(64) PRIMARY KEY,
+        version VARCHAR(64) NOT NULL,
+        catalog_id VARCHAR(64) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        storage BYTEA NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_storage_his_index
+        ON schema_${projectId}.table_storage_history (version, catalog_id, table_id);
+    </update>
+    <insert id="insertTableStorageHistory">
+        INSERT INTO schema_${projectId}.table_storage_history (storage_his_id, version, catalog_id, table_id, storage)
+        VALUES (#{storageHisId}, #{version}, #{catalogId}, #{tableId}, #{storage})
+    </insert>
+    <select id="getLatestTableStorageHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableStorageHistoryRecord">
+        SELECT * from schema_${projectId}.table_storage_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="listTableStorageHistory" resultType="io.polycat.catalog.store.gaussdb.pojo.TableStorageHistoryRecord">
+        SELECT * from schema_${projectId}.table_storage_history
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+
+    <!-- table commit subspace -->
+    <update id="createTableCommitSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.table_commit;
+        CREATE TABLE schema_${projectId}.table_commit
+        (
+        commit_id VARCHAR(64) PRIMARY KEY,
+        version VARCHAR(64) NOT NULL,
+        catalog_id VARCHAR(64) NOT NULL,
+        table_id VARCHAR(64) NOT NULL,
+        commit_time BIGINT NOT NULL,
+        operations BYTEA NOT NULL,
+        dropped_time BIGINT NOT NULL,
+        <!-- todo : delete, table name & create_time is added for branch -->
+        table_name VARCHAR(128) NOT NULL,
+        create_time BIGINT NOT NULL
+        );
+        CREATE INDEX schema_${projectId}_table_commit_index
+        ON schema_${projectId}.table_commit (version, catalog_id, table_id);
+    </update>
+    <insert id="insertTableCommit" parameterType="io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord">
+        INSERT INTO schema_${projectId}.table_commit (commit_id, version, catalog_id, table_id, commit_time, operations, dropped_time, table_name, create_time)
+        VALUES (#{tableCommitRecord.commitId}, #{tableCommitRecord.version}, #{tableCommitRecord.catalogId},
+        #{tableCommitRecord.tableId}, #{tableCommitRecord.commitTime},
+        #{tableCommitRecord.operations}, #{tableCommitRecord.droppedTime}, #{tableCommitRecord.tableName},
+        #{tableCommitRecord.createTime})
+    </insert>
+    <select id="getTableCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord">
+        SELECT * from schema_${projectId}.table_commit WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version = #{version}
+    </select>
+    <select id="getLatestTableCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord">
+        SELECT * from schema_${projectId}.table_commit
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT 1
+    </select>
+    <select id="listTableCommit" resultType="io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord">
+        SELECT * from schema_${projectId}.table_commit
+        WHERE catalog_id=#{catalogId} AND table_id=#{tableId} AND version &lt;= #{version} ORDER BY version DESC LIMIT #{count} OFFSET #{offset}
+    </select>
+
+
+    <!-- dropped table subspace -->
+    <update id="createDroppedTableSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.dropped_table_${catalogId};
+        CREATE TABLE schema_${projectId}.dropped_table_${catalogId}
+        (
+        table_id VARCHAR(64) NOT NULL,
+        table_name VARCHAR(128) NOT NULL,
+        create_time BIGINT NOT NULL,
+        dropped_time BIGINT NOT NULL,
+        is_purge BOOLEAN NOT NULL,
+        CONSTRAINT dropped_table_key_${catalogId} PRIMARY KEY(table_name, table_id)
+        );
+        CREATE INDEX schema_${projectId}_dropped_table_index_${catalogId}
+        ON schema_${projectId}.dropped_table_${catalogId} (table_name);
+    </update>
+    <insert id="insertDroppedTable">
+        INSERT INTO schema_${projectId}.dropped_table_${catalogId} (table_id, table_name, create_time, dropped_time, is_purge)
+        VALUES (#{tableId}, #{tableName}, #{createTime}, #{droppedTime}, #{isPurge})
+    </insert>
+    <select id="getDroppedTable" resultType="io.polycat.catalog.store.gaussdb.pojo.DroppedTableRecord">
+        SELECT * from schema_${projectId}.dropped_table_${catalogId}
+        WHERE table_id = #{tableId} AND table_name = #{tableName}
+    </select>
+    <select id="listDroppedTable" resultType="io.polycat.catalog.store.gaussdb.pojo.DroppedTableRecord">
+        SELECT * from schema_${projectId}.dropped_table_${catalogId} LIMIT #{count} OFFSET #{offset}
+    </select>
+    <select id="getDroppedTablesByName" resultType="io.polycat.catalog.store.gaussdb.pojo.DroppedTableRecord">
+        SELECT * from schema_${projectId}.dropped_table_${catalogId}
+        WHERE table_name = #{tableName}
+    </select>
+</mapper>

@@ -1,0 +1,30 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "IndexPartitionProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// store the partition mapping information for index (materialized view)
+message IndexPartition {
+  //there is only one value, fixed 0 to indicate the primary key
+  required int32 primary_key = 1;
+  // here key is index table commit partition Id, and value is map of parent table
+  // and its partition commit information
+  map<string, ParentTablePartition> parent_table_partition = 2;
+}
+
+message ParentTablePartition {
+  // here key is parent table id and value is list of commit partition Id's loaded into it.
+  map<string, PartitionValue> parent_table_partition = 1;
+}
+
+message PartitionValue {
+  repeated string partition_id = 1;
+}
+
+message IndexPartitionUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required IndexPartition index_partition = 1;
+}

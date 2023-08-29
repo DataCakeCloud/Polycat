@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ShareMetaPrivilegePolicyHistoryProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message ShareMetaPrivilegePolicyHistoryRecord {
+  required string policy_id = 1;
+  required string project_id = 2;
+  required int32 principal_type = 3;
+  required int32 principal_source = 4;
+  required string principal_id = 5;
+  required int32  modify_type = 6;
+  required int64 update_time = 7;
+}
+
+message ShareMetaPrivilegePolicyHistoryRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required ShareMetaPrivilegePolicyHistoryRecord share_meta_privilege_policy = 1;
+}

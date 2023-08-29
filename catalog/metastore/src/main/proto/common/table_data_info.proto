@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos.common";
+option java_outer_classname = "TableDataInfoProto";
+option java_multiple_files = true;
+
+import "common/partition_set_type.proto";
+
+message TableDataInfo {
+  optional PartitionSetType partitionType = 1;
+  optional string cur_set_id = 2;    //三层的时候标识当前使用的IndexPartitionSet ID
+  repeated string set_ids = 3;
+  optional string table_index_url = 4;
+}

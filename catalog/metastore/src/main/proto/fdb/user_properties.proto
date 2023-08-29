@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "UserPropertiesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message UserProperties {
+  //there is only one value, fixed 0 to indicate the primary key
+  required string user_id = 1;
+  required int32 user_source = 2;
+  required string user_name = 3;
+
+}
+
+message UserPropertiesUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required UserProperties user = 1;
+}

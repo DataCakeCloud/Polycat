@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "ViewProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "fdb/view_policy.proto";
+
+message View {
+  //there is only one value, fixed 0 to indicate the primary key
+  required int32 primary_key = 1;
+  required string name = 2;
+  required int64  created_time = 3;
+  optional string comment = 4;
+  repeated ViewPolicy view_policy = 5;
+}
+
+message ViewReferenceUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required View view = 1;
+}

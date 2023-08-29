@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "GroupPropertiesProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+message GroupProperties {
+  //there is only one value, fixed 0 to indicate the primary key
+  required string group_id = 1;
+  required string group_name = 2;
+
+}
+
+message GroupPropertiesUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required GroupProperties group = 1;
+}

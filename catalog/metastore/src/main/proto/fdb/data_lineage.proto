@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "DataLineageProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+//------------------------------stored  Data Lineage for table ----------------------------------
+/* store project_id, catalog_id, database_id, table_id, sourceType:[Table|Stream|File], sourceField
+   sourceType: Table :  dataSource: project_id, catalogI_d, database_Id;, table_Id
+   sourceType: Stream:  dataSource: node, topic
+   sourceType: File:    dataSource: path
+ */
+message DataLineageRecord {
+  required string catalog_id = 1;
+  required string database_id = 2;
+  required string table_id = 3;
+  required string data_source_type = 4; //data_source.proto
+  required string data_source_content = 5;
+  required string operation = 6;
+}
+
+message DataLineageRecordUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required DataLineageRecord data_lineage = 1;
+}

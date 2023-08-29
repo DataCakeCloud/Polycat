@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "IndexPartitionSetProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+import "common/table_index_partition_set.proto";
+
+message IndexPartitionSet {
+  required string set_id = 1;
+  required string catalog_id = 2;
+  required string database_id = 3;
+  required string table_id = 4;
+  required TableIndexPartitionSetInfo index_partition_set_info = 5;
+}
+
+message PartitionUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required IndexPartitionSet index_partition_set = 1;
+}

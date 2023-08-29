@@ -1,0 +1,22 @@
+# Used in an extranet environment
+deb http://mirrors.aliyun.com/ubuntu/ focal main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-security main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-security main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-updates main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-updates main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-backports main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-backports main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-proposed main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-proposed main restricted universe multiverse
+# Used in intranet environment
+deb http://mirrors.tools.huawei.com/ubuntu/ bionic main multiverse restricted universe
+deb http://mirrors.tools.huawei.com/ubuntu/ bionic-backports main multiverse restricted universe
+deb http://mirrors.tools.huawei.com/ubuntu/ bionic-proposed main multiverse restricted universe
+deb http://mirrors.tools.huawei.com/ubuntu/ bionic-security main multiverse restricted universe
+deb http://mirrors.tools.huawei.com/ubuntu/ bionic-updates main multiverse restricted universe
+deb-src http://mirrors.tools.huawei.com/ubuntu/ bionic main multiverse restricted universe
+deb-src http://mirrors.tools.huawei.com/ubuntu/ bionic-backports main multiverse restricted universe
+deb-src http://mirrors.tools.huawei.com/ubuntu/ bionic-proposed main multiverse restricted universe
+deb-src http://mirrors.tools.huawei.com/ubuntu/ bionic-security main multiverse restricted universe
+deb-src http://mirrors.tools.huawei.com/ubuntu/ bionic-updates main multiverse restricted universe

@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+option java_package = "io.polycat.catalog.store.protos";
+option java_outer_classname = "IndexObjectNameProto";
+option java_multiple_files = true;
+
+import "record_metadata_options.proto";
+
+// when object type is INDEX, store it into this table
+message IndexObjectName {
+  required string name = 1;
+  required string object_id = 2;
+}
+
+message IndexObjectNameUnion {
+  option (com.apple.foundationdb.record.record).usage = UNION;
+  required IndexObjectName index_object_name = 1;
+}
