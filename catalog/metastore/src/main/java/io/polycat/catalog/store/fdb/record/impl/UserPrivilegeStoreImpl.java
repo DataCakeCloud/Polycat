@@ -42,7 +42,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 

@@ -17,9 +17,11 @@
  */
 package io.polycat.catalog.store.common;
 
+import io.polycat.catalog.common.CatalogServerException;
+import io.polycat.catalog.common.model.CatalogObject;
+import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.CatalogName;
-import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.DatabaseName;
 import io.polycat.catalog.common.model.IndexIdent;
@@ -30,7 +32,6 @@ import io.polycat.catalog.common.model.TableName;
 
 import io.polycat.catalog.common.model.ViewIdent;
 import io.polycat.catalog.common.model.ViewName;
-import io.polycat.catalog.common.plugin.request.input.TableInput;
 import io.polycat.catalog.common.utils.CatalogStringUtils;
 
 public class StoreConvertor {
@@ -110,6 +111,14 @@ public class StoreConvertor {
 
     public static TableName tableName(DatabaseName dbName, String tblName) {
         return new TableName(normalizeIdentifier(dbName.getProjectId()), normalizeIdentifier(dbName.getCatalogName()), normalizeIdentifier(dbName.getDatabaseName()), normalizeIdentifier(tblName));
+    }
+
+    public static TableName tableName(String projectId, String qualifiedName) {
+        final String[] split = qualifiedName.split("\\.");
+        if (split.length != 3) {
+            throw new CatalogServerException(String.format("Invalid object name: %s", qualifiedName), ErrorCode.ARGUMENT_ILLEGAL);
+        }
+        return tableName(projectId, split[0], split[1], split[2]);
     }
 
     private static String normalizeIdentifier(String identifier) {

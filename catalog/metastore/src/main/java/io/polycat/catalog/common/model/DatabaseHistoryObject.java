@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord;
 import io.polycat.catalog.store.protos.common.DatabaseInfo;
 import lombok.Data;
 

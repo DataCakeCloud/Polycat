@@ -108,6 +108,21 @@ public class FunctionTest extends TestUtil {
         assertEquals(funcNameStr2, functions.get(1));
     }
 
+    @Test
+    public void get_all_functions_should_success() {
+        // create functions
+        String funcNameStr1 = "show_function_1";
+        String funcNameStr2 = "show_function_2";
+        createFunction(funcNameStr1);
+        createFunction(funcNameStr2);
+
+        // show functions
+        final List<FunctionInput> functions = functionService.getAllFunctions(projectId, catalogNameString);
+        assertEquals(2, functions.size());
+        assertEquals(funcNameStr1, functions.get(0).getFunctionName());
+        assertEquals(funcNameStr2, functions.get(1).getFunctionName());
+    }
+
     private void createFunction(String funcNameStr) {
         FunctionInput funcInput = makeFunctionInput(funcNameStr);
         assertDoesNotThrow(() -> functionService.createFunction(projectId, catalogNameString, databaseNameString, funcInput));

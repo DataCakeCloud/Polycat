@@ -17,10 +17,12 @@
  */
 package io.polycat.catalog.common.plugin.request;
 
-import io.polycat.catalog.common.model.TableSource;
 import io.polycat.catalog.common.plugin.request.base.CatalogRequestBase;
+import io.polycat.catalog.common.model.TableSource;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.util.List;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -32,6 +34,9 @@ public class GetUsageProfileDetailsRequest extends CatalogRequestBase<Void> {
     private String taskId;
     private TableSource tableSource;
     private int rowCount;
+    private String pageToken;
+    private String tag;
+    private List<String> operations;
 
     public GetUsageProfileDetailsRequest(String projectId, String userId) {
         this.projectId = projectId;

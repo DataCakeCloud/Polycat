@@ -25,8 +25,8 @@ import org.apache.spark.sql.catalyst.analysis.{ResolvedNamespace, ResolvedTable,
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.command._
-import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.hive.execution.{CreateHiveTableAsSelectCommand, InsertIntoHiveDirCommand, InsertIntoHiveTable, OptimizedCreateHiveTableAsSelectCommand}
 
 class SparkPlanParserHelper(projectId: String, polyCatCatalog: String) {
@@ -62,22 +62,24 @@ object SparkPlanParserHelper {
         databaseOperation(projectId, Some(polyCatCatalog), ddc.databaseName, Operation.DROP_DATABASE)
       case desc: DescribeDatabaseCommand =>
         databaseOperation(projectId, Some(polyCatCatalog), desc.databaseName, Operation.DESC_DATABASE)
-
       case adsl: AlterDatabaseSetLocationCommand =>
         databaseOperation(projectId, Some(polyCatCatalog), adsl.databaseName, Operation.ALTER_DATABASE)
       case cdst: CreateDataSourceTableCommand =>
         databaseOperation(projectId, Some(polyCatCatalog), cdst.table.database, Operation.CREATE_TABLE)
       case ctlc: CreateTableLikeCommand =>
-        val database = ctlc.asInstanceOf[CreateTableLikeCommand].targetTable.database.get
+        val database = ctlc.targetTable.database.get
         databaseOperation(projectId, Some(polyCatCatalog), database, Operation.CREATE_TABLE)
       case ctc: CreateTableCommand =>
-        val database = runnableCommand.asInstanceOf[CreateTableCommand].table.database
+        val database = ctc.table.database
+        databaseOperation(projectId, Some(polyCatCatalog), database, Operation.CREATE_TABLE)
+      case ct: CreateTable =>
+        val database = ct.tableDesc.database
         databaseOperation(projectId, Some(polyCatCatalog), database, Operation.CREATE_TABLE)
       case atrc: AlterTableRenameCommand =>
         val oldTable = atrc.asInstanceOf[AlterTableRenameCommand].oldName
-        tableOperation(projectId, polyCatCatalog, oldTable.database, oldTable.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, oldTable.database, oldTable.table, Operation.RENAME_TABLE)
       case atac: AlterTableAddColumnsCommand =>
-        tableOperation(projectId, polyCatCatalog, atac.table.database, atac.table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, atac.table.database, atac.table.table, Operation.ADD_COLUMN)
       case ldc: LoadDataCommand =>
         tableOperation(projectId, polyCatCatalog, ldc.table.database, ldc.table.table, Operation.INSERT_TABLE)
       case _: TruncateTableCommand => None
@@ -101,29 +103,29 @@ object SparkPlanParserHelper {
       // enlarge operation type to alter_table
       case command: AlterTableSetPropertiesCommand =>
         val table = command.asInstanceOf[AlterTableSetPropertiesCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.SET_PROPERTIES)
       case command: AlterTableUnsetPropertiesCommand =>
         val table = command.asInstanceOf[AlterTableUnsetPropertiesCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.UNSET_PROPERTIES)
       case command: AlterTableChangeColumnCommand =>
         val table = command.asInstanceOf[AlterTableChangeColumnCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.CHANGE_COLUMN)
       case command: AlterTableSerDePropertiesCommand =>
         val table = command.asInstanceOf[AlterTableSerDePropertiesCommand].tableName
         tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
       case command: AlterTableAddPartitionCommand =>
         val table = command.asInstanceOf[AlterTableAddPartitionCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ADD_PARTITION)
       case command: AlterTableRenamePartitionCommand =>
         val table = command.asInstanceOf[AlterTableRenamePartitionCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.RENAME_PARTITION)
       case command: AlterTableDropPartitionCommand =>
         val table = command.asInstanceOf[AlterTableDropPartitionCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.DROP_PARTITION)
       //      case command: AlterTableRecoverPartitionsCommand => None
       case command: AlterTableSetLocationCommand => None
         val table = command.asInstanceOf[AlterTableSetLocationCommand].tableName
-        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.ALTER_TABLE)
+        tableOperation(projectId, polyCatCatalog, table.database, table.table, Operation.SET_LOCATION)
       case dt: DropTableCommand =>
         tableOperation(projectId, polyCatCatalog, dt.asInstanceOf[DropTableCommand].tableName, Operation.DROP_TABLE)
       case insert: InsertIntoDataSourceCommand if insert.logicalRelation.catalogTable.isDefined =>
@@ -156,7 +158,6 @@ object SparkPlanParserHelper {
       case _: RefreshTable => None
       case _: RefreshResource => None
       case _ =>  None
-//        throw new CatalogException("No permission. Unknown RunnableCommand: " + runnableCommand.getClass.getName);
     }
     catalogOperationObject.foreach(catalogOperationObjectList.add)
   }
@@ -179,7 +180,6 @@ object SparkPlanParserHelper {
         val identifier = overwrite.table.asInstanceOf[DataSourceV2Relation].identifier.get
         tableOperation(projectId, polyCatCatalog, TableIdentifier(identifier.name(), Some(identifier.namespace()(0))), Operation.INSERT_TABLE)
       case _ =>  None
-//        throw new CatalogException("No permission. Unknown V2WriteCommand: " + writeCommand.getClass.getName);
     }
     authorizationInput.foreach(authorizationList.add)
   }
@@ -213,7 +213,6 @@ object SparkPlanParserHelper {
         }
       case _: InsertIntoHadoopFsRelationCommand => None
       case _ =>  None
-//        throw new CatalogException("No permission. Unknown DataWritingCommand: " + writeCommand.getClass.getName);
     }
     authorizationInput.foreach(authorizationList.add)
   }
@@ -264,7 +263,7 @@ object SparkPlanParserHelper {
       // databaseOperation(projectId, Some(polyCatCatalog), use.namespace.get.head, Operation.USE_DATABASE)
       case _: SetCatalogAndNamespace => None
       case ct: CreateV2Table if ct.tableName.namespace().length == 1 =>
-        databaseOperation(projectId, Some(ct.catalog.name()), ct.tableName.namespace()(0), Operation.CREATE_TABLE)
+        databaseOperation(projectId, Some(polyCatCatalog), ct.tableName.namespace()(0), Operation.CREATE_TABLE)
       case _: CreateV2Table => None
       case ctas: CreateTableAsSelect if ctas.tableName.namespace().length == 1 =>
         collectQueryInfo(projectId, polyCatCatalog, ctas.query, authorizationList)
@@ -293,7 +292,6 @@ object SparkPlanParserHelper {
       case _: DropTable => None
       case _: RefreshTable => None
       case other =>  None
-//        throw new CatalogException("No permission. Unknown Command: " + other.getClass.getName);
     }
     authorizationInput.foreach(authorizationList.add)
   }

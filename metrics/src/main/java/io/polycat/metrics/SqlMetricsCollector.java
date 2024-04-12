@@ -17,8 +17,6 @@
  */
 package io.polycat.metrics;
 
-import io.prometheus.client.Collector;
-import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Histogram;
 import lombok.Getter;
 

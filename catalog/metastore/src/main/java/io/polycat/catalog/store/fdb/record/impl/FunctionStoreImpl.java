@@ -22,15 +22,16 @@ import java.util.List;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
+import io.polycat.catalog.store.api.FunctionStore;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.FunctionObject;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
 import io.polycat.catalog.common.plugin.request.input.FunctionInput;
-import io.polycat.catalog.store.api.FunctionStore;
 import io.polycat.catalog.store.common.StoreMetadata;
 import io.polycat.catalog.store.fdb.record.DirectoryStoreHelper;
 import io.polycat.catalog.store.fdb.record.TransactionContextUtil;
@@ -132,6 +133,11 @@ public class FunctionStoreImpl implements FunctionStore {
         }
 
         return functionNames;
+    }
+
+    @Override
+    public List<FunctionObject> listAllFunctions(TransactionContext context, CatalogIdent catalogIdent) {
+        return null;
     }
 
     public RecordQuery buildQueryWithPattern(String pattern) throws MetaStoreException {

@@ -19,12 +19,11 @@ package io.polycat.catalog.common.plugin.request;
 
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.Operation;
+import io.polycat.catalog.common.plugin.request.base.RoleRequestBase;
+import io.polycat.catalog.common.plugin.request.input.RoleInput;
 import io.polycat.catalog.common.model.CatalogInnerObject;
 import io.polycat.catalog.common.model.GrantObject;
 import io.polycat.catalog.common.plugin.CatalogContext;
-import io.polycat.catalog.common.plugin.request.base.ProjectRequestBase;
-import io.polycat.catalog.common.plugin.request.base.RoleRequestBase;
-import io.polycat.catalog.common.plugin.request.input.RoleInput;
 
 import lombok.Data;
 

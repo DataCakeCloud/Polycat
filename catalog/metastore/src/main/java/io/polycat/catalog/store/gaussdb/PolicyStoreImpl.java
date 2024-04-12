@@ -18,8 +18,8 @@
 package io.polycat.catalog.store.gaussdb;
 
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.store.api.PolicyStore;
+import io.polycat.catalog.common.model.*;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 

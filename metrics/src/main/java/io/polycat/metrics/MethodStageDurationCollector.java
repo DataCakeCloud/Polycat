@@ -17,13 +17,8 @@
  */
 package io.polycat.metrics;
 
-import java.io.Closeable;
-import java.util.Map;
-
 import io.prometheus.client.Histogram;
 import io.prometheus.client.SimpleTimer;
-import io.prometheus.client.exemplars.Exemplar;
-import lombok.Getter;
 
 public class MethodStageDurationCollector extends MetricsCollector {
     static private Histogram methodStage = null;

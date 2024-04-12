@@ -24,14 +24,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.common.expression.Expression;
 import io.polycat.common.expression.bool.FalseExpression;
 import io.polycat.common.expression.bool.TrueExpression;
 import io.polycat.common.expression.rewrite.TableMinMaxFilterRewriter;
 import io.polycat.catalog.common.model.record.Record;
-
-import com.google.protobuf.ByteString;
 
 
 public class MinMaxIndex {

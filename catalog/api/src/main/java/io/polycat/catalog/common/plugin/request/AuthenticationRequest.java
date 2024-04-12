@@ -23,7 +23,6 @@ import java.util.Map;
 
 import io.polycat.catalog.common.plugin.request.input.AuthorizationInput;
 
-import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 

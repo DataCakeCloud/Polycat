@@ -20,7 +20,6 @@ package io.polycat.catalog.server.service.impl;
 import io.polycat.catalog.common.model.Share;
 import io.polycat.catalog.common.plugin.request.input.ShareInput;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

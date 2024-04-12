@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 package io.polycat.catalog.common.model;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,13 +37,13 @@ import lombok.NoArgsConstructor;
 @ApiModel
 public class SkewedInfo implements Serializable {
     @ApiModelProperty(value = "skewed column names")
-    private List<String> skewedColumnNames;
+    private List<String> skewedColumnNames = Lists.newArrayList();
 
     @ApiModelProperty(value = "A list of values that appear so frequently as to be considered skewed.")
-    private List<List<String>> skewedColumnValues;
+    private List<List<String>> skewedColumnValues = Lists.newArrayList();
 
     @ApiModelProperty(value = "A mapping of skewed values to the columns that contain them.")
-    private Map<String, String> skewedColumnValueLocationMaps;
+    private Map<String, String> skewedColumnValueLocationMaps = Maps.newLinkedHashMap();
 
     public SkewedInfo(SkewedInfo other) {
         skewedColumnNames = other.getSkewedColumnNames();

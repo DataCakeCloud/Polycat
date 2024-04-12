@@ -21,7 +21,10 @@ import java.util.List;
 
 import io.polycat.catalog.common.DataLineageType;
 import io.polycat.catalog.common.model.DataLineage;
+import io.polycat.catalog.common.model.LineageInfo;
 import io.polycat.catalog.common.plugin.request.input.DataLineageInput;
+import io.polycat.catalog.common.lineage.*;
+import io.polycat.catalog.common.plugin.request.input.LineageInfoInput;
 
 public interface DataLineageService {
     /**
@@ -42,4 +45,10 @@ public interface DataLineageService {
      */
     List<DataLineage> getDataLineageByTable(String projectId, String catalogName, String databaseName,
         String tableName, DataLineageType dataLineageType);
+
+    void updateDataLineage(String projectId, LineageInfoInput lineageInput);
+
+    LineageFact getLineageJobFact(String projectId, String jobFactId);
+
+    LineageInfo getLineageGraph(String projectId, EDbType dbType, ELineageObjectType objectType, String qualifiedName, int depth, ELineageDirection lineageDirection, ELineageType lineageType, Long startTime);
 }

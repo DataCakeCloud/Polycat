@@ -19,17 +19,26 @@ package io.polycat.catalog.common.plugin;
 
 import java.util.List;
 
+import io.polycat.catalog.common.model.discovery.CatalogTableCount;
+import io.polycat.catalog.common.model.discovery.DatabaseSearch;
+import io.polycat.catalog.common.model.discovery.DiscoverySearchBase;
+import io.polycat.catalog.common.model.discovery.ObjectCount;
+import io.polycat.catalog.common.model.discovery.TableCategories;
+import io.polycat.catalog.common.model.discovery.TableSearch;
+import io.polycat.catalog.common.model.glossary.Category;
+import io.polycat.catalog.common.model.glossary.Glossary;
+import io.polycat.catalog.common.model.stats.PartitionStatisticData;
+import io.polycat.catalog.common.plugin.request.CreateMaterializedViewRequest;
+import io.polycat.catalog.common.plugin.request.base.AcceleratorRequestBase;
+import io.polycat.catalog.common.plugin.request.input.AcceleratorInput;
+import io.polycat.catalog.common.plugin.request.input.FunctionInput;
 import io.polycat.catalog.common.exception.CatalogException;
+import io.polycat.catalog.common.lineage.LineageFact;
 import io.polycat.catalog.common.model.*;
 
 import io.polycat.catalog.common.model.stats.AggrStatisticData;
 import io.polycat.catalog.common.model.stats.ColumnStatisticsObj;
-import io.polycat.catalog.common.model.stats.PartitionStatisticData;
 import io.polycat.catalog.common.plugin.request.*;
-import io.polycat.catalog.common.plugin.request.base.AcceleratorRequestBase;
-import io.polycat.catalog.common.plugin.request.input.AcceleratorInput;
-import io.polycat.catalog.common.plugin.request.CreateMaterializedViewRequest;
-import io.polycat.catalog.common.plugin.request.input.FunctionInput;
 
 /**
  * Catalog interface
@@ -160,7 +169,10 @@ public interface CatalogPlugin {
 
     void batchDeleteTable(BatchDeleteTableRequest batchDeleteTableRequest) throws CatalogException;
 
+    @Deprecated
     PagedList<Table> listTables(ListTablesRequest listTablesRequest) throws CatalogException;
+
+    PagedList<Table> listTables(ListTableObjectsRequest listTableObjectsRequest) throws CatalogException;
 
     PagedList<String> listTableNames(ListTablesRequest listTablesRequest) throws CatalogException;
 
@@ -196,7 +208,7 @@ public interface CatalogPlugin {
 
     void truncateTable(TruncateTableRequest request);
 
-    PolyCatProfile getPolyCatProfile(GetPolyCatProfileRequest request);
+    LakeProfile getLakeProfile(GetLakeProfileRequest request);
 
     // ---------------------------------------------------------------------------------------------------
     //                                  Segment related interface
@@ -231,11 +243,11 @@ public interface CatalogPlugin {
 
     List<Partition> listPartitionsPsWithAuth(ListPartitionsWithAuthRequest request) throws CatalogException;
 
+    List<Partition> listPartitionsByExpr(ListPartitionsByExprRequest request) throws CatalogException;
+
     List<String> listPartitionNamesPs(ListPartitionNamesPsRequest request) throws CatalogException;
 
     List<String> listFiles(ListFileRequest listFileRequest) throws CatalogException;
-
-    List<Partition> listPartitionNamesByExpr(ListPartitionsByExprRequest request);
 
     Partition getPartition(GetPartitionRequest request) throws CatalogException;
 
@@ -244,6 +256,11 @@ public interface CatalogPlugin {
     void renamePartition(RenamePartitionRequest request);
 
     Partition[] dropPartitionsByExpr(DropPartitionsRequest request);
+
+    Integer getPartitionCount(GetPartitionCountRequest request) throws CatalogException;
+
+    String getLatestPartitionName(GetLatestPartitionNameRequest request) throws CatalogException;
+
     //---------------------------------------------------------------------------------------------------
 
     //                                  share related interface
@@ -320,6 +337,10 @@ public interface CatalogPlugin {
      */
     PagedList<String> showPermObjectsByUser(ShowPermObjectsRequest request) throws CatalogException;
 
+    PagedList<Role> showRolePrivileges(ShowRolePrivilegesRequest request) throws CatalogException;
+
+    PagedList<PrivilegeRoles> showPrivilegeRoles(ShowRolePrivilegesRequest request) throws CatalogException;
+
     Role showGrantsToRole(ShowGrantsToRoleRequest showGrantsToRoleRequest) throws CatalogException;
 
     AuthorizationResponse authenticate(AuthenticationRequest request) throws CatalogException;
@@ -358,7 +379,7 @@ public interface CatalogPlugin {
         throws CatalogException;
     PagedList<TableUsageProfile> getTableUsageProfile(GetTableUsageProfileRequest request) throws CatalogException;
 
-    List<TableUsageProfile> getUsageProfileDetails(GetUsageProfileDetailsRequest request) throws CatalogException;
+    PagedList<TableUsageProfile> getUsageProfileDetails(GetUsageProfileDetailsRequest request) throws CatalogException;
 
     List<TableAccessUsers> getTableAccessUsers(GetTableAccessUsersRequest request) throws CatalogException;
 
@@ -369,8 +390,33 @@ public interface CatalogPlugin {
     //                                  DataLineage related interface
 
     // ---------------------------------------------------------------------------------------------------
-    void insertDataLineage(InsertDataLineageRequest request) throws CatalogException;
-    PagedList<DataLineage> listDataLineages(ListDataLineageRequest request) throws CatalogException;
+    //void insertDataLineage(InsertDataLineageRequest request) throws CatalogException;
+    //PagedList<DataLineage> listDataLineages(ListDataLineageRequest request) throws CatalogException;
+
+    /**
+     * update data lineage
+     *
+     * @param request request
+     * @throws CatalogException
+     */
+    void updateDataLineage(UpdateDataLineageRequest request) throws CatalogException;
+
+    /**
+     * search lineage graph
+     * @param request request
+     * @return {@link LineageInfo}
+     * @throws CatalogException
+     */
+    LineageInfo searchDataLineageGraph(SearchDataLineageRequest request) throws CatalogException;
+
+    /**
+     * lineage job fact by job fact id.
+     *
+     * @param request request
+     * @return {@link LineageFact}
+     * @throws CatalogException
+     */
+    LineageFact getDataLineageFact(GetDataLineageFactRequest request) throws CatalogException;
 
     // ---------------------------------------------------------------------------------------------------
     //                                  Function related interface
@@ -407,9 +453,9 @@ public interface CatalogPlugin {
     // ---------------------------------------------------------------------------------------------------
     void deleteTableColumnStatistics(DeleteColumnStatisticsRequest request) throws CatalogException;
 
-    PagedList<ColumnStatisticsObj> getTableColumnsStatistics(GetTableColumnStatisticRequest request);
+    ColumnStatisticsObj[] getTableColumnsStatistics(GetTableColumnStatisticRequest request);
 
-    void updateTableColumnStatistics(UpdateTableColumnStatisticRequest request);
+    boolean updateTableColumnStatistics(UpdateTableColumnStatisticRequest request);
 
     void deletePartitionColumnStatistics(DeletePartitionColumnStatisticsRequest request);
 
@@ -419,7 +465,7 @@ public interface CatalogPlugin {
 
     void setPartitionsColumnStatistics(SetPartitionColumnStatisticsRequest request);
 
-    void updatePartitionColumnStatistics(UpdatePartitionColumnStatisticRequest request);
+    boolean updatePartitionColumnStatistics(UpdatePartitionColumnStatisticRequest request);
     
     // ---------------------------------------------------------------------------------------------------
     //                                  Hive  related interface
@@ -460,4 +506,61 @@ public interface CatalogPlugin {
     //                                  policy interface
     // ---------------------------------------------------------------------------------------------------
 
+
+
+    // ---------------------------------------------------------------------------------------------------
+    //                                  discovery interface
+    // ---------------------------------------------------------------------------------------------------
+
+    /**
+     * discovery fulltext
+     *
+     * @param request
+     * @return
+     * @throws CatalogException
+     */
+    PagedList<DiscoverySearchBase> search(SearchBaseRequest request) throws CatalogException;
+
+    /**
+     * table fulltext
+     *
+     * @param request
+     * @return
+     * @throws CatalogException
+     */
+    PagedList<TableSearch> searchTable(TableSearchRequest request) throws CatalogException;
+
+    PagedList<TableCategories> searchTableWithCategories(TableSearchRequest request) throws CatalogException;
+
+    PagedList<DatabaseSearch> searchDatabase(DatabaseSearchRequest request) throws CatalogException;
+
+    PagedList<String> searchDiscoveryNames(SearchDiscoveryNamesRequest request) throws CatalogException;
+
+    void addCategoryRelation(AddCategoryRelationRequest request) throws CatalogException;
+    void removeCategoryRelation(RemoveCategoryRelationRequest request) throws CatalogException;
+    ObjectCount getObjectCountByCategory(GetObjectCountRequest request) throws CatalogException;
+    List<CatalogTableCount> getTableCountByCatalog(GetCatalogTableCountRequest request) throws CatalogException;
+
+    TableCategories getTableCategories(GetTableCategoriesRequest request) throws CatalogException;
+
+    // ---------------------------------------------------------------------------------------------------
+    //                                  glossary interface
+    // ---------------------------------------------------------------------------------------------------
+    Glossary createGlossary(CreateGlossaryRequest request) throws CatalogException;
+
+    void alterGlossary(AlterGlossaryRequest request) throws CatalogException;
+
+    void deleteGlossary(DeleteGlossaryRequest request) throws CatalogException;
+
+    Glossary getGlossary(GetGlossaryRequest request) throws CatalogException;
+
+    PagedList<Glossary> listGlossaryWithoutCategory(ListGlossaryRequest request) throws CatalogException;
+
+    Category createCategory(CreateCategoryRequest request) throws CatalogException;
+
+    void alterCategory(AlterCategoryRequest request) throws CatalogException;
+
+    void deleteCategory(DeleteCategoryRequest request) throws CatalogException;
+
+    Category getCategory(GetCategoryRequest request) throws CatalogException;
 }

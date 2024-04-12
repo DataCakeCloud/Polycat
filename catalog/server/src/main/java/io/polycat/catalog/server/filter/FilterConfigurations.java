@@ -19,7 +19,6 @@ package io.polycat.catalog.server.filter;
 
 import java.util.ArrayList;
 
-import io.polycat.catalog.audit.impl.AuditLogHelper;
 import io.polycat.catalog.common.CatalogConstants;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;

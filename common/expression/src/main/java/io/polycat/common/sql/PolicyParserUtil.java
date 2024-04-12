@@ -36,7 +36,6 @@ import io.polycat.catalog.common.plugin.request.input.ShareInput;
 import io.polycat.sql.PolyCatSQLParser.BooleanExpressionContext;
 import io.polycat.sql.PolyCatSQLParser.BooleanValueContext;
 import io.polycat.sql.PolyCatSQLParser.ColumnFilterContext;
-import io.polycat.sql.PolyCatSQLParser.CreateShareContext;
 import io.polycat.sql.PolyCatSQLParser.CreateShareOnCatalogContext;
 import io.polycat.sql.PolyCatSQLParser.DataMaskContext;
 import io.polycat.sql.PolyCatSQLParser.GrantPrivilegeToPrincipalContext;
@@ -56,15 +55,6 @@ import io.polycat.sql.PolyCatSQLParser.ShowPoliciesOfPrincipalContext;
 import io.polycat.sql.PolyCatSQLParser.UgPrincipalInfoContext;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
-
-import static io.polycat.common.sql.ParserUtil.buildObjectName;
-import static io.polycat.common.sql.ParserUtil.getObjectOperation;
-import static io.polycat.common.sql.ParserUtil.parseBooleanDefaultFalse;
-import static io.polycat.common.sql.ParserUtil.parseIdentifier;
-import static io.polycat.common.sql.ParserUtil.parseObjectType;
-import static io.polycat.common.sql.ParserUtil.parsePrivilege;
-import static io.polycat.common.sql.ParserUtil.parseStreamName;
-import static io.polycat.common.sql.ParserUtil.sourceTextForContext;
 
 public class PolicyParserUtil {
 
@@ -136,7 +126,7 @@ public class PolicyParserUtil {
         if (ctx == null) {
             return null;
         }
-        String dataMask = sourceTextForContext(ctx);
+        String dataMask = ParserUtil.sourceTextForContext(ctx);
         String[] colFilterArr= dataMask.split(";");
         return colFilterArr;
     }
@@ -177,15 +167,15 @@ public class PolicyParserUtil {
         if (principalInfoCtx.ugPrincipalInfo() != null) {
             principalType = parseUgPrincipalType(principalInfoCtx.ugPrincipalInfo());
             principalSource = parsePrincipalSource(principalInfoCtx.ugPrincipalInfo().principalSource());
-            principalName = parseIdentifier(principalInfoCtx.ugPrincipalInfo().identifier());
+            principalName = ParserUtil.parseIdentifier(principalInfoCtx.ugPrincipalInfo().identifier());
         } else {
             principalType = parseRsPrincipalType(principalInfoCtx.rsPrincipalInfo());
             principalSource = "IAM";
-            principalName = parseIdentifier(principalInfoCtx.rsPrincipalInfo().identifier());
+            principalName = ParserUtil.parseIdentifier(principalInfoCtx.rsPrincipalInfo().identifier());
         }
 
-        String objectName = buildObjectName(objectNameCtx);
-        boolean effect = parseBooleanDefaultFalse(effectCtx);
+        String objectName = ParserUtil.buildObjectName(objectNameCtx);
+        boolean effect = ParserUtil.parseBooleanDefaultFalse(effectCtx);
 
         String conditions = null;
         String rowFilter = null;
@@ -195,10 +185,10 @@ public class PolicyParserUtil {
             conditions = parseConditions(conditionsCtx);
         }
         if (rowFilterCtx != null) {
-            rowFilter = sourceTextForContext(rowFilterCtx);
+            rowFilter = ParserUtil.sourceTextForContext(rowFilterCtx);
         }
         if (colFilterCtx != null) {
-            colFilter = sourceTextForContext(colFilterCtx);
+            colFilter = ParserUtil.sourceTextForContext(colFilterCtx);
         }
         if (dataMaskCtx != null) {
             colMask = parseColMask(dataMaskCtx);
@@ -225,15 +215,15 @@ public class PolicyParserUtil {
 
     public static AlterPrivilegeRequest buildAlterPrivilegeRequest(GrantPrivilegeToPrincipalContext ctx) {
         String objectType;
-        if (parseObjectType(ctx.objectType()).equals("branch")) {
+        if (ParserUtil.parseObjectType(ctx.objectType()).equals("branch")) {
             objectType = "catalog";
         } else {
-            objectType = parseObjectType(ctx.objectType());
+            objectType = ParserUtil.parseObjectType(ctx.objectType());
         }
         List<Operation> operationList = new ArrayList<>();
         List<PrivilegeContext> privileges = ctx.privileges().privilege();
         for (PrivilegeContext privilege : privileges) {
-            Operation operation = getObjectOperation(parsePrivilege(privilege), objectType);
+            Operation operation = ParserUtil.getObjectOperation(ParserUtil.parsePrivilege(privilege), objectType);
             operationList.add(operation);
         }
         PolicyInput policyInput  = buildPolicyInput(ctx.principalInfo(), operationList, objectType,
@@ -248,15 +238,15 @@ public class PolicyParserUtil {
 
     public static AlterPrivilegeRequest buildAlterPrivilegeRequest(RevokePrivilegeFromPrincipalContext ctx) {
         String objectType;
-        if (parseObjectType(ctx.objectType()).equals("branch")) {
+        if (ParserUtil.parseObjectType(ctx.objectType()).equals("branch")) {
             objectType = "catalog";
         } else {
-            objectType = parseObjectType(ctx.objectType());
+            objectType = ParserUtil.parseObjectType(ctx.objectType());
         }
         List<Operation> operationList = new ArrayList<>();
         List<PrivilegeContext> privileges = ctx.privileges().privilege();
         for (PrivilegeContext privilege : privileges) {
-            Operation operation = getObjectOperation(parsePrivilege(privilege), objectType);
+            Operation operation = ParserUtil.getObjectOperation(ParserUtil.parsePrivilege(privilege), objectType);
             operationList.add(operation);
         }
         PolicyInput policyInput  = buildPolicyInput(ctx.principalInfo(), operationList, objectType,
@@ -273,11 +263,11 @@ public class PolicyParserUtil {
         RoleInput roleInput = new RoleInput();
         String principalType = parseUgPrincipalType(UgPrincipal);
         String principalSource = parsePrincipalSource(UgPrincipal.principalSource());
-        String principalName = parseIdentifier(UgPrincipal.identifier());
+        String principalName = ParserUtil.parseIdentifier(UgPrincipal.identifier());
         String[] userIds = new String[1];
         String userId = principalType + ":" + principalSource + ":" + principalName;
 
-        roleInput.setRoleName(parseIdentifier(role));
+        roleInput.setRoleName(ParserUtil.parseIdentifier(role));
         userIds[0] = userId;
         roleInput.setUserId(userIds);
         return roleInput;
@@ -288,12 +278,12 @@ public class PolicyParserUtil {
         ShareInput shareInput = new ShareInput();
         String principalType = parseUgPrincipalType(UgPrincipal);
         String principalSource = parsePrincipalSource(UgPrincipal.principalSource());
-        String principalName = parseIdentifier(UgPrincipal.identifier());
+        String principalName = ParserUtil.parseIdentifier(UgPrincipal.identifier());
         String[] users = new String[1];
         String user = principalType + ":" + principalSource + ":" + principalName;
 
-        shareInput.setProjectId(parseIdentifier(share.shareproject));
-        shareInput.setShareName(parseIdentifier(share.sharecatalog));
+        shareInput.setProjectId(ParserUtil.parseIdentifier(share.shareproject));
+        shareInput.setShareName(ParserUtil.parseIdentifier(share.sharecatalog));
         users[0] = user;
         shareInput.setUsers(users);
         return shareInput;
@@ -339,11 +329,11 @@ public class PolicyParserUtil {
         if (ctx.principalInfo().ugPrincipalInfo() != null) {
             principalType = parseUgPrincipalType(ctx.principalInfo().ugPrincipalInfo());
             principalSource = parsePrincipalSource(ctx.principalInfo().ugPrincipalInfo().principalSource());
-            principalName = parseIdentifier(ctx.principalInfo().ugPrincipalInfo().identifier());
+            principalName = ParserUtil.parseIdentifier(ctx.principalInfo().ugPrincipalInfo().identifier());
         } else {
             principalType = parseRsPrincipalType(ctx.principalInfo().rsPrincipalInfo());
             principalSource = "IAM";
-            principalName = parseIdentifier(ctx.principalInfo().rsPrincipalInfo().identifier());
+            principalName = ParserUtil.parseIdentifier(ctx.principalInfo().rsPrincipalInfo().identifier());
         }
         request.setPrincipalType(principalType);
         request.setPrincipalSource(principalSource);
@@ -353,8 +343,8 @@ public class PolicyParserUtil {
 
     public static CreateShareRequest buildCreateShareRequest(CreateShareOnCatalogContext ctx) {
         ShareInput shareInput = new ShareInput();
-        shareInput.setShareName(parseIdentifier(ctx.identifier()));
-        shareInput.setObjectName(parseIdentifier(ctx.catalogName().identifier()));
+        shareInput.setShareName(ParserUtil.parseIdentifier(ctx.identifier()));
+        shareInput.setObjectName(ParserUtil.parseIdentifier(ctx.catalogName().identifier()));
         CreateShareRequest request = new CreateShareRequest();
         request.setInput(shareInput);
         return request;

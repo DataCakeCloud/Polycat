@@ -29,7 +29,8 @@ import java.util.HashSet;
 @ConditionalOnProperty(name = "database.type", havingValue = "gauss")
 public class UserGroupStoreImpl implements UserGroupStore {
     @Override
-    public String getUserIdByName(TransactionContext context, String projectId, int userSource, String userName) throws MetaStoreException {
+    public String getUserIdByName(
+        TransactionContext context, String projectId, int userSource, String userName) throws MetaStoreException {
         return null;
     }
 

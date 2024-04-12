@@ -17,19 +17,35 @@
  */
 package io.polycat.catalog.server.service.impl;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import io.polycat.catalog.server.util.TransactionFrameRunner;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
+import io.polycat.catalog.common.model.ColumnStatisticsAggrObject;
+import io.polycat.catalog.common.CatalogServerException;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.model.Table;
+import io.polycat.catalog.common.model.ColumnStatisticsObject;
+import io.polycat.catalog.common.model.stats.ColumnStatisticsDesc;
+import io.polycat.catalog.common.model.stats.ColumnStatisticsObj;
+import io.polycat.catalog.common.utils.TableUtil;
+import io.polycat.catalog.service.api.TableService;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import static io.polycat.catalog.common.Operation.ALTER_PARTITION;
+import static io.polycat.catalog.common.Operation.DROP_PARTITION;
+import static io.polycat.catalog.common.Operation.INSERT_TABLE;
 
-import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
-import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.Column;
 import io.polycat.catalog.common.model.ColumnObject;
 import io.polycat.catalog.common.model.DataFile;
@@ -59,14 +75,30 @@ import io.polycat.catalog.common.model.TraverseCursorResult;
 import io.polycat.catalog.common.model.base.PartitionInput;
 import io.polycat.catalog.common.model.stats.AggrStatisticData;
 import io.polycat.catalog.common.model.stats.PartitionStatisticData;
-import io.polycat.catalog.common.plugin.request.input.*;
+import io.polycat.catalog.common.plugin.request.input.AddPartitionInput;
+import io.polycat.catalog.common.plugin.request.input.AlterPartitionInput;
+import io.polycat.catalog.common.plugin.request.input.ColumnStatisticsInput;
+import io.polycat.catalog.common.plugin.request.input.DropPartitionByValuesInput;
+import io.polycat.catalog.common.plugin.request.input.DropPartitionInput;
+import io.polycat.catalog.common.plugin.request.input.DropPartitionsByExprsInput;
+import io.polycat.catalog.common.plugin.request.input.FileInput;
+import io.polycat.catalog.common.plugin.request.input.FileStatsInput;
+import io.polycat.catalog.common.plugin.request.input.FilterInput;
+import io.polycat.catalog.common.plugin.request.input.GetPartitionWithAuthInput;
+import io.polycat.catalog.common.plugin.request.input.GetPartitionsByExprInput;
+import io.polycat.catalog.common.plugin.request.input.GetPartitionsWithAuthInput;
+import io.polycat.catalog.common.plugin.request.input.PartitionDescriptorInput;
+import io.polycat.catalog.common.plugin.request.input.PartitionFilterInput;
+import io.polycat.catalog.common.plugin.request.input.PartitionValuesInput;
+import io.polycat.catalog.common.plugin.request.input.SetPartitionColumnStatisticsInput;
+import io.polycat.catalog.common.plugin.request.input.TableTypeInput;
+import io.polycat.catalog.common.plugin.request.input.TruncatePartitionInput;
 import io.polycat.catalog.common.types.DataTypes;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.PartitionUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.server.util.PartitionFilterGenerator;
-import io.polycat.catalog.server.util.TransactionFrameRunner;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
+import io.polycat.catalog.server.hive.HiveUtil;
+import io.polycat.catalog.server.wrapper.PartitionFilterStatesWrapper;
 import io.polycat.catalog.service.api.PartitionService;
 import io.polycat.catalog.store.api.CatalogStore;
 import io.polycat.catalog.store.api.TableDataStore;
@@ -76,18 +108,12 @@ import io.polycat.metrics.MethodStageDurationCollector;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hive.metastore.PartFilterExprUtil;
-import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.parser.ExpressionTree;
-import org.apache.hadoop.hive.ql.optimizer.ppr.PartitionExpressionForMetastore;
+import org.apache.hadoop.hive.common.StatsSetupConst;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 
-import static io.polycat.catalog.common.Operation.ALTER_PARTITION;
-import static io.polycat.catalog.common.Operation.DROP_PARTITION;
-import static io.polycat.catalog.common.Operation.INSERT_TABLE;
+import static java.util.stream.Collectors.toList;
 
 /**
  * @author liangyouze
@@ -104,6 +130,9 @@ public class PartitionServiceImplV2 implements PartitionService {
 
     @Autowired
     private TableDataStore tableDataStore;
+
+    @Autowired
+    private TableService tableService;
 
     @Autowired
     private CatalogStore catalogStore;
@@ -217,8 +246,16 @@ public class PartitionServiceImplV2 implements PartitionService {
         partitionObject.setPartitionKeys(partitionKeys);
         partitionObject.setName(PartitionUtil.makePartitionName(partitionKeyNames, partitionBase.getPartitionValues()));
 
-        partitionObject.setStartTime(partitionBase.getCreateTime());
-        partitionObject.setEndTime(partitionBase.getLastAccessTime());
+        if (partitionBase.getCreateTime() <= 0) {
+            partitionObject.setStartTime(System.currentTimeMillis());
+        } else {
+            partitionObject.setStartTime(partitionBase.getCreateTime());
+        }
+        if (partitionBase.getLastAccessTime() <= 0) {
+            partitionObject.setEndTime(System.currentTimeMillis());
+        } else {
+            partitionObject.setEndTime(partitionBase.getLastAccessTime());
+        }
         return partitionObject;
     }
 
@@ -236,8 +273,8 @@ public class PartitionServiceImplV2 implements PartitionService {
     }
 
     private PartitionObject buildNewPartition(TransactionContext context, TableIdent tableIdent,
-                                              PartitionObject partition, String schemaVersion)
-            throws MetaStoreException {
+        PartitionObject partition, String schemaVersion)
+        throws MetaStoreException {
         PartitionObject partitionObject = new PartitionObject(partition);
         partitionObject.setPartitionId(UuidUtil.generateUUID32());
 
@@ -313,10 +350,10 @@ public class PartitionServiceImplV2 implements PartitionService {
             basedVersion = VersionManagerHelper.getLatestVersion(tableIdent);
         }
         TableSchemaHistoryObject basedSchema = TableSchemaHelper
-                .getLatestTableSchemaOrElseThrow(context, tableIdent, basedVersion);
+            .getLatestTableSchemaOrElseThrow(context, tableIdent, basedVersion);
 
         PartitionObject partitionObject = makePartitionInfo(tableIdent, partitionInput.getPartitions()[0],
-                basedVersion, partitionInput.getFileFormat(), tableSchemaObject.getPartitionKeys());
+            basedVersion, partitionInput.getFileFormat(), tableSchemaObject.getPartitionKeys());
 
         PartitionObject newPartition = buildNewPartition(context, tableIdent, partitionObject,
             basedSchema.getVersion());
@@ -357,11 +394,11 @@ public class PartitionServiceImplV2 implements PartitionService {
         // insert CatalogCommit
         StringBuilder builder = new StringBuilder();
         builder.append("database name: ").append(tableName.getDatabaseName()).append(", ")
-                .append("table name: ").append(tableName.getTableName()).append(", ")
-                .append("partition name: ").append(newPartition.getName());
+            .append("table name: ").append(tableName.getTableName()).append(", ")
+            .append("partition name: ").append(newPartition.getName());
 
         catalogStore.insertCatalogCommit(context, tableIdent.getProjectId(),
-                tableIdent.getCatalogId(), catalogCommitEventId, commitTime, INSERT_TABLE, builder.toString());
+            tableIdent.getCatalogId(), catalogCommitEventId, commitTime, INSERT_TABLE, builder.toString());
 
         return tableIdent;
     }
@@ -371,7 +408,7 @@ public class PartitionServiceImplV2 implements PartitionService {
     }
 
     private List<PartitionObject> buildNewPartitions(TableIdent tableIdent, List<PartitionObject> partitions,
-                                                     TransactionContext context) {
+        TransactionContext context) {
         List<PartitionObject> partitionList = new ArrayList<>();
         String lastSchemaVersion = "";
         TableSchemaHistoryObject basedSchema = null;
@@ -500,7 +537,7 @@ public class PartitionServiceImplV2 implements PartitionService {
             }
             String finalBasedVersion = basedVersion;
             TableSchemaHistoryObject basedSchema = TableSchemaHelper
-                    .getLatestTableSchemaOrElseThrow(context, tableIdent, finalBasedVersion);
+                .getLatestTableSchemaOrElseThrow(context, tableIdent, finalBasedVersion);
             Arrays.stream(partitionInput.getPartitions()).forEach(partitionBase -> {
                 PartitionObject builder = makePartitionInfo(tableIdent, partitionBase, finalBasedVersion,
                     partitionInput.getFileFormat(), tableSchemaObject.getPartitionKeys());
@@ -572,13 +609,7 @@ public class PartitionServiceImplV2 implements PartitionService {
             .getLatestTableHistory(context, tableIdent, currentVersionStamp).get();
         baseTableHistory.setPartitionSetType(TablePartitionSetType.INIT);
 
-        // PartitionHelper.insertTablePartitions(context, tableIdent, baseTableHistory, newPartitions);
-        tableDataStore.deletePartitionInfoByNames(context, tableIdent, baseTableHistory.getCurSetId(),
-            new ArrayList<>(nameMap.keySet()));
-        DataPartitionSetObject dataPartitionSet = tableDataStore
-            .getDataPartitionSet(context, tableIdent, baseTableHistory.getCurSetId());
-        dataPartitionSet.setDataPartitions(newPartitions);
-        tableDataStore.insertPartitionInfo(context, tableIdent, dataPartitionSet);
+        updatePartitionSet(context, tableIdent, baseTableHistory.getCurSetId(), new ArrayList<>(nameMap.keySet()), newPartitions);
 
         //tableCommit commit
         TableCommitObject tableCommitObject = TableCommitHelper
@@ -603,6 +634,16 @@ public class PartitionServiceImplV2 implements PartitionService {
             tableIdent.getCatalogId(), catalogCommitEventId, commitTime, ALTER_PARTITION, builder.toString());
 
         return tableIdent;
+    }
+
+    private void updatePartitionSet(TransactionContext context, TableIdent tableIdent, String curSetId, List<String> partNames, List<PartitionObject> newPartitions) {
+        // PartitionHelper.insertTablePartitions(context, tableIdent, baseTableHistory, newPartitions);
+        tableDataStore.deletePartitionInfoByNames(context, tableIdent, curSetId,
+                partNames);
+        DataPartitionSetObject dataPartitionSet = tableDataStore
+                .getDataPartitionSet(context, tableIdent, curSetId);
+        dataPartitionSet.setDataPartitions(newPartitions);
+        tableDataStore.insertPartitionInfo(context, tableIdent, dataPartitionSet);
     }
 
     @Override
@@ -642,6 +683,7 @@ public class PartitionServiceImplV2 implements PartitionService {
         });*/
         tableDataStore.deletePartitionInfoByNames(context, tableIdent, latestTableHistory.getCurSetId(),
             new ArrayList<>(dropPartitionInput.getPartitionNames()));
+        deletePartitionsColumnStatistics(context, tableName, dropPartitionInput.getPartitionNames());
 
         // update TableReference
         /*TableReferenceObject tableReference = TableReferenceHelper.getTableReferenceOrElseThrow(context, tableIdent);
@@ -678,6 +720,14 @@ public class PartitionServiceImplV2 implements PartitionService {
             tableIdent.getCatalogId(), catalogCommitEventId, commitTime, DROP_PARTITION, builder.toString());
 
         return tableIdent;
+    }
+
+    private void deletePartitionsColumnStatistics(TransactionContext context, TableName tableName, List<String> partitionNames) {
+        if (CollectionUtils.isNotEmpty(partitionNames)) {
+            for (String partName: partitionNames) {
+                tableDataStore.deletePartitionColumnStatistics(context, tableName, partName, null);
+            }
+        }
     }
 
     private void dropPartitioByName(TableName tableName, DropPartitionInput dropPartitionInput)
@@ -725,24 +775,36 @@ public class PartitionServiceImplV2 implements PartitionService {
             TableIdent tableIdent = TableObjectHelper.getTableIdent(null, tableName);
             //tableStorage = tableStore.getTableStorage(context, tableIdent);
             TableHistoryObject latestTableHistory = TableHistoryHelper
-                    .getLatestTableHistoryOrElseThrow(null, tableIdent, VersionManagerHelper.getLatestVersion(tableIdent));
+                .getLatestTableHistoryOrElseThrow(null, tableIdent, VersionManagerHelper.getLatestVersion(tableIdent));
             TableSchemaObject tableSchemaObject = tableMetaStore.getTableSchema(null, tableIdent);
 
             timer.observePrevDuration("PartitionServiceImpl.getPartitionsByFilter", "getTableByName");
 
             try {
-                final ExpressionTree tree = (filter != null && !filter.isEmpty())
-                    ? PartFilterExprUtil.getFilterParser(filter).tree : ExpressionTree.EMPTY_TREE;
+                PartitionFilterStatesWrapper partitionFilterStatesWrapper = new PartitionFilterStatesWrapper();
+                final String sqlFilter = HiveUtil.generatePartitionSqlFilter(tableIdent, tableSchemaObject, filter, partitionFilterStatesWrapper);
+                List<PartitionObject> partitionsByFilter;
+                if (partitionFilterStatesWrapper.filterOptimizerType != null) {
+                    switch (partitionFilterStatesWrapper.filterOptimizerType) {
+                        case EQUALS:
+                            partitionsByFilter = tableDataStore.getPartitionsByKeyValues(context, tableIdent,
+                                    latestTableHistory.getCurSetId(), partitionFilterStatesWrapper.partitionKeys,
+                                    partitionFilterStatesWrapper.alignPartitionValues, maxParts);
+                            break;
+                        default:
+                            partitionsByFilter = tableDataStore
+                                    .getPartitionsByFilter(context, tableIdent, latestTableHistory.getCurSetId(), sqlFilter,
+                                            maxParts);
 
-                final String sqlFilter = PartitionFilterGenerator
-                    .generateSqlFilter(tableIdent, tableSchemaObject, tree, new ArrayList<>(), new HashMap<>(),
-                        "__DEFAULT_PARTITION__");
-                log.debug("ExpressionTree: {}", sqlFilter);
-                final List<PartitionObject> partitionsByFilter = tableDataStore
-                    .getPartitionsByFilter(null, tableIdent, latestTableHistory.getCurSetId(), sqlFilter, maxParts);
+                    }
+                } else {
+                    partitionsByFilter = tableDataStore
+                            .getPartitionsByFilter(context, tableIdent, latestTableHistory.getCurSetId(), sqlFilter,
+                                    maxParts);
+                }
                 partitionsByFilter.forEach(partitionObject -> partitionObject.setColumn(tableSchemaObject.getColumns()));
                 return partitionsByFilter;
-            } catch (MetaException metaException) {
+            } catch (Exception metaException) {
                 throw new CatalogServerException(ErrorCode.PARTITION_FILTER_ILLEGAL, metaException);
             }
         }).getResult();
@@ -751,7 +813,8 @@ public class PartitionServiceImplV2 implements PartitionService {
     @Override
     public Partition[] getPartitionsByFilter(TableName tableName, PartitionFilterInput filterInput) {
         final List<PartitionObject> partitionObjectsByFilter =
-            getPartitionObjectsByFilter(tableName, filterInput.getFilter(), filterInput.getMaxParts());
+            getPartitionObjectsByFilter(tableName, filterInput.getFilter(),
+                filterInput.getMaxParts());
         return partitionObjectsByFilter.stream()
             .map(partitionObject -> buildTablePartitionModel(tableName, partitionObject))
             .toArray(Partition[]::new);
@@ -794,7 +857,7 @@ public class PartitionServiceImplV2 implements PartitionService {
         Partition tablePartition = new Partition();
         tablePartition.setStorageDescriptor(fillStorageDescriptorByPartitionObject(partition));
         //tablePartition.setFileIndexUrl(partition.getPartitionIndexUrl());
-        tablePartition.setPartitionValues(PartitionUtil.convertNameToVals(PartitionUtil.unescapePartitionName(partition.getName())));
+        tablePartition.setPartitionValues(PartitionUtil.convertEscapePartNameToVals(partition.getName()));
         tablePartition.setTableName(tableName.getTableName());
         tablePartition.setDatabaseName(tableName.getDatabaseName());
         tablePartition.setCatalogName(tableName.getCatalogName());
@@ -908,19 +971,31 @@ public class PartitionServiceImplV2 implements PartitionService {
     }
 
     @Override
-    public String[] listPartitionNames(TableName tableName, int maxParts) {
+    public String[] listPartitionNames(TableName tableName, PartitionFilterInput filterInput, boolean escape) {
         List<String> result = TransactionRunnerUtil.transactionReadRunThrow(context -> {
             TableIdent tableIdent = TableObjectHelper.getTableIdent(context, tableName);
-            return tableDataStore.listTablePartitionNames(context, tableIdent, maxParts);
+            TableSchemaObject tableSchema = TableSchemaHelper.getTableSchema(context, tableIdent);
+            if (tableSchema != null && tableSchema.getPartitionKeys() != null) {
+                List<String> partitionKeys = tableSchema.getPartitionKeys().stream().map(ColumnObject::getName).collect(toList());
+                return tableDataStore.listTablePartitionNames(context, tableIdent, filterInput, partitionKeys);
+            }
+            return new ArrayList<String>();
         }).getResult();
-        return result.stream().map(PartitionUtil::unescapePartitionName).collect(Collectors.toList()).toArray(new String[]{});
+        if (!escape) {
+            return result.stream().map(PartitionUtil::unescapePartitionName).collect(Collectors.toList())
+                    .toArray(new String[]{});
+        } else {
+            return result.toArray(new String[]{});
+        }
     }
 
     @Override
     public String[] listPartitionNamesByFilter(TableName tableName, PartitionFilterInput filterInput) {
         final List<PartitionObject> partitionObjectsByFilter =
-            getPartitionObjectsByFilter(tableName, filterInput.getFilter(), filterInput.getMaxParts());
-        return partitionObjectsByFilter.stream().map(x -> PartitionUtil.unescapePartitionName(x.getName())).toArray(String[]::new);
+            getPartitionObjectsByFilter(tableName, filterInput.getFilter(),
+                filterInput.getMaxParts());
+        return partitionObjectsByFilter.stream().map(x -> PartitionUtil.unescapePartitionName(x.getName()))
+            .toArray(String[]::new);
     }
 
     @Override
@@ -949,8 +1024,9 @@ public class PartitionServiceImplV2 implements PartitionService {
     public String[] listPartitionNamesPs(TableName tableName, PartitionFilterInput filterInput) {
 
         final List<PartitionObject> partitionObjects =
-                getPartitionObjectsByValues(tableName, Arrays.asList(filterInput.getValues()), filterInput.getMaxParts());
-        return partitionObjects.stream().map(x -> PartitionUtil.unescapePartitionName(x.getName())).toArray(String[]::new);
+            getPartitionObjectsByValues(tableName, Arrays.asList(filterInput.getValues()), filterInput.getMaxParts());
+        return partitionObjects.stream().map(x -> PartitionUtil.unescapePartitionName(x.getName()))
+            .toArray(String[]::new);
     }
 
     @Override
@@ -965,17 +1041,31 @@ public class PartitionServiceImplV2 implements PartitionService {
     @Override
     public Partition[] listPartitionsByExpr(TableName tableName, GetPartitionsByExprInput filterInput) {
         final byte[] expr = filterInput.getExpr();
-        final PartitionExpressionForMetastore partitionExpressionForMetastore = new PartitionExpressionForMetastore();
-        try {
-            final String filter = partitionExpressionForMetastore.convertExprToFilter(expr);
-            final List<PartitionObject> partitionObjectsByFilter =
-                getPartitionObjectsByFilter(tableName, filter, filterInput.getMaxParts());
-            return partitionObjectsByFilter.stream()
-                .map(partitionObject -> buildTablePartitionModel(tableName, partitionObject))
-                .toArray(Partition[]::new);
+        TableIdent tableIdent = TableObjectHelper.getTableIdent(null, tableName);
+        TableSchemaObject tableSchemaObject = tableMetaStore.getTableSchema(null, tableIdent);
+        TableHistoryObject latestTableHistory = TableHistoryHelper
+                .getLatestTableHistoryOrElseThrow(null, tableIdent, VersionManagerHelper.getLatestVersion(tableIdent));
 
-        } catch (MetaException metaException) {
-            throw new CatalogServerException(ErrorCode.INNER_SERVER_ERROR, metaException);
+        final String sqlFilter = HiveUtil.generatePartitionSqlFilter(tableIdent, tableSchemaObject, expr);
+
+        if (sqlFilter != null) {
+            final List<PartitionObject> partitionsByFilter = tableDataStore
+                    .getPartitionsByFilter(null, tableIdent, latestTableHistory.getCurSetId(), sqlFilter, filterInput.getMaxParts());
+            partitionsByFilter.forEach(partitionObject -> partitionObject.setColumn(tableSchemaObject.getColumns()));
+           return partitionsByFilter.stream()
+                    .map(partitionObject -> buildTablePartitionModel(tableName, partitionObject))
+                    .toArray(Partition[]::new);
+        } else {
+            log.warn("could not push down");
+            final List<ColumnObject> partitionKeys = tableSchemaObject.getPartitionKeys();
+            final ArrayList<String> partitionNames = new ArrayList<>(
+                    Arrays.asList(listPartitionNames(tableName, new PartitionFilterInput(), false)));
+            final boolean hasUnknownPartitions =
+                    HiveUtil.filterPartitionsByExpr(partitionKeys, expr, filterInput.getDefaultPartitionName(), partitionNames);
+            final PartitionFilterInput partitionFilterInput = new PartitionFilterInput();
+            partitionFilterInput.setPartNames(partitionNames.toArray(new String[]{}));
+            partitionFilterInput.setMaxParts(0);
+            return getPartitionsByNames(tableName, partitionFilterInput);
         }
     }
 
@@ -997,34 +1087,48 @@ public class PartitionServiceImplV2 implements PartitionService {
         return null;
     }
 
+    /**
+     * Get the object based on partitionName, partName may need to be escaped.
+     *
+     * @param tableName
+     * @param partitionName TODO rest call need escape.
+     * @return
+     */
     @Override
     public Partition getPartitionByName(TableName tableName, String partitionName) {
-        TransactionFrameRunner runner = new TransactionFrameRunner();
-        runner.setMaxAttempts(TABLE_STORE_MAX_RETRY_NUM);
-        final Partition[] result = TransactionRunnerUtil.transactionRunThrow(context -> {
-            TableIdent tableIdent = TableObjectHelper.getTableIdent(context, tableName);
-            TableHistoryObject latestTableHistory = TableHistoryHelper
-                    .getLatestTableHistoryOrElseThrow(context, tableIdent,
-                            VersionManagerHelper.getLatestVersion(tableIdent));
-            final ArrayList<String> partitionNames = new ArrayList<>();
-            partitionNames.add(partitionName);
-            final TableSchemaObject tableSchema = tableMetaStore.getTableSchema(context, tableIdent);
-            final List<ColumnObject> columns = tableSchema.getColumns();
-            final List<PartitionObject> partitionObjects = tableDataStore
-                    .getPartitionsByPartitionNames(context, tableIdent, latestTableHistory.getSetIds(),
-                            latestTableHistory.getCurSetId(), partitionNames, -1);
-            return partitionObjects.stream()
-                    .map(partitionObject -> {
-                        partitionObject.setColumn(columns);
-                        return buildTablePartitionModel(tableName, partitionObject);
-                    })
-                    .toArray(Partition[]::new);
+        PartitionObject partitionObject = TransactionRunnerUtil.transactionRunThrow(context -> {
+            return getPartitionByNameInternal(context, tableName, partitionName);
         }).getResult();
-        if (result.length > 0) {
-            return result[0];
-        } else {
-            return null;
+        if (partitionObject != null) {
+            return buildTablePartitionModel(tableName, partitionObject);
         }
+        return null;
+    }
+
+    private PartitionObject getPartitionByNameInternal(TransactionContext context,
+            TableName tableName, String partitionNames) {
+        List<PartitionObject> partitionObjects = getPartitionByNameInternal(context, tableName,
+                Lists.newArrayList(partitionNames));
+        if (CollectionUtils.isNotEmpty(partitionObjects)) {
+            return partitionObjects.get(0);
+        }
+        return null;
+    }
+
+    private List<PartitionObject> getPartitionByNameInternal(TransactionContext context,
+            TableName tableName, List<String> partitionNames) {
+        TableIdent tableIdent = TableObjectHelper.getTableIdent(context, tableName);
+        TableHistoryObject latestTableHistory = TableHistoryHelper
+                .getLatestTableHistoryOrElseThrow(context, tableIdent,
+                        VersionManagerHelper.getLatestVersion(tableIdent));
+        TableSchemaObject tableSchema = tableMetaStore.getTableSchema(context, tableIdent);
+        List<PartitionObject> partitionObjects = tableDataStore
+                .getPartitionsByPartitionNames(context, tableIdent, latestTableHistory.getSetIds(),
+                        latestTableHistory.getCurSetId(), partitionNames, -1);
+        return partitionObjects.stream().peek(x -> {
+            x.setColumn(tableSchema.getColumns());
+            x.setPartitionKeys(tableSchema.getPartitionKeys());
+        }).collect(toList());
     }
 
     @Override
@@ -1033,19 +1137,123 @@ public class PartitionServiceImplV2 implements PartitionService {
     }
 
     @Override
-    public void updatePartitionColumnStatistics(TableName tableName, ColumnStatisticsInput stats) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "updatePartitionColumnStatistics");
+    public boolean updatePartitionColumnStatistics(TableName tableName, ColumnStatisticsInput columnStatisticsInput) {
+        ColumnStatisticsDesc statisticsDesc = columnStatisticsInput.getColumnStatistics().getColumnStatisticsDesc();
+        Table table = ensureGetTable(tableName);
+        List<ColumnStatisticsObj> statsObjs = columnStatisticsInput.getColumnStatistics().getColumnStatisticsObjs();
+        List<String> colNames = TableUtil.getColNamesFromColumnStatistics(statsObjs);
+        TableUtil.validateTableColumns(table, colNames);
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            return updatePartitionColumnStatisticsInternal(context, table, tableName, colNames, statsObjs, statisticsDesc, columnStatisticsInput.getPartVals());
+        }).getResult();
+    }
+
+    private boolean updatePartitionColumnStatisticsInternal(TransactionContext context, Table table,
+            TableName tableName, List<String> colNames,
+            List<ColumnStatisticsObj> statsObjs, ColumnStatisticsDesc statisticsDesc,
+            List<String> partVals) {
+        String partitionName = PartitionUtil.makePartitionName(
+                table.getPartitionKeys().stream().map(Column::getColumnName).collect(toList()), partVals);
+        PartitionObject partitionObject = ensureGetPartition(context, tableName, partitionName);
+        List<ColumnStatisticsObject> columnStatisticsObjects = new ArrayList<>();
+        Map<String, ColumnStatisticsObj> tableColumnStatisticsMap = getPartitionColumnStatisticsMap(context, tableName, partitionName, colNames);
+        for (ColumnStatisticsObj statsObj: statsObjs) {
+            if (tableColumnStatisticsMap.containsKey(statsObj.getColName())) {
+                statsObj = tableColumnStatisticsMap.get(statsObj.getColName());
+            }
+            columnStatisticsObjects.add(TableObjectConvertHelper.toPartitionColumnStatisticsObject(table, statsObj, partitionName, partitionObject.getPartitionId(), statisticsDesc.getLastAnalyzed()));
+        }
+        if (CollectionUtils.isNotEmpty(columnStatisticsObjects)) {
+            tableDataStore.updatePartitionColumnStatistics(context, tableName, columnStatisticsObjects);
+            alterPartitionStatisticsParameters(context, tableName, table.getTableId(), partitionObject, partitionName, colNames);
+        }
+        return true;
+    }
+
+    private void alterPartitionStatisticsParameters(TransactionContext context,
+            TableName tableName, String tableId, PartitionObject partitionObject,
+            String partName, List<String> colNames) {
+        if (partitionObject.getProperties() == null) {
+            partitionObject.setProperties(Maps.newLinkedHashMap());
+        } else {
+            partitionObject.setProperties(Maps.newLinkedHashMap(partitionObject.getProperties()));
+        }
+        // TODO Temporarily keep consistent with hive
+        StatsSetupConst.setColumnStatsState(partitionObject.getProperties(), colNames);
+        TableIdent tableIdent = new TableIdent();
+        tableIdent.setTableId(tableId);
+        tableIdent.setProjectId(tableName.getProjectId());
+        updatePartitionSet(context, tableIdent, partitionObject.getSetId(), Lists.newArrayList(partName), Lists.newArrayList(partitionObject));
+    }
+
+    private PartitionObject ensureGetPartition(TransactionContext context, TableName tableName, String partName) {
+        PartitionObject partitionObject = getPartitionByNameInternal(context, tableName,
+                partName);
+        if (partitionObject == null) {
+            throw new MetaStoreException(ErrorCode.PARTITION_NAME_NOT_FOUND, partName);
+        }
+        return partitionObject;
+    }
+
+    private Map<String, ColumnStatisticsObj> getPartitionColumnStatisticsMap(
+            TransactionContext context, TableName tableName, String partName, List<String> colNames) {
+        List<ColumnStatisticsObject> statisticsObjectList = getPartitionColumnStatisticInternal(context, tableName,
+                Lists.newArrayList(partName), colNames);
+        return TableUtil.getColumnStatisticsMap(statisticsObjectList.stream().map(TableObjectConvertHelper::toColumnStatisticsData)
+                .collect(toList()).toArray(new ColumnStatisticsObj[statisticsObjectList.size()]));
     }
 
     @Override
-    public PartitionStatisticData getPartitionColumnStatistic(TableName tableName, List<String> partNames,
-        List<String> columns) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getPartitionColumnStatistic");
+    public PartitionStatisticData getPartitionColumnStatistics(TableName tableName, List<String> partNames,
+        List<String> colNames) {
+        if (CollectionUtils.isEmpty(colNames) || CollectionUtils.isEmpty(partNames)) {
+            return new PartitionStatisticData(new LinkedHashMap<>());
+        }
+        //Table table = ensureGetTable(tableName);
+        //TableUtil.validateTableColumns(table, colNames);
+        List<ColumnStatisticsObject> list = TransactionRunnerUtil.transactionRunThrow(context -> {
+            return getPartitionColumnStatisticInternal(context, tableName, partNames, colNames);
+        }).getResult();
+        return columnStatisticsObjectToPartitionStatisticsData(list);
+    }
+
+    private PartitionStatisticData columnStatisticsObjectToPartitionStatisticsData(List<ColumnStatisticsObject> list) {
+        Map<String, List<ColumnStatisticsObj>> statisticsMap = Maps.newLinkedHashMapWithExpectedSize(list.size());
+        if (CollectionUtils.isNotEmpty(list)) {
+            for (ColumnStatisticsObject cso: list) {
+                if (statisticsMap.containsKey(cso.getPartitionName())) {
+                    statisticsMap.get(cso.getPartitionName()).add(TableObjectConvertHelper.toColumnStatisticsData(cso));
+                } else {
+                    statisticsMap.put(cso.getPartitionName(), Lists.newArrayList(TableObjectConvertHelper.toColumnStatisticsData(cso)));
+                }
+            }
+        }
+        return new PartitionStatisticData(statisticsMap);
+    }
+
+    private List<ColumnStatisticsObject> getPartitionColumnStatisticInternal(TransactionContext context, TableName tableName,
+            List<String> partNames, List<String> colNames) {
+        //partNames = partNames.stream().map(PartitionUtil::escapePartitionName).collect(toList());
+        return tableDataStore.getPartitionColumnStatistics(context, tableName, partNames, colNames);
+    }
+
+    private Table ensureGetTable(TableName tableName) {
+        Table table = tableService.getTableByName(tableName);
+        if (table == null) {
+            throw new MetaStoreException("Specified database/table does not exist : "
+                    + tableName.getDatabaseName() + "." + tableName.getTableName());
+        }
+        return table;
     }
 
     @Override
     public void deletePartitionColumnStatistics(TableName tableName, String partName, String columnName) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "deletePartitionColumnStatistics");
+        ensureGetTable(tableName);
+        TransactionRunnerUtil.transactionRunThrow(context -> {
+            ensureGetPartition(context, tableName, partName);
+            tableDataStore.deletePartitionColumnStatistics(context, tableName, partName, columnName);
+            return null;
+        }).getResult();
     }
 
     @Override
@@ -1054,8 +1262,21 @@ public class PartitionServiceImplV2 implements PartitionService {
     }
 
     @Override
-    public AggrStatisticData getAggrColStatsFor(TableName tableName, List<String> partNames, List<String> columns) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getAggrColStatsFor");
+    public AggrStatisticData getAggrColStatsFor(TableName tableName, List<String> partNames, List<String> colNames) {
+        AggrStatisticData aggrStatisticData = new AggrStatisticData(new ArrayList<ColumnStatisticsObj>(), 0L);
+        if (CollectionUtils.isEmpty(colNames) || CollectionUtils.isEmpty(partNames)) {
+            return aggrStatisticData;
+        }
+        //Table table = ensureGetTable(tableName);
+        //TableUtil.validateTableColumns(table, colNames);
+        List<ColumnStatisticsAggrObject> aggrObjects = TransactionRunnerUtil.transactionRunThrow(context -> {
+            aggrStatisticData.setPartsFound(tableDataStore.getFoundPartNums(context, tableName, partNames, colNames));
+            return tableDataStore.getAggrColStatsFor(context, tableName, partNames, colNames);
+        }).getResult();
+        aggrObjects.forEach(x -> {
+            aggrStatisticData.getColumnStatistics().add(TableObjectConvertHelper.toColumnStatisticsObjForAggrObject(x, false, 0.0f));
+        });
+        return aggrStatisticData;
     }
 
     @Override
@@ -1068,6 +1289,50 @@ public class PartitionServiceImplV2 implements PartitionService {
             String partitionName = PartitionUtil
                 .makePartitionName(partitionKeys, partitionValuesInput.getPartitionValues());
             return tableDataStore.doesPartitionExists(context, tableIdent, partitionName);
+        }).getResult();
+    }
+
+    @Override
+    public Integer getTablePartitionCount(TableName tableName, PartitionFilterInput filterInput) {
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            TableIdent tableIdent = TableObjectHelper.getTableIdent(context, tableName);
+            TableSchemaObject tableSchemaObject = tableMetaStore.getTableSchema(context, tableIdent);
+            Integer count = 0;
+            try {
+                PartitionFilterStatesWrapper partitionFilterStatesWrapper = new PartitionFilterStatesWrapper();
+                final String sqlFilter = HiveUtil.generatePartitionSqlFilter(tableIdent, tableSchemaObject, filterInput.getFilter(), partitionFilterStatesWrapper);
+                if (partitionFilterStatesWrapper.filterOptimizerType != null) {
+                    switch (partitionFilterStatesWrapper.filterOptimizerType) {
+                        case EQUALS:
+                            count = tableDataStore.getTablePartitionCountByKeyValues(context, tableIdent,
+                                    partitionFilterStatesWrapper.partitionKeys,
+                                    partitionFilterStatesWrapper.alignPartitionValues);
+                            break;
+                        default:
+                            count = tableDataStore
+                                    .getTablePartitionCountByFilter(context, tableIdent, sqlFilter);
+                    }
+                } else {
+                    count = tableDataStore
+                            .getTablePartitionCountByFilter(context, tableIdent, sqlFilter);
+                }
+
+            } catch (Exception metaException) {
+                throw new CatalogServerException(ErrorCode.PARTITION_FILTER_ILLEGAL, metaException);
+            }
+            return count;
+        }).getResult();
+    }
+
+    @Override
+    public String getLatestPartitionName(TableName tableName) {
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            TableIdent tableIdent = TableObjectHelper.getTableIdent(context, tableName);
+            String latestPartitionName = tableDataStore.getLatestPartitionName(context, tableIdent);
+            if (latestPartitionName != null) {
+                return PartitionUtil.unescapePartitionName(latestPartitionName);
+            }
+            return null;
         }).getResult();
     }
 }

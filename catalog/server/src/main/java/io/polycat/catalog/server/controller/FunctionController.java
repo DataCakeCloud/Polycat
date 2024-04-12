@@ -17,8 +17,6 @@
  */
 package io.polycat.catalog.server.controller;
 
-import java.util.List;
-
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.model.BaseResponse;
@@ -29,7 +27,6 @@ import io.polycat.catalog.server.util.BaseResponseUtil;
 import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.service.api.FunctionService;
 
-import com.google.common.collect.Lists;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -37,8 +34,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -64,7 +59,7 @@ public class FunctionController extends BaseController {
 
     @Api(tags = "All Functions api")
     @RestController
-    @RequestMapping("/v1/projects/{project-id}/{catalog-name}/functions")
+    @RequestMapping("/v1/{project-id}/catalogs/{catalog-name}/functions")
     public class GetAllFunctionController {
 
         @GetMapping(value = "", produces = "application/json;charset=UTF-8")

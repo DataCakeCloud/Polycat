@@ -17,12 +17,12 @@
  */
 package io.polycat.catalog.common.plugin.request.input;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.model.StorageDescriptor;
 import io.polycat.catalog.common.model.Column;
 
@@ -82,7 +82,7 @@ public class TableInput {
     private StorageDescriptor storageDescriptor;
 
     @ApiModelProperty(value = "properties")
-    private Map<String, String> parameters = Collections.emptyMap();
+    private Map<String, String> parameters = new HashMap<>();
 
     @ApiModelProperty(value = "lmsMvcc")
     private boolean lmsMvcc;
@@ -97,6 +97,29 @@ public class TableInput {
         if (Objects.nonNull(parameters)) {
             this.parameters = new HashMap<>(parameters.size());
             this.parameters.putAll(parameters);
+        }
+    }
+
+    public String getProperty(String name) {
+        if (this.parameters != null) {
+            return this.getParameters().get(name);
+        }
+        return null;
+    }
+
+    public String getDescription() {
+        if (description == null) {
+            return getProperty(Constants.COMMENT);
+        }
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+        // Compatible with hive comment
+        if (this.parameters == null) {
+            this.parameters = new HashMap<>();
+            this.parameters.put(Constants.COMMENT, description);
         }
     }
 }

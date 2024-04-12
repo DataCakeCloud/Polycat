@@ -19,8 +19,6 @@ package io.polycat.catalog.server.service.impl;
 
 import java.util.Optional;
 
-import io.polycat.catalog.common.CatalogServerException;
-import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.TableCommitObject;

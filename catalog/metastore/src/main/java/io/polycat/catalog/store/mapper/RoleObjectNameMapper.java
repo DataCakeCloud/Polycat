@@ -17,10 +17,6 @@
  */
 package io.polycat.catalog.store.mapper;
 
-import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord;
-import io.polycat.catalog.store.gaussdb.pojo.DatabaseRecord;
-import io.polycat.catalog.store.gaussdb.pojo.DroppedDatabaseNameRecord;
 import io.polycat.catalog.store.gaussdb.pojo.RoleObjectNameRecord;
 import org.apache.ibatis.annotations.*;
 import org.springframework.stereotype.Component;

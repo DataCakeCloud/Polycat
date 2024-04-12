@@ -36,10 +36,13 @@ public class UsageProfileObject {
     private long createDayTime;
     private long createTime;
     private String opType;
+    private String originOpType;
     private long count;
     private String userId;
+    private String userGroup;
     private String taskId;
     private String tag;
+    private String statement;
 
     public UsageProfileObject(String projectId, String catalogName, String databaseName, String tableName, long createTime,
                               String opType, long count) {

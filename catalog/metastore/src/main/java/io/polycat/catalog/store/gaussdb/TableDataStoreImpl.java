@@ -17,27 +17,31 @@
  */
 package io.polycat.catalog.store.gaussdb;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import io.polycat.catalog.store.gaussdb.pojo.ColumnStatisticsAggrRecord;
+import io.polycat.catalog.store.gaussdb.pojo.ColumnStatisticsRecord;
+import io.polycat.catalog.store.gaussdb.pojo.PartitionColumnStatisticsTableMetaRecord;
+import io.polycat.catalog.store.gaussdb.pojo.TableDataHistoryRecord;
+import io.polycat.catalog.store.gaussdb.pojo.TableDataPartitionSetRecord;
+import io.polycat.catalog.store.gaussdb.pojo.TableIndexHistoryRecord;
+import io.polycat.catalog.store.gaussdb.pojo.TableIndexPartitionSetRecord;
+import io.polycat.catalog.store.gaussdb.pojo.TableIndexRecord;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.plugin.request.input.PartitionFilterInput;
+import io.polycat.catalog.common.utils.SQLUtil;
+import com.google.common.collect.Lists;
+import io.polycat.catalog.store.gaussdb.pojo.ColumnStatisticsRecord.Fields;
+import io.polycat.catalog.store.mapper.ColumnStatisticsMapper;
+
+import java.util.*;
 
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
-import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.utils.PartitionUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.store.api.TableDataStore;
 import io.polycat.catalog.store.common.StoreSqlConvertor;
 import io.polycat.catalog.store.common.TableStoreConvertor;
-import io.polycat.catalog.store.gaussdb.pojo.TableDataHistoryRecord;
-import io.polycat.catalog.store.gaussdb.pojo.TableDataPartitionSetRecord;
-import io.polycat.catalog.store.gaussdb.pojo.TableIndexHistoryRecord;
-import io.polycat.catalog.store.gaussdb.pojo.TableIndexPartitionSetRecord;
-import io.polycat.catalog.store.gaussdb.pojo.TableIndexRecord;
 import io.polycat.catalog.store.mapper.TableDataMapper;
 import io.polycat.catalog.store.protos.common.Partition;
 import io.polycat.catalog.store.protos.common.TableDataInfo;
@@ -45,8 +49,8 @@ import io.polycat.catalog.store.protos.common.TableDataPartitionSetInfo;
 import io.polycat.catalog.store.protos.common.TableIndexInfoSet;
 import io.polycat.catalog.store.protos.common.TableIndexPartitionSetInfo;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -61,8 +65,14 @@ import static java.util.stream.Collectors.toList;
 @ConditionalOnProperty(name = "database.type", havingValue = "gauss")
 public class TableDataStoreImpl implements TableDataStore {
     private static final Logger log = Logger.getLogger(TableDataStoreImpl.class);
+    /**
+     * Partition level statistics table name prefix
+     */
+    private static final String STAT_PARTITION_META_PREFIX = "pcs_";
     @Autowired
     TableDataMapper tableDataMapper;
+    @Autowired
+    ColumnStatisticsMapper statisticsMapper;
 
     @Override
     public void createTableDataPartitionSetSubspace(TransactionContext context, TableIdent tableIdent)
@@ -151,6 +161,9 @@ public class TableDataStoreImpl implements TableDataStore {
     @Override
     public void deletePartitionInfoByNames(TransactionContext context, TableIdent tableIdent,
         String setId, List<String> partitionNames) {
+        if(CollectionUtils.isEmpty(partitionNames)) {
+            return;
+        }
         tableDataMapper.deletePartitionInfoByName(tableIdent.getProjectId(), tableIdent.getTableId(), setId, partitionNames);
     }
 
@@ -212,12 +225,37 @@ public class TableDataStoreImpl implements TableDataStore {
     }
 
     @Override
-    public List<String> listTablePartitionNames(TransactionContext context, TableIdent tableIdent, Integer maxParts) {
+    public List<String> listTablePartitionNames(TransactionContext context, TableIdent tableIdent, PartitionFilterInput filterInput, List<String> partitionKeys) {
+        int maxParts = filterInput.getMaxParts();
         if (maxParts <= 0) {
             maxParts = Integer.MAX_VALUE;
         }
+        StoreSqlConvertor sqlConvertor = StoreSqlConvertor.get();
+        setFilterForPartitionKeyValue(sqlConvertor, partitionKeys, Arrays.asList(filterInput.getValues()), true);
+        return tableDataMapper.listTablePartitionNames(tableIdent.getProjectId(), tableIdent.getTableId(), sqlConvertor.getFilterSql(), maxParts);
+    }
 
-        return tableDataMapper.listTablePartitionNames(tableIdent.getProjectId(), tableIdent.getTableId(), maxParts);
+    @Override
+    public Integer getTablePartitionCountByFilter(TransactionContext context, TableIdent tableIdent, String filter) {
+        return tableDataMapper.getPartitionCountByFilter(tableIdent.getProjectId(), tableIdent.getTableId(), filter);
+    }
+
+    @Override
+    public Integer getTablePartitionCountByKeyValues(TransactionContext context, TableIdent tableIdent, List<String> partitionKeys, List<String> values) {
+        if (values.size() > partitionKeys.size()) {
+            throw new MetaStoreException(ErrorCode.PARTITION_VALUES_NOT_MATCH, partitionKeys.size(), values.size());
+        }
+        StoreSqlConvertor sqlConvertor = StoreSqlConvertor.get();
+        setFilterForPartitionKeyValue(sqlConvertor, partitionKeys, values, true);
+
+        log.info("sqlConvertor.getFilterSql(): {}", sqlConvertor.getFilterSql());
+        return tableDataMapper
+                .getPartitionCountByFilter(tableIdent.getProjectId(), tableIdent.getTableId(), sqlConvertor.getFilterSql(true));
+    }
+
+    @Override
+    public String getLatestPartitionName(TransactionContext context, TableIdent tableIdent) {
+        return tableDataMapper.getLatestPartitionName(tableIdent.getProjectId(), tableIdent.getTableId());
     }
 
     @Override
@@ -226,6 +264,9 @@ public class TableDataStoreImpl implements TableDataStore {
         try {
             if (maxParts <= 0) {
                 maxParts = Integer.MAX_VALUE;
+            }
+            if (partitionNames == null || partitionNames.isEmpty()) {
+                return Collections.emptyList();
             }
             final List<PartitionInfo> partitionInfos = tableDataMapper
                 .getTablePartitionInfoByName(tableIdent.getProjectId(), tableIdent.getTableId(), curSetId, partitionNames, maxParts);
@@ -292,61 +333,12 @@ public class TableDataStoreImpl implements TableDataStore {
         if (maxParts <= 0) {
             maxParts = Integer.MAX_VALUE;
         }
-        List<String> subListCols = partitionKeys.subList(0, values.size());
-        final StringBuilder valuefilter = new StringBuilder("");
-        String partitionKey;
-        String value;
-        boolean likeFilter = false;
-        for (int i = 0; i < subListCols.size(); i++) {
-            partitionKey = subListCols.get(i);
-            value = values.get(i);
-            if (StringUtils.isEmpty(value)) {
-                value = "%";
-                likeFilter = true;
-            } else {
-                value = FileUtils.escapePathName(value);
-                if (value.contains("%")) {
-                    value = value.replaceAll("%", "\\\\%");
-                }
-            }
-            valuefilter.append(partitionKey).append("=").append(value).append("/");
-        }
-        // add ".*" to the regex to match anything else afterwards the partial spec.
-        if (values.size() < partitionKeys.size()) {
-            likeFilter = true;
-            valuefilter.append("%");
-            valuefilter.append("/");
-        }
-        StoreSqlConvertor sqlConvertor = StoreSqlConvertor.get().equals("set_id", curSetId);
-        if (likeFilter) {
-            sqlConvertor.AND().likeSpec("partition_name", valuefilter.deleteCharAt(valuefilter.length() - 1).toString());
-        } else {
-            sqlConvertor.AND().equals("partition_name", valuefilter.deleteCharAt(valuefilter.length() - 1).toString());
-        }
-        /*
-        final StringBuilder filter = new StringBuilder("");
-        final List<String> wheres = new ArrayList<>();
-        for (int i = 0; i < partitionKeys.size(); i++) {
-            String partitionKey = partitionKeys.get(i);
-            filter.append(String.format("INNER JOIN schema_%s.table_partition_column_info_%s filter_%s "
-                    + "ON filter_%s.partition_id = p.partition_id AND filter_%s.name='%s' ",
-                tableIdent.getProjectId(),tableIdent.getTableId(), partitionKey, partitionKey, partitionKey, partitionKey));
-            String value = values.get(i);
-            if (StringUtils.isNotEmpty(value)) {
-                wheres.add(String.format("filter_%s.value = '%s'", partitionKey, value));
-            } else {
-                wheres.add("1=1");
-            }
-        }
-        filter.append(" WHERE ");
-        final String whereStr = String.join(" AND ", wheres);
-        filter.append(whereStr);
-        final List<PartitionInfo> tablePartitionInfos = tableDataMapper
-            .getTablePartitionInfoByFilter(tableIdent.getProjectId(), tableIdent.getTableId(), curSetId, filter.toString(),
-                maxParts);*/
+        StoreSqlConvertor sqlConvertor = StoreSqlConvertor.get();
+        setFilterForPartitionKeyValue(sqlConvertor, partitionKeys, values, true);
+
         log.info("sqlConvertor.getFilterSql(): {}", sqlConvertor.getFilterSql());
         List<PartitionInfo> tablePartitionInfos = tableDataMapper
-                .getTablePartitionInfoBySqlFilter(tableIdent.getProjectId(), tableIdent.getTableId(), sqlConvertor.getFilterSql(),
+                .getTablePartitionInfoByFilter(tableIdent.getProjectId(), tableIdent.getTableId(), curSetId, sqlConvertor.getFilterSql(true),
                         maxParts);
         if (tablePartitionInfos.size() > 0) {
             return tablePartitionInfos.stream().map(TableStoreConvertor::convertToPartitionObject).collect(toList());
@@ -354,6 +346,52 @@ public class TableDataStoreImpl implements TableDataStore {
             return Collections.emptyList();
         }
 
+    }
+
+    /**
+     *
+     * @param sqlConvertor
+     * @param partitionKeys
+     * @param values
+     * @param wildcard Whether the value supports wildcarding
+     */
+    private void setFilterForPartitionKeyValue(StoreSqlConvertor sqlConvertor,
+            List<String> partitionKeys, List<String> values, boolean wildcard) {
+        if (CollectionUtils.isEmpty(partitionKeys) || CollectionUtils.isEmpty(values)) {
+            return;
+        }
+        List<String> subListCols = partitionKeys.subList(0, values.size());
+        StringBuilder valueFilter = new StringBuilder("");
+        String partitionKey;
+        String value;
+        boolean likeFilter = false;
+        for (int i = 0; i < subListCols.size(); i++) {
+            partitionKey = subListCols.get(i);
+            value = values.get(i);
+            if (StringUtils.isEmpty(value)) {
+                value = SQLUtil.OPERATOR_LIKE;
+                likeFilter = true;
+            } else {
+                if (wildcard && value.contains(SQLUtil.HIVE_WILDCARD_IDENTIFIER)) {
+                    value = SQLUtil.likeEscapeForHive(value);
+                    likeFilter = true;
+                } else {
+                    value = SQLUtil.likeEscapeForHive(value);
+                }
+            }
+            valueFilter.append(partitionKey).append("=").append(value).append("/");
+        }
+        // add ".*" to the regex to match anything else afterwards the partial spec.
+        if (values.size() < partitionKeys.size()) {
+            likeFilter = true;
+            valueFilter.append(SQLUtil.OPERATOR_LIKE);
+            valueFilter.append("/");
+        }
+        if (likeFilter) {
+            sqlConvertor.AND().likeSpec("partition_name", valueFilter.deleteCharAt(valueFilter.length() - 1).toString());
+        } else {
+            sqlConvertor.AND().equals("partition_name", valueFilter.deleteCharAt(valueFilter.length() - 1).toString());
+        }
     }
 
     @Override
@@ -394,6 +432,7 @@ public class TableDataStoreImpl implements TableDataStore {
                 Map<String, String> partitionKV = PartitionUtil.convertNameToKvMap(partitionObject.getName());
                 PartitionColumnInfo partitionColumnInfo;
                 for (ColumnObject columnObject : partitionKeys) {
+                    // TODO Ordinal Temporary filling
                     partitionColumnInfo = TableStoreConvertor
                             .getPartitionColumnInfo(columnObject);
                     partitionColumnInfo.setId(UuidUtil.generateUUID32());
@@ -500,6 +539,232 @@ public class TableDataStoreImpl implements TableDataStore {
     @Override
     public boolean doesPartitionExists(TransactionContext context, TableIdent tableIdent, String partitionName) {
         return tableDataMapper.tablePartitionNameExist(tableIdent.getProjectId(), tableIdent.getTableId(), partitionName);
+    }
+
+    @Override
+    public void createColumnStatisticsSubspace(TransactionContext context, String projectId) {
+        statisticsMapper.createColumnStatisticsSubspace(projectId);
+    }
+
+    @Override
+    public List<ColumnStatisticsObject> getTableColumnStatistics(TransactionContext context, String projectId,
+            TableName tableName, List<String> colNames) {
+        if (CollectionUtils.isEmpty(colNames)) {
+            return Lists.newArrayList();
+        }
+        StoreSqlConvertor sqlConvertor = getTableColumnStatisticsFilterConvertor(tableName);
+        String filterSql = sqlConvertor.AND()
+                .in(Fields.columnName, colNames).getFilterSql();
+        List<ColumnStatisticsRecord> tableColumnStatistics = statisticsMapper.getTableColumnStatistics(projectId,
+                filterSql);
+        return tableColumnStatistics.stream().map(this::convertColumnStatisticsData).collect(toList());
+    }
+
+    private StoreSqlConvertor getTableColumnStatisticsFilterConvertor(TableName tableName) {
+        if (tableName == null) {
+            return StoreSqlConvertor.get();
+        }
+        return StoreSqlConvertor.get().equals(Fields.catalogName, tableName.getCatalogName()).AND()
+                .equals(Fields.databaseName, tableName.getDatabaseName()).AND()
+                .equals(Fields.tableName, tableName.getTableName());
+    }
+
+    @Override
+    public void updateTableColumnStatistics(TransactionContext context, String projectId,
+            List<ColumnStatisticsObject> columnStatisticsObjects) {
+        if (CollectionUtils.isNotEmpty(columnStatisticsObjects)) {
+            statisticsMapper.updateTableColumnStatistics(projectId, columnStatisticsObjects.stream().map(this::convertColumnStatisticsRecord).collect(toList()));
+        }
+    }
+
+    @Override
+    public void deleteTableColumnStatistics(TransactionContext context, TableName tableName, String colName) {
+        StoreSqlConvertor sqlConvertor = getTableColumnStatisticsFilterConvertor(tableName);
+        if (colName != null) {
+            sqlConvertor.AND().equals(Fields.columnName, colName);
+        }
+        statisticsMapper.deleteTableColumnStatistics(tableName.getProjectId(), sqlConvertor.getFilterSql());
+    }
+
+    @Override
+    public List<ColumnStatisticsObject> getPartitionColumnStatistics(TransactionContext context,
+            TableName tableName, List<String> partNames, List<String> colNames) {
+        PartitionColumnStatisticsTableMetaRecord partitionStatisticsTableMeta = statisticsMapper.getPartitionStatisticsTableMeta(
+                tableName.getProjectId(), getTableColumnStatisticsFilterConvertor(tableName).getFilterSql());
+        if (partitionStatisticsTableMeta == null) {
+            return Lists.newArrayList();
+        }
+        List<ColumnStatisticsRecord> list = statisticsMapper.getPartitionColumnStatistics(tableName.getProjectId(),
+                partitionStatisticsTableMeta.getTableMetaName(),
+                StoreSqlConvertor.get().in(Fields.columnName, colNames).AND().in(Fields.partitionName, partNames).getFilterSql());
+        return list.stream().map(this::convertColumnStatisticsData).peek(x -> {
+            x.setCatalogName(tableName.getCatalogName());
+            x.setDatabaseName(tableName.getDatabaseName());
+            x.setTableName(tableName.getTableName());
+        }).collect(toList());
+    }
+
+    @Override
+    public void updatePartitionColumnStatistics(TransactionContext context, TableName tableName,
+            List<ColumnStatisticsObject> columnStatisticsObjects) {
+        if (CollectionUtils.isNotEmpty(columnStatisticsObjects)) {
+            StoreSqlConvertor sqlConvertor = getTableColumnStatisticsFilterConvertor(tableName);
+            PartitionColumnStatisticsTableMetaRecord statTableMeta = statisticsMapper.getPartitionStatisticsTableMeta(
+                    tableName.getProjectId(), sqlConvertor.getFilterSql());
+            if (statTableMeta == null) {
+                String pscTableName = STAT_PARTITION_META_PREFIX + UuidUtil.generateUUID32();
+                statisticsMapper.createPartitionStatisticsTable(tableName.getProjectId(), pscTableName);
+                statTableMeta = getPcsTableMetaRecord(pscTableName, columnStatisticsObjects.get(0).getTableId(), tableName);
+                statisticsMapper.updatePartitionStatisticsTableMeta(tableName.getProjectId(), statTableMeta);
+            }
+            statisticsMapper.updatePartitionColumnStatistics(tableName.getProjectId(), statTableMeta.getTableMetaName(), columnStatisticsObjects.stream().map(this::convertColumnStatisticsRecord).collect(toList()));
+        }
+
+    }
+
+    private PartitionColumnStatisticsTableMetaRecord getPcsTableMetaRecord(String pscTableName,
+            String tableId, TableName tableName) {
+        return new PartitionColumnStatisticsTableMetaRecord(
+                UuidUtil.generateUUID32(),
+                tableId,
+                tableName.getCatalogName(),
+                tableName.getDatabaseName(),
+                tableName.getTableName(),
+                pscTableName,
+                System.currentTimeMillis()
+        );
+    }
+
+    @Override
+    public void deletePartitionColumnStatistics(TransactionContext context, TableName tableName,
+            String partName, String columnName) {
+        PartitionColumnStatisticsTableMetaRecord statTableMeta = statisticsMapper.getPartitionStatisticsTableMeta(
+                tableName.getProjectId(), getTableColumnStatisticsFilterConvertor(tableName).getFilterSql());
+        if (statTableMeta != null) {
+            StoreSqlConvertor statSqlConvertor = StoreSqlConvertor.get().equals(Fields.partitionName, partName);
+            if (columnName != null) {
+                statSqlConvertor.AND().equals(Fields.columnName, columnName);
+            }
+            statisticsMapper.deletePartitionColumnStatistics(tableName.getProjectId(), statTableMeta.getTableMetaName(), statSqlConvertor.getFilterSql());
+        }
+    }
+
+    @Override
+    public long getFoundPartNums(TransactionContext context, TableName tableName,
+            List<String> partNames, List<String> colNames) {
+        PartitionColumnStatisticsTableMetaRecord partitionStatisticsTableMeta = statisticsMapper.getPartitionStatisticsTableMeta(
+                tableName.getProjectId(), getTableColumnStatisticsFilterConvertor(tableName).getFilterSql());
+        if (partitionStatisticsTableMeta == null) {
+            return 0;
+        }
+        List<Long> allPartCounts = statisticsMapper.getFoundPartNums(tableName.getProjectId(), partitionStatisticsTableMeta.getTableMetaName(), StoreSqlConvertor.get().in(Fields.columnName, colNames).AND().in(Fields.partitionName, partNames).getFilterSql());
+        long foundPartNums = 0;
+        for (Long val : allPartCounts) {
+            foundPartNums += val;
+        }
+        return foundPartNums;
+    }
+
+    @Override
+    public List<ColumnStatisticsAggrObject> getAggrColStatsFor(TransactionContext context, TableName tableName,
+            List<String> partNames, List<String> colNames) {
+        PartitionColumnStatisticsTableMetaRecord partitionStatisticsTableMeta = statisticsMapper.getPartitionStatisticsTableMeta(
+                tableName.getProjectId(), getTableColumnStatisticsFilterConvertor(tableName).getFilterSql());
+        if (partitionStatisticsTableMeta == null) {
+            return Lists.newArrayList();
+        }
+        List<ColumnStatisticsAggrRecord> aggrRecordList = statisticsMapper.getAggrColStatsFor(tableName.getProjectId(), partitionStatisticsTableMeta.getTableMetaName(), StoreSqlConvertor.get().in(Fields.columnName, colNames).AND().in(Fields.partitionName, partNames).getFilterSql());
+        return aggrRecordList.stream().map(this::convertColumnStatisticsAggrObject).collect(toList());
+    }
+
+    private ColumnStatisticsAggrObject convertColumnStatisticsAggrObject(ColumnStatisticsAggrRecord aggrRecord) {
+        if (aggrRecord == null) {
+            return null;
+        }
+        return new ColumnStatisticsAggrObject(
+                aggrRecord.getColumnName(),
+                aggrRecord.getColumnType(),
+                aggrRecord.getLongLowValue(),
+                aggrRecord.getLongHighValue(),
+                aggrRecord.getEstimationLongNumDistincts(),
+                aggrRecord.getDoubleLowValue(),
+                aggrRecord.getDoubleHighValue(),
+                aggrRecord.getEstimationDoubleNumDistincts(),
+                aggrRecord.getDecimalLowValue(),
+                aggrRecord.getDecimalHighValue(),
+                aggrRecord.getEstimationDecimalNumDistincts(),
+                aggrRecord.getNumNulls(),
+                aggrRecord.getLowerNumDistincts(),
+                aggrRecord.getHigherNumDistincts(),
+                aggrRecord.getAvgColLen(),
+                aggrRecord.getMaxColLen(),
+                aggrRecord.getNumTrues(),
+                aggrRecord.getNumFalses()
+        );
+    }
+
+    private ColumnStatisticsRecord convertColumnStatisticsRecord(ColumnStatisticsObject stat) {
+        if (stat == null) {
+            return null;
+        }
+        return new ColumnStatisticsRecord(
+                stat.getTcsId(),
+                stat.getTableId(),
+                stat.getCatalogName(),
+                stat.getDatabaseName(),
+                stat.getTableName(),
+                stat.getColumnName(),
+                stat.getColumnType(),
+                stat.getLongLowValue(),
+                stat.getLongHighValue(),
+                stat.getDoubleLowValue(),
+                stat.getDoubleHighValue(),
+                stat.getDecimalLowValue(),
+                stat.getDecimalHighValue(),
+                stat.getNumNulls(),
+                stat.getNumDistincts(),
+                stat.getBitVector(),
+                stat.getAvgColLen(),
+                stat.getMaxColLen(),
+                stat.getNumTrues(),
+                stat.getNumFalses(),
+                stat.getLastAnalyzed(),
+                stat.getPcsId(),
+                stat.getPartitionName(),
+                stat.getPartitionId()
+        );
+    }
+
+    private ColumnStatisticsObject convertColumnStatisticsData(ColumnStatisticsRecord record) {
+        if (record == null) {
+            return null;
+        }
+        return new ColumnStatisticsObject(
+                record.getTcsId(),
+                record.getTableId(),
+                record.getCatalogName(),
+                record.getDatabaseName(),
+                record.getTableName(),
+                record.getColumnName(),
+                record.getColumnType(),
+                record.getLongLowValue(),
+                record.getLongHighValue(),
+                record.getDoubleLowValue(),
+                record.getDoubleHighValue(),
+                record.getDecimalLowValue(),
+                record.getDecimalHighValue(),
+                record.getNumNulls(),
+                record.getNumDistincts(),
+                record.getBitVector(),
+                record.getAvgColLen(),
+                record.getMaxColLen(),
+                record.getNumTrues(),
+                record.getNumFalses(),
+                record.getLastAnalyzed(),
+                record.getPcsId(),
+                record.getPartitionName(),
+                record.getPartitionId()
+        );
     }
 
     @Override

@@ -22,13 +22,13 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
-      <artifactId>polycat-parent</artifactId>
-      <groupId>io.polycat</groupId>
-      <version>0.1-SNAPSHOT</version>
+    <artifactId>polycat-parent</artifactId>
+    <groupId>io.polycat</groupId>
+    <version>0.1-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>polycat-assembly</artifactId>
+  <artifactId>polycat-assembly</artifactId>
   <packaging>pom</packaging>
 
   <properties>
@@ -58,10 +58,57 @@
                   <goal>single</goal>
                 </goals>
                 <configuration>
-                    <finalName>polycat-catalog</finalName>
+                  <finalName>polycat-catalog</finalName>
                   <descriptors>
                     <!-- 描述文件路径 -->
                     <descriptor>catalog-assembly.xml</descriptor>
+                  </descriptors>
+                </configuration>
+              </execution>
+
+              <execution>
+                <!--名字任意 -->
+                <id>make-distribution-gateway-server</id>
+                <!-- 绑定到package生命周期阶段上 -->
+                <phase>package</phase>
+                <goals>
+                  <!-- 只运行一次 -->
+                  <goal>single</goal>
+                </goals>
+              </execution>
+
+              <execution>
+                <!--名字任意 -->
+                <id>make-distribution-gateway-client</id>
+                <!-- 绑定到package生命周期阶段上 -->
+                <phase>package</phase>
+                <goals>
+                  <!-- 只运行一次 -->
+                  <goal>single</goal>
+                </goals>
+                <configuration>
+                  <finalName>polycat-gateway-client</finalName>
+                  <descriptors>
+                    <!-- 描述文件路径 -->
+                    <descriptor>gateway-client-assembly.xml</descriptor>
+                  </descriptors>
+                </configuration>
+              </execution>
+
+              <execution>
+                <!--名字任意 -->
+                <id>make-distribution-mv-rewrite</id>
+                <!-- 绑定到package生命周期阶段上 -->
+                <phase>package</phase>
+                <goals>
+                  <!-- 只运行一次 -->
+                  <goal>single</goal>
+                </goals>
+                <configuration>
+                  <finalName>polycat-mv-rewrite</finalName>
+                  <descriptors>
+                    <!-- 描述文件路径 -->
+                    <descriptor>mv-rewrite-assembly.xml</descriptor>
                   </descriptors>
                 </configuration>
               </execution>
@@ -113,7 +160,7 @@
             <goal>single</goal>
           </goals>
           <configuration>
-              <finalName>polycat-catalog-with-thirdpart</finalName>
+            <finalName>polycat-catalog-with-thirdpart</finalName>
             <descriptors>
               <!-- 描述文件路径 -->
               <descriptor>catalog-assembly-with-myperf4j.xml</descriptor>

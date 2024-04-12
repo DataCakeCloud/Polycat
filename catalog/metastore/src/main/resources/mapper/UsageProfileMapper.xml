@@ -30,12 +30,15 @@
         table_name VARCHAR(255) NOT NULL,
         table_id VARCHAR(64) NOT NULL,
         create_day_time BIGINT NOT NULL,
-        op_type VARCHAR(64) NOT NULL,
+        op_type VARCHAR(64) DEFAULT NULL,
+        origin_op_type VARCHAR(64) DEFAULT NULL,
         count BIGINT NOT NULL,
         user_id VARCHAR(128) DEFAULT NULL,
+        user_group VARCHAR(128) DEFAULT NULL,
         task_id VARCHAR(255) DEFAULT NULL,
         tag VARCHAR(255) DEFAULT NULL,
-        create_time BIGINT NOT NULL
+        create_time BIGINT NOT NULL,
+        statement text DEFAULT NULL
         );
     </update>
 
@@ -49,7 +52,8 @@
         table_name VARCHAR(255) NOT NULL,
         table_id VARCHAR(64) NOT NULL,
         create_day_time BIGINT NOT NULL,
-        op_type VARCHAR(64) NOT NULL,
+        op_type VARCHAR(64) DEFAULT NULL,
+        origin_op_type VARCHAR(64) DEFAULT NULL,
         sum_count BIGINT NOT NULL,
         start_time BIGINT NOT NULL,
         end_time BIGINT NOT NULL
@@ -66,7 +70,8 @@
         table_name VARCHAR(255) NOT NULL,
         table_id VARCHAR(64) NOT NULL,
         create_day_time BIGINT NOT NULL,
-        op_type VARCHAR(64) NOT NULL,
+        op_type VARCHAR(64) DEFAULT NULL,
+        origin_op_type VARCHAR(64) DEFAULT NULL,
         sum_count BIGINT NOT NULL,
         user_id VARCHAR(128) DEFAULT NULL,
         start_time BIGINT NOT NULL,
@@ -76,23 +81,43 @@
         ON schema_${projectId}.table_usage_profile_access_stat(catalog_name, database_name, table_name);
     </update>
 
+    <update id="createViewTableProfileHotStatSubspace">
+        DROP VIEW IF EXISTS schema_${projectId}.mv_table_profile_hotstat;
+        CREATE VIEW schema_${projectId}.mv_table_profile_hotstat
+        AS
+        select
+            concat(catalog_name, '.', database_name, '.', table_name) as qualified_name,
+            sum(sum_count) sum_count,
+            max(end_time) last_access_time
+        from schema_${projectId}.table_usage_profile_prestat
+        where create_day_time>=(floor(extract(epoch from now())*1000)-cast('${millisecond}' as bigint))
+        group by catalog_name, database_name, table_name;
+    </update>
+
     <insert id="insertUsageProfileDetail">
-        INSERT INTO schema_${projectId}.table_usage_profile_detail
+        INSERT INTO schema_${projectId}.table_usage_profile_detail(id, catalog_name, database_name, table_name, table_id,
+        create_day_time, op_type, origin_op_type, count, user_id, user_group, task_id, tag, create_time, statement)
         VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId},
-        #{data.createDayTime}, #{data.opType}, #{data.count}, #{data.userId}, #{data.taskId}, #{data.tag},
-        #{data.createTime})
+        #{data.createDayTime}, #{data.opType}, #{data.originOpType}, #{data.count}, #{data.userId}, #{data.userGroup}, #{data.taskId}, #{data.tag},
+        #{data.createTime},  #{data.statement} )
     </insert>
 
     <select id="getUsageProfilePreStat" resultType="io.polycat.catalog.common.model.UsageProfilePrePreStatObject">
         SELECT * FROM schema_${projectId}.table_usage_profile_prestat WHERE catalog_name = #{data.catalogName} AND
         database_name = #{data.databaseName} AND table_name = #{data.tableName} AND
-        create_day_time = #{data.createDayTime} AND op_type = #{data.opType}
+        create_day_time = #{data.createDayTime}
+        <if test="data.opType !=null ">
+            AND op_type = #{data.opType}
+        </if>
+        <if test="data.originOpType !=null ">
+            AND origin_op_type = #{data.originOpType}
+        </if>
     </select>
 
     <insert id="insertUsageProfilePreStat">
-        INSERT INTO schema_${projectId}.table_usage_profile_prestat
+        INSERT INTO schema_${projectId}.table_usage_profile_prestat(id, catalog_name, database_name, table_name, table_id, create_day_time, op_type, sum_count, start_time, end_time, origin_op_type)
         VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId},
-        #{data.createDayTime}, #{data.opType}, #{data.sumCount}, #{data.startTime}, #{data.endTime})
+        #{data.createDayTime}, #{data.opType}, #{data.sumCount}, #{data.startTime}, #{data.endTime}, #{data.originOpType})
     </insert>
 
     <update id="updateUsageProfilePreStat">
@@ -103,13 +128,21 @@
     <select id="getUsageProfileAccessStat" resultType="io.polycat.catalog.common.model.UsageProfileAccessStatObject">
         SELECT * FROM schema_${projectId}.table_usage_profile_access_stat WHERE catalog_name = #{data.catalogName} AND
         database_name = #{data.databaseName} AND table_name = #{data.tableName} AND create_day_time = #{data.createDayTime}
-        AND user_id = #{data.userId} AND op_type = #{data.opType} LIMIT 1
+        AND user_id = #{data.userId}
+        <if test="data.opType !=null ">
+            AND op_type = #{data.opType}
+        </if>
+        <if test="data.originOpType !=null ">
+            AND origin_op_type = #{data.originOpType}
+        </if>
+        LIMIT 1
     </select>
 
     <insert id="insertUsageProfileAccessStat">
-        INSERT INTO schema_${projectId}.table_usage_profile_access_stat
-        VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId}, #{data.createDayTime}, #{data.opType},
-        #{data.sumCount}, #{data.userId}, #{data.startTime}, #{data.endTime})
+        INSERT INTO schema_${projectId}.table_usage_profile_access_stat(id, catalog_name, database_name, table_name, table_id, create_day_time,
+        op_type, sum_count, user_id, start_time, end_time, origin_op_type)
+        VALUES (#{data.id}, #{data.catalogName}, #{data.databaseName}, #{data.tableName}, #{data.tableId}, #{data.createDayTime},
+        #{data.opType}, #{data.sumCount}, #{data.userId}, #{data.startTime}, #{data.endTime}, #{data.originOpType})
     </insert>
 
     <update id="updateUsageProfileAccessStat">
@@ -143,5 +176,8 @@
         SELECT * FROM schema_${projectId}.table_usage_profile_detail
         WHERE ${filter}
         ORDER BY create_time DESC LIMIT #{rowCount}
+        <if test="offset > 0 ">
+            OFFSET #{offset}
+        </if>
     </select>
 </mapper>

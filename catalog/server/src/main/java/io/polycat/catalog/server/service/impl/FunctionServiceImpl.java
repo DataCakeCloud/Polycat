@@ -18,27 +18,26 @@
 package io.polycat.catalog.server.service.impl;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
+import io.polycat.catalog.server.util.TransactionFrameRunner;
+import io.polycat.catalog.server.util.TransactionRunner;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.plugin.request.input.FunctionInput;
 import io.polycat.catalog.common.utils.CatalogStringUtils;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.server.util.TransactionFrameRunner;
-import io.polycat.catalog.server.util.TransactionRunner;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.service.api.FunctionService;
 import io.polycat.catalog.store.api.*;
 import io.polycat.catalog.store.common.StoreConvertor;
 import io.polycat.catalog.store.common.StoreTypeConvertor;
-import io.polycat.catalog.store.common.StoreValidator;
 import io.polycat.catalog.util.CheckUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -203,7 +202,11 @@ public class FunctionServiceImpl implements FunctionService {
                                                          FunctionObject functionObject) {
         FunctionInput funcIn = new FunctionInput();
         funcIn.setCatalogName(catalogName);
-        funcIn.setDatabaseName(databaseName);
+        if (StringUtils.isNotEmpty(functionObject.getDatabaseName())) {
+            funcIn.setDatabaseName(functionObject.getDatabaseName());
+        } else {
+            funcIn.setDatabaseName(databaseName);
+        }
         funcIn.setFunctionName(functionObject.getFunctionName());
         funcIn.setClassName(functionObject.getClassName());
         funcIn.setOwner(functionObject.getOwnerName());
@@ -233,6 +236,13 @@ public class FunctionServiceImpl implements FunctionService {
 
     @Override
     public List<FunctionInput> getAllFunctions(String projectId, String catalogName) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getAllFunctions");
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            final List<FunctionObject> functionObjects = functionStore
+                .listAllFunctions(context, CatalogObjectHelper.getCatalogIdent(context,
+                    StoreConvertor.catalogName(projectId, catalogName)));
+            return functionObjects.stream().map(functionObject ->
+                convertorToFunctionInput(catalogName, null, functionObject))
+                .collect(Collectors.toList());
+        }).getResult();
     }
 }

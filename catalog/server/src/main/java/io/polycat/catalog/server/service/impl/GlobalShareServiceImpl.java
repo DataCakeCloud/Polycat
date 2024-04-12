@@ -54,7 +54,6 @@ import io.polycat.catalog.common.plugin.request.input.ShareInput;
 import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.service.api.GlobalShareService;
 import io.polycat.catalog.store.api.*;
-import io.polycat.catalog.store.common.StoreConvertor;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 import io.polycat.catalog.util.CheckUtil;
 
@@ -62,7 +61,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Service;
 
 @Configuration
 @ConditionalOnProperty(name = "metastore.type", havingValue = "polyCat")

@@ -21,7 +21,8 @@ import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.TableSource;
 import io.polycat.catalog.common.model.TableUsageProfile;
 import io.polycat.catalog.common.plugin.request.UsageProfileOpType;
-import io.polycat.probe.EventProcessor;
+import io.polycat.probe.PolyCatClientUtil;
+import io.polycat.probe.ProbeConstants;
 import io.polycat.probe.UsageProfileExtracter;
 import io.polycat.probe.model.CatalogOperationObject;
 import io.polycat.probe.spark.parser.SparkPlanParserHelper;
@@ -32,34 +33,34 @@ import java.math.BigInteger;
 import java.util.*;
 
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hadoop.conf.Configuration;
 
 public class SparkUsageProfileExtracter implements UsageProfileExtracter<QueryExecution> {
-    private static final Logger LOG = LoggerFactory.getLogger(EventProcessor.class);
-
+    private Configuration conf;
+    private String command;
     private String catalogName;
 
-    public SparkUsageProfileExtracter(String catalogName) {
-        this.catalogName = catalogName;
+    public SparkUsageProfileExtracter(Configuration conf, String command) {
+        this.conf = conf;
+        this.command = command;
+        this.catalogName = conf.get(ProbeConstants.POLYCAT_CATALOG);
     }
 
     @Override
     public List<TableUsageProfile> extractTableUsageProfile(QueryExecution queryExecution) {
         List<TableUsageProfile> tableUsageProfiles = new ArrayList<>();
-        SparkPlanParserHelper sparkPlanParserHelper = new SparkPlanParserHelper("", catalogName);
+        Pair<String, String> projectIdAndUserName = PolyCatClientUtil.getProjectIdAndUserName(conf);
+        String userName = projectIdAndUserName.getRight();
+        String projectId = projectIdAndUserName.getLeft();
+        String taskId = conf.get(ProbeConstants.CATALOG_PROBE_TASK_ID, "");
+        String userGroup = conf.get(ProbeConstants.CATALOG_PROBE_USER_GROUP, userName);
         Set<CatalogOperationObject> catalogOperationObjects =
-                sparkPlanParserHelper.parsePlan(queryExecution.analyzed());
+                new SparkPlanParserHelper(projectId, catalogName)
+                        .parsePlan(queryExecution.analyzed());
 
         for (CatalogOperationObject catalogOperationObject : catalogOperationObjects) {
-            LOG.info(
-                    String.format(
-                            "extract TableUsageProfile catalogOperationObject:%s \n",
-                            catalogOperationObject));
-            if (!(catalogOperationObject.getOperation().equals(Operation.INSERT_TABLE)
-                    || catalogOperationObject.getOperation().equals(Operation.SELECT_TABLE))) {
-                continue;
-            }
+            Operation operation = catalogOperationObject.getOperation();
 
             TableUsageProfile tableUsageProfile = new TableUsageProfile();
             TableSource tableSource = new TableSource();
@@ -67,9 +68,13 @@ public class SparkUsageProfileExtracter implements UsageProfileExtracter<QueryEx
             tableSource.setDatabaseName(
                     catalogOperationObject.getCatalogObject().getDatabaseName());
             tableSource.setCatalogName(catalogName);
-            // todo: fill project id
+            tableSource.setProjectId(projectId);
             tableUsageProfile.setTable(tableSource);
             tableUsageProfile.setSumCount(BigInteger.ONE);
+            tableUsageProfile.setTaskId(taskId);
+            tableUsageProfile.setUserGroup(userGroup);
+            tableUsageProfile.setUserId(userName);
+            tableUsageProfile.setStatement(command);
 
             Calendar calendar = Calendar.getInstance();
             calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -79,11 +84,18 @@ public class SparkUsageProfileExtracter implements UsageProfileExtracter<QueryEx
             tableUsageProfile.setCreateDayTimestamp(calendar.getTimeInMillis());
             tableUsageProfile.setCreateTimestamp(System.currentTimeMillis());
 
-            String opType =
-                    catalogOperationObject.getOperation() == Operation.INSERT_TABLE
-                            ? UsageProfileOpType.WRITE.name()
-                            : UsageProfileOpType.READ.name();
-            tableUsageProfile.setOpTypes(Arrays.asList(opType));
+            switch (operation) {
+                case INSERT_TABLE:
+                    tableUsageProfile.setOpTypes(
+                            Collections.singletonList(UsageProfileOpType.WRITE.name()));
+                    break;
+                case SELECT_TABLE:
+                    tableUsageProfile.setOpTypes(
+                            Collections.singletonList(UsageProfileOpType.READ.name()));
+                    break;
+                default:
+                    tableUsageProfile.setOriginOpTypes(Collections.singletonList(operation.name()));
+            }
             tableUsageProfiles.add(tableUsageProfile);
         }
         return tableUsageProfiles;

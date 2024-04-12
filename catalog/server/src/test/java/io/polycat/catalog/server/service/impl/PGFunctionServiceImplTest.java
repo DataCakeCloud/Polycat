@@ -17,12 +17,9 @@
  */
 package io.polycat.catalog.server.service.impl;
 
-import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.plugin.request.input.FunctionInput;
 import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
 import io.polycat.catalog.service.api.FunctionService;
-import io.polycat.catalog.store.api.FunctionStore;
-import io.polycat.catalog.store.api.Transaction;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

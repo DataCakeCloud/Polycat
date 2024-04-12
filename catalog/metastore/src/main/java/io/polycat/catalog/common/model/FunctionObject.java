@@ -21,11 +21,16 @@ import java.util.List;
 
 import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class FunctionObject {
     private String functionName;
+    private String databaseName;
     private String className;
     private String ownerName;
     private String ownerType;
@@ -44,16 +49,4 @@ public class FunctionObject {
         this.resourceUriObjectList = resourceUriObjectList;
     }
 
-    public FunctionObject(String functionName, String className, String ownerName, String ownerType,
-                          String functionType, long createTime) {
-        this.functionName = functionName;
-        this.className = className;
-        this.ownerName = ownerName;
-        this.ownerType = ownerType;
-        this.functionType = functionType;
-        this.createTime = createTime;
-    }
-
-    public FunctionObject() {
-    }
 }

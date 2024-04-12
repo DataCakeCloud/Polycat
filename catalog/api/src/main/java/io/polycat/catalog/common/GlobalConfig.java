@@ -244,7 +244,7 @@ public class GlobalConfig {
     public static final Item<String> WAREHOUSE =
         Item.newStringItem(
             "catalog.sql.warehouse.dir",
-            "",
+            "file:/tmp/hive/warehouse",
             "warehouse path");
 
     public static final Item<Integer> USAGE_PROFILE_COLLECT_CYCLE = Item
@@ -328,7 +328,7 @@ public class GlobalConfig {
         try {
             for (Field field : fields) {
                 field.setAccessible(true);
-                if (field.getType().toString().contains("io.polycat.catalog.common.GlobalConfig$Item")
+                if (field.getType().toString().contains("GlobalConfig$Item")
                     && Modifier.isStatic(field.getModifiers())) {
                     Item<?> item = (Item<?>) field.get(null);
                     CONF.put(item.name, item);

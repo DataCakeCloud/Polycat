@@ -17,74 +17,57 @@
  */
 package io.polycat.probe.trino;
 
+import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.TableUsageProfile;
 import io.polycat.catalog.common.plugin.request.input.AuthorizationInput;
-import io.polycat.probe.UsageProfileExtracter;
 import io.polycat.probe.model.SqlInfo;
 import io.polycat.probe.parser.ParserInterface;
 
-import io.trino.sql.parser.ParsingOptions;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.Statement;
-
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TrinoSqlInfoParser implements ParserInterface {
     private static final Logger LOG = LoggerFactory.getLogger(TrinoSqlInfoParser.class);
+    private static final String TRINO_DEFAULT_DB_NAME_CONFIG = "trino.sql.default.dbName";
 
     private final Configuration configuration;
+    private String defaultDbName;
 
     public TrinoSqlInfoParser(Configuration conf) {
         this.configuration = conf;
+        this.defaultDbName =
+                StringUtils.isEmpty(configuration.get(TRINO_DEFAULT_DB_NAME_CONFIG))
+                        ? "default"
+                        : configuration.get(TRINO_DEFAULT_DB_NAME_CONFIG);
     }
 
     @Override
     public SqlInfo parse(String sqlText, String defaultCatalog) throws Exception {
-        SqlParser sqlParser = new SqlParser();
         SqlInfo sqlInfo = new SqlInfo();
         sqlInfo.setCatalog(defaultCatalog);
-        Statement statement = null;
-        try {
-            statement = sqlParser.createStatement(sqlText, new ParsingOptions(AS_DECIMAL));
-        } catch (Exception e) {
-            LOG.error(
-                    "the trino sql syntax verification failed, please check the sql statement!", e);
-            throw e;
-        }
-        TrinoTableAuthorization trinoTableAuthorization =
-                new TrinoTableAuthorization(configuration, defaultCatalog);
+        Map<Operation, Set<String>> operationAndTablesName =
+                new TrinoSqlParserHelper().parseSqlGetOperationObjects(sqlText);
+        // auth
         List<AuthorizationInput> authorizationInputs =
-                trinoTableAuthorization.parseSqlAndCheckAuthorization(statement);
+                new TrinoTableAuthorization(configuration, defaultCatalog, defaultDbName)
+                        .parseSqlAndCheckAuthorization(operationAndTablesName);
         if (!authorizationInputs.isEmpty()) {
             sqlInfo.setPermit(false);
             sqlInfo.setAuthorizationNowAllowList(authorizationInputs);
         }
-
-        UsageProfileExtracter<Statement> trinoUsageProfileExtracter =
-                new TrinoUsageProfileExtracter(defaultCatalog);
+        // set tableUsageProfiles
         List<TableUsageProfile> tableUsageProfiles =
-                trinoUsageProfileExtracter.extractTableUsageProfile(statement);
+                new TrinoUsageProfileExtracter(
+                                configuration, defaultCatalog, defaultDbName, sqlText)
+                        .extractTableUsageProfile(operationAndTablesName);
         sqlInfo.setTableUsageProfiles(tableUsageProfiles);
-
         return sqlInfo;
-    }
-
-    @Deprecated
-    public Map<String, String> parseSqlAndCheckLocationPermission(
-            String sqlText, String defaultCatalog) {
-        SqlParser sqlParser = new SqlParser();
-        Statement statement = sqlParser.createStatement(sqlText, new ParsingOptions(AS_DECIMAL));
-        TrinoTableAuthorization trinoTableAuthorization =
-                new TrinoTableAuthorization(configuration, defaultCatalog);
-        Map<String, String> unauthorizedTable =
-                trinoTableAuthorization.parseSqlAndCheckLocationPermission(statement);
-        return unauthorizedTable;
     }
 }

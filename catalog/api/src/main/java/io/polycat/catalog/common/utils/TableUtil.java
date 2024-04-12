@@ -17,8 +17,15 @@
  */
 package io.polycat.catalog.common.utils;
 
+import com.google.common.collect.Maps;
 import io.polycat.catalog.common.Constants;
+import io.polycat.catalog.common.exception.CatalogException;
+import io.polycat.catalog.common.model.Column;
+import io.polycat.catalog.common.model.Table;
+import io.polycat.catalog.common.model.stats.ColumnStatisticsObj;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hive.common.util.HiveStringUtils;
 
@@ -31,6 +38,43 @@ import java.util.regex.Pattern;
 import static java.util.stream.Collectors.toList;
 
 public class TableUtil {
+
+    /**
+     * The current partition level and table level only perform verification of table level fields
+     * @param table
+     * @param colNames
+     */
+    public static void validateTableColumns(Table table, List<String> colNames) {
+        List<Column> columns = table.getStorageDescriptor().getColumns();
+        for (String colName : colNames) {
+            boolean foundCol = false;
+            for (Column column : columns) {
+                if (column.getColumnName().equals(colName)) {
+                    foundCol = true;
+                    break;
+                }
+            }
+            if (!foundCol) {
+                throw new CatalogException("Column "+ colName + " not found.");
+            }
+        }
+    }
+
+    public static Map<String, ColumnStatisticsObj> getColumnStatisticsMap(
+            ColumnStatisticsObj[] columnStatistics) {
+        Map<String, ColumnStatisticsObj> tableColumnStatisticsMap = Maps.newHashMap();
+        for (ColumnStatisticsObj statisticsObj: columnStatistics) {
+            tableColumnStatisticsMap.put(statisticsObj.getColName(), statisticsObj);
+        }
+        return tableColumnStatisticsMap;
+    }
+
+    public static List<String> getColNamesFromColumnStatistics(List<ColumnStatisticsObj> statsObjs) {
+        if (statsObjs == null) {
+            return new ArrayList<>();
+        }
+        return statsObjs.stream().map(ColumnStatisticsObj::getColName).collect(Collectors.toList());
+    }
 
     /**
      * assert iceberg table_type via table params.

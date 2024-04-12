@@ -34,6 +34,7 @@ public class UsageProfilePrePreStatObject {
     private String tableId;
     private long createDayTime;
     private String opType;
+    private String originOpType;
     private long sumCount;
     private long startTime;
     private long endTime;

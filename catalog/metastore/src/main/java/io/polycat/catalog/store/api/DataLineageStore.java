@@ -20,12 +20,11 @@ package io.polycat.catalog.store.api;
 import java.util.List;
 
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.DataLineageObject;
-import io.polycat.catalog.common.model.DataSourceType;
+import io.polycat.catalog.common.lineage.ELineageDirection;
+import io.polycat.catalog.common.lineage.ELineageType;
+import io.polycat.catalog.common.model.*;
 
-import io.polycat.catalog.common.model.TransactionContext;
-
-public interface DataLineageStore {
+public interface DataLineageStore extends SubspaceStore  {
 
     void upsertDataLineage(TransactionContext ctx, DataLineageObject dataLineageObject) throws MetaStoreException;
 
@@ -35,4 +34,15 @@ public interface DataLineageStore {
     List<DataLineageObject> listDataLineageByDataSource(TransactionContext ctx, String projectId,
         DataSourceType dataSourceType, String dataSourceContent) throws MetaStoreException;
 
+    List<Integer> upsertLineageVertexAndGet(TransactionContext context, String projectId, List<LineageVertex> vertex);
+
+    void insertLineageEdgeFact(TransactionContext context, String projectId, LineageEdgeFact edgeFact);
+
+    void upsertLineageEdge(TransactionContext context, String projectId, List<LineageEdge> list);
+
+    LineageEdgeFact getLineageEdgeFact(TransactionContext context, String projectId, String jobFactId);
+
+    LineageVertex getLineageVertex(TransactionContext context, String projectId, int dbType, int objectType, String qualifiedName);
+
+    List<LineageEdge> getLineageGraph(TransactionContext context, String projectId, Integer nodeId, int depth, ELineageDirection lineageDirection, ELineageType lineageType, Long startTime);
 }

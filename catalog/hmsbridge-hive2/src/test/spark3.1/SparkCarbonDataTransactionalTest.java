@@ -78,7 +78,7 @@ public class SparkCarbonDataTransactionalTest {
         .config("spark.ui.enabled", "false")
         .config("spark.metrics.staticSources.enabled", "false")
         .config("spark.hadoop.hive.metastore.rawstore.impl",
-            "io.polycat.catalog.hms.hive2.HMSBridgeStore")
+            "HMSBridgeStore")
         .config("spark.hadoop." + CatalogUserInformation.POLYCAT_USER_NAME, userName)
         .config("spark.hadoop." + CatalogUserInformation.POLYCAT_USER_PASSWORD, "dash")
         .config("spark.hadoop." + PolyCatConf.POLYCAT_CONFI_DIR, "../../conf")

@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SDKDDLTableLevelApiTest extends SDKTestUtil {
-    private static final PolyCatClient client = SDKTestUtil.getClient();
+    private static final PolyCatClient client = getClient();
 
     static final String myCatalogName = "sdk_ddl_my_catalog";
     static final String myDatabaseName = "sdk_ddl_my_database";

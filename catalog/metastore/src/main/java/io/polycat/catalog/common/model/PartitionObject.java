@@ -24,16 +24,14 @@ import java.util.List;
 import java.util.Map;
 
 import io.polycat.catalog.common.utils.CodecUtil;
-import io.polycat.catalog.store.protos.common.DataFile;
-import io.polycat.catalog.store.protos.common.FileStats;
 import io.polycat.catalog.store.protos.common.Partition;
-import io.polycat.catalog.store.protos.common.PartitionType;
 import lombok.Data;
 
 import static java.util.stream.Collectors.toList;
 
 @Data
 public class PartitionObject {
+    private String setId = "";
     private String name = "";
     private TablePartitionType type;
     private String partitionId = "";

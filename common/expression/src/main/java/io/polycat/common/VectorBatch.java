@@ -17,13 +17,13 @@
  */
 package io.polycat.common;
 
+import io.polycat.catalog.common.serialization.Writable;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import io.polycat.catalog.common.model.record.Record;
-import io.polycat.catalog.common.serialization.Writable;
 import io.polycat.common.util.ArrowUtil;
 
 import java.io.ByteArrayInputStream;

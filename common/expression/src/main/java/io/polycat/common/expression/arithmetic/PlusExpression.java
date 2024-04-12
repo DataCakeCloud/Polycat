@@ -21,6 +21,10 @@ import java.util.Collections;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import io.polycat.common.expression.interval.IntervalUtils;
+import io.polycat.common.expression.interval.TimeInterval;
+import io.polycat.common.expression.rule.ToExpressionVisitor;
+
 import io.polycat.catalog.common.exception.CarbonSqlException;
 import io.polycat.catalog.common.exception.ErrorItem;
 import io.polycat.catalog.common.model.record.DateWritable;
@@ -35,9 +39,6 @@ import io.polycat.common.expression.Attribute;
 import io.polycat.common.expression.Expression;
 import io.polycat.common.expression.ExpressionUtil;
 import io.polycat.common.expression.NamedExpression;
-import io.polycat.common.expression.interval.IntervalUtils;
-import io.polycat.common.expression.interval.TimeInterval;
-import io.polycat.common.expression.rule.ToExpressionVisitor;
 
 public class PlusExpression extends NamedExpression {
 

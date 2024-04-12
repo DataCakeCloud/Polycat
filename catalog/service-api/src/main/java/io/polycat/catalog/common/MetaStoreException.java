@@ -18,6 +18,8 @@
 package io.polycat.catalog.common;
 
 
+import io.polycat.catalog.common.ErrorCode;
+
 public class MetaStoreException extends RuntimeException {
 
     private ErrorCode errorCode;

@@ -17,12 +17,10 @@
  */
 package io.polycat.catalog.common.plugin.request;
 
-import java.util.UUID;
-
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.plugin.CatalogContext;
 import io.polycat.catalog.common.plugin.request.base.CatalogRequestBase;
 import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
+import io.polycat.catalog.common.plugin.CatalogContext;
 import io.polycat.catalog.common.utils.PathUtil;
 
 import lombok.Data;

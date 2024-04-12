@@ -17,11 +17,11 @@
  */
 package io.polycat.catalog.store.gaussdb;
 
+import io.polycat.catalog.common.model.TransactionContext;
+import io.polycat.catalog.common.model.UserPrivilege;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.common.model.UserPrivilege;
 import io.polycat.catalog.store.api.UserPrivilegeStore;
 import io.polycat.catalog.store.common.StoreSqlConvertor;
 import io.polycat.catalog.store.mapper.UserPrivilegeMapper;
@@ -29,7 +29,6 @@ import io.polycat.catalog.store.mapper.UserPrivilegeMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 

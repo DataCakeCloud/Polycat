@@ -17,18 +17,14 @@
  */
 package io.polycat.catalog.store.common;
 
-import java.util.List;
 import java.util.Objects;
 
 
+import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.CatalogName;
-import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.DatabaseName;
-import io.polycat.catalog.common.model.TableObject;
-
-
 
 
 import org.apache.commons.lang3.StringUtils;

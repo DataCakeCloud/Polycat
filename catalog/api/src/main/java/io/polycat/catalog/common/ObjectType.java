@@ -37,7 +37,8 @@ public enum ObjectType {
     MATERIALIZED_VIEW(13),
     USER(14),
     GROUP(15),
-    OTHERS(16);
+    LOCK(16),
+    OTHERS(17);
 
     private final int num;
 

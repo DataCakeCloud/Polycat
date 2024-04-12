@@ -19,8 +19,11 @@ package io.polycat.catalog.service.api;
 
 import java.util.List;
 
+import io.polycat.catalog.common.model.PrivilegeRoles;
 import io.polycat.catalog.common.model.Role;
+import io.polycat.catalog.common.model.TraverseCursorResult;
 import io.polycat.catalog.common.plugin.request.input.RoleInput;
+import io.polycat.catalog.common.plugin.request.input.ShowRolePrivilegesInput;
 
 public interface RoleService {
 
@@ -121,11 +124,11 @@ public interface RoleService {
 
     /**
      * get role models in project
-     *
      * @param projectId
      * @param namePattern
+     * @param containOwner
      */
-    List<Role> getRoleModels(String projectId, String userId, String namePattern);
+    List<Role> getRoleModels(String projectId, String userId, String namePattern, boolean containOwner);
 
     /**
      * 获取所有的 Role name in projectId
@@ -136,4 +139,8 @@ public interface RoleService {
     List<Role> getRoleNames(String projectId, String keyword);
 
     List<String> showPermObjectsByUser(String projectId, String userId, String objectType, String filterJson);
+
+    TraverseCursorResult<List<Role>> showRolePrivileges(String projectId, ShowRolePrivilegesInput input, Integer limit, String pageToken);
+
+    TraverseCursorResult<List<PrivilegeRoles>> showPrivilegeRoles(String projectId, ShowRolePrivilegesInput input, Integer limit, String pageToken);
 }

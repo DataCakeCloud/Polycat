@@ -21,10 +21,11 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
-import io.polycat.catalog.common.Address;
-import io.polycat.catalog.common.Logger;
 import io.polycat.common.messaging.grpc.MessageClientGrpcImpl;
 import io.polycat.common.messaging.grpc.MessageServerGrpcImpl;
+
+import io.polycat.catalog.common.Address;
+import io.polycat.catalog.common.Logger;
 import io.polycat.common.messaging.grpc.generated.ServerGrpc;
 
 import java.io.IOException;

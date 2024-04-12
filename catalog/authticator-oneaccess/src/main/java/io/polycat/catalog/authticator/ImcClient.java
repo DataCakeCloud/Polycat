@@ -21,12 +21,12 @@ import java.io.IOException;
 
 import javax.security.sasl.AuthenticationException;
 
-import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.Logger;
 
 import com.alibaba.fastjson.JSONObject;
 import com.cloud.apigateway.sdk.utils.Client;
 import com.cloud.apigateway.sdk.utils.Request;
+import io.polycat.catalog.common.PolyCatConf;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;

@@ -23,11 +23,11 @@ import java.util.Optional;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.store.api.DelegateStore;
 import io.polycat.catalog.common.model.DelegateBriefInfo;
 import io.polycat.catalog.common.model.DelegateOutput;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.plugin.request.input.DelegateInput;
-import io.polycat.catalog.store.api.DelegateStore;
 import io.polycat.catalog.store.common.StoreMetadata;
 import io.polycat.catalog.store.fdb.record.DirectoryStoreHelper;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;

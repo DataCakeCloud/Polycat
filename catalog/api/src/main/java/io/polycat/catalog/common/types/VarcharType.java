@@ -17,7 +17,6 @@
  */
 package io.polycat.catalog.common.types;
 
-import io.polycat.catalog.common.model.record.DecimalWritable;
 import io.polycat.catalog.common.model.record.Field;
 import io.polycat.catalog.common.model.record.StringWritable;
 

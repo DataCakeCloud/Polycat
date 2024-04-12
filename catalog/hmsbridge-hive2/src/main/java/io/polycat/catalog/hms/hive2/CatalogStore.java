@@ -17,27 +17,108 @@
  */
 package io.polycat.catalog.hms.hive2;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import io.polycat.catalog.client.PolyCatClient;
+import io.polycat.catalog.common.plugin.request.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.exception.CatalogException;
+import io.polycat.catalog.common.model.Catalog;
+import io.polycat.catalog.common.model.Column;
 import io.polycat.catalog.common.model.Database;
+import io.polycat.catalog.common.model.MetaObjectName;
 import io.polycat.catalog.common.model.Order;
+import io.polycat.catalog.common.model.PagedList;
 import io.polycat.catalog.common.model.Partition;
+import io.polycat.catalog.common.model.PartitionAlterContext;
 import io.polycat.catalog.common.model.SkewedInfo;
 import io.polycat.catalog.common.model.StorageDescriptor;
-import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.model.base.PartitionInput;
+import io.polycat.catalog.common.model.stats.PartitionStatisticData;
 import io.polycat.catalog.common.plugin.CatalogPlugin;
-import io.polycat.catalog.common.plugin.request.GetTableRequest;
-import io.polycat.catalog.common.plugin.request.*;
+import io.polycat.catalog.common.plugin.request.AddPartitionRequest;
+import io.polycat.catalog.common.plugin.request.AlterColumnRequest;
+import io.polycat.catalog.common.plugin.request.AlterDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.AlterPartitionRequest;
+import io.polycat.catalog.common.plugin.request.AlterTableRequest;
+import io.polycat.catalog.common.plugin.request.CreateCatalogRequest;
+import io.polycat.catalog.common.plugin.request.CreateDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.CreateFunctionRequest;
+import io.polycat.catalog.common.plugin.request.CreateTableRequest;
+import io.polycat.catalog.common.plugin.request.DeleteColumnStatisticsRequest;
+import io.polycat.catalog.common.plugin.request.DeleteDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.DeleteTableRequest;
+import io.polycat.catalog.common.plugin.request.DoesPartitionExistsRequest;
+import io.polycat.catalog.common.plugin.request.DropPartitionRequest;
+import io.polycat.catalog.common.plugin.request.FunctionRequestBase;
+import io.polycat.catalog.common.plugin.request.GetAllFunctionRequest;
+import io.polycat.catalog.common.plugin.request.GetDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.GetFunctionRequest;
+import io.polycat.catalog.common.plugin.request.GetObjectMapRequest;
+import io.polycat.catalog.common.plugin.request.GetPartitionColumnStatisticsRequest;
+import io.polycat.catalog.common.plugin.request.GetPartitionRequest;
+import io.polycat.catalog.common.plugin.request.GetPartitionWithAuthRequest;
+import io.polycat.catalog.common.plugin.request.GetTableColumnStatisticRequest;
+import io.polycat.catalog.common.plugin.request.GetTablePartitionsByNamesRequest;
 import io.polycat.catalog.common.plugin.request.input.*;
+import io.polycat.catalog.common.plugin.request.ListCatalogsRequest;
+import io.polycat.catalog.common.plugin.request.ListDatabasesRequest;
+import io.polycat.catalog.common.plugin.request.ListFileRequest;
+import io.polycat.catalog.common.plugin.request.ListFunctionRequest;
+import io.polycat.catalog.common.plugin.request.ListPartitionByFilterRequest;
+import io.polycat.catalog.common.plugin.request.ListPartitionNamesByFilterRequest;
+import io.polycat.catalog.common.plugin.request.ListPartitionNamesPsRequest;
+import io.polycat.catalog.common.plugin.request.ListPartitionsByExprRequest;
+import io.polycat.catalog.common.plugin.request.ListPartitionsWithAuthRequest;
+import io.polycat.catalog.common.plugin.request.ListTablePartitionsRequest;
+import io.polycat.catalog.common.plugin.request.ListTablesRequest;
+import io.polycat.catalog.common.plugin.request.UndropDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.UpdatePartitionColumnStatisticRequest;
+import io.polycat.catalog.common.plugin.request.UpdateTableColumnStatisticRequest;
+import io.polycat.catalog.common.plugin.request.input.AddPartitionInput;
+import io.polycat.catalog.common.plugin.request.input.AlterPartitionInput;
+import io.polycat.catalog.common.plugin.request.input.AlterTableInput;
+import io.polycat.catalog.common.plugin.request.input.CatalogInput;
+import io.polycat.catalog.common.plugin.request.input.ColumnChangeInput;
+import io.polycat.catalog.common.plugin.request.input.ColumnStatisticsInput;
+import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
+import io.polycat.catalog.common.plugin.request.input.DropPartitionInput;
+import io.polycat.catalog.common.plugin.request.input.FileInput;
+import io.polycat.catalog.common.plugin.request.input.FileStatsInput;
+import io.polycat.catalog.common.plugin.request.input.FilterInput;
+import io.polycat.catalog.common.plugin.request.input.FunctionInput;
+import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
+import io.polycat.catalog.common.plugin.request.input.GetPartitionWithAuthInput;
+import io.polycat.catalog.common.plugin.request.input.GetPartitionsByExprInput;
+import io.polycat.catalog.common.plugin.request.input.GetPartitionsWithAuthInput;
+import io.polycat.catalog.common.plugin.request.input.PartitionFilterInput;
+import io.polycat.catalog.common.plugin.request.input.PartitionValuesInput;
+import io.polycat.catalog.common.plugin.request.input.TableInput;
+import io.polycat.catalog.common.plugin.request.input.TableTypeInput;
 import io.polycat.catalog.common.utils.PartitionUtil;
 import io.polycat.catalog.common.utils.TableUtil;
+import io.polycat.hivesdk.hive2.tools.HiveDataAccessor;
+import io.polycat.hivesdk.hive2.tools.LsmDataAccessor;
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -46,28 +127,54 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.FileMetadataHandler;
+import org.apache.hadoop.hive.metastore.PartFilterExprUtil;
 import org.apache.hadoop.hive.metastore.RawStore;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.AggrStats;
+import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.CurrentNotificationEventId;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.FileMetadataExprType;
+import org.apache.hadoop.hive.metastore.api.Function;
 import org.apache.hadoop.hive.metastore.api.FunctionType;
+import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
+import org.apache.hadoop.hive.metastore.api.Index;
+import org.apache.hadoop.hive.metastore.api.InvalidInputException;
+import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
+import org.apache.hadoop.hive.metastore.api.InvalidPartitionException;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.NotificationEvent;
+import org.apache.hadoop.hive.metastore.api.NotificationEventRequest;
+import org.apache.hadoop.hive.metastore.api.NotificationEventResponse;
+import org.apache.hadoop.hive.metastore.api.PartitionEventType;
+import org.apache.hadoop.hive.metastore.api.PartitionValuesResponse;
+import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
+import org.apache.hadoop.hive.metastore.api.ResourceUri;
 import org.apache.hadoop.hive.metastore.api.Role;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
+import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.metastore.api.*;
+import org.apache.hadoop.hive.metastore.api.TableMeta;
+import org.apache.hadoop.hive.metastore.api.Type;
+import org.apache.hadoop.hive.metastore.api.UnknownDBException;
+import org.apache.hadoop.hive.metastore.api.UnknownPartitionException;
+import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
 import org.apache.hadoop.hive.ql.io.StorageFormatDescriptor;
 import org.apache.hadoop.hive.ql.io.StorageFormatFactory;
 import org.apache.hadoop.hive.ql.io.TextFileStorageFormatDescriptor;
+import org.apache.hadoop.hive.ql.optimizer.ppr.PartitionExpressionForMetastore;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.http.HttpStatus;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * A RawStore implementation that uses PolyCatClient
@@ -77,7 +184,7 @@ public class CatalogStore implements RawStore {
     private static final Logger LOG = Logger.getLogger(CatalogStore.class);
 
     private final static String LMS_NAME = "lms_name";
-    private static HashMap<String, String> serializationLibToSourceNameMap = new HashMap() {
+    private static final HashMap<String, String> serializationLibToSourceNameMap = new HashMap() {
         {
             put("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe", "parquet");
             put("org.apache.hadoop.hive.ql.io.orc.OrcSerde", "ORC");
@@ -86,12 +193,12 @@ public class CatalogStore implements RawStore {
             put("org.apache.carbondata.hive.CarbonHiveSerDe", "carbondata");
         }
     };
-    private static HashMap<String, String> lmsToHiveFileFormatMap = new HashMap() {
+    private static final HashMap<String, String> lmsToHiveFileFormatMap = new HashMap() {
         {
             put("csv", "TEXTFILE");
         }
     };
-    private static HashMap<String, String> convertTypeMap = new HashMap() {
+    private static final HashMap<String, String> convertTypeMap = new HashMap() {
         {
             put("integer", "int");
         }
@@ -136,8 +243,8 @@ public class CatalogStore implements RawStore {
             return null;
         }
         return sortCols.stream()
-                .map(hiveSortCol -> new Order(hiveSortCol.getCol(), hiveSortCol.getOrder()))
-                .collect(Collectors.toList());
+            .map(hiveSortCol -> new Order(hiveSortCol.getCol(), hiveSortCol.getOrder()))
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -199,10 +306,26 @@ public class CatalogStore implements RawStore {
         client.createDatabase(createDatabaseRequest);
     }
 
+    private String getDefaultDBLocation(org.apache.hadoop.hive.metastore.api.Database db) {
+        final GetCatalogRequest getCatalogRequest = new GetCatalogRequest(getProjectId(),
+            db.getParameters().get(LMS_NAME));
+        final Catalog catalog = client.getCatalog(getCatalogRequest);
+        return catalog.getLocation();
+    }
+
     @Override
-    public void createDatabase(org.apache.hadoop.hive.metastore.api.Database db) throws InvalidObjectException, MetaException {
+    public void createDatabase(org.apache.hadoop.hive.metastore.api.Database db)
+        throws InvalidObjectException, MetaException {
         if (!db.getParameters().containsKey(LMS_NAME)) {
             return;
+        }
+
+        final String warehouseDir = getConf().get("hive.metastore.warehouse.dir");
+        LOG.info("warehouseDir: {}, dbLocationUri: {}", warehouseDir, db.getLocationUri());
+        if (warehouseDir == null || warehouseDir.equals(db.getLocationUri()) || StringUtils
+            .isEmpty(db.getLocationUri())) {
+            LOG.info("get real default location from catalog");
+            db.setLocationUri(getDefaultDBLocation(db));
         }
 
         DatabaseInput dbInput = getDBInput(db);
@@ -247,7 +370,8 @@ public class CatalogStore implements RawStore {
         return null;
     }
 
-    public org.apache.hadoop.hive.metastore.api.Database getDatabase(String catName, String dbName) throws NoSuchObjectException {
+    public org.apache.hadoop.hive.metastore.api.Database getDatabase(String catName, String dbName)
+        throws NoSuchObjectException {
         GetDatabaseRequest getDbRequest = new GetDatabaseRequest(getProjectId(), catName, dbName);
         Database lmsDatabase = null;
         try {
@@ -267,7 +391,8 @@ public class CatalogStore implements RawStore {
         String description = lmsDatabase.getDescription();
         String locationUri = lmsDatabase.getLocationUri();
         Map<String, String> parameters = lmsDatabase.getParameters();
-        org.apache.hadoop.hive.metastore.api.Database database = new org.apache.hadoop.hive.metastore.api.Database(dbName, description, locationUri, parameters);
+        org.apache.hadoop.hive.metastore.api.Database database = new org.apache.hadoop.hive.metastore.api.Database(
+            dbName, description, locationUri, parameters);
         database.setOwnerName(lmsDatabase.getOwner());
         database.setOwnerType(getOwnerType(lmsDatabase.getOwnerType()));
         return database;
@@ -306,12 +431,12 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean alterDatabase(String dbname, org.apache.hadoop.hive.metastore.api.Database db)
-            throws NoSuchObjectException, MetaException {
+        throws NoSuchObjectException, MetaException {
         return false;
     }
 
     public boolean alterDatabase(String catName, String dbname, org.apache.hadoop.hive.metastore.api.Database db)
-            throws NoSuchObjectException, MetaException {
+        throws NoSuchObjectException, MetaException {
         DatabaseInput dbInput = getDBInput(db);
         AlterDatabaseRequest request = new AlterDatabaseRequest(getProjectId(), catName, dbname, dbInput);
         client.alterDatabase(request);
@@ -431,7 +556,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean dropTable(String dbName, String tableName)
-            throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
+        throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
         DeleteTableRequest deleteTableRequest = new DeleteTableRequest();
         deleteTableRequest.setCatalogName(getCurrentCatalog());
         deleteTableRequest.setDatabaseName(dbName);
@@ -442,13 +567,13 @@ public class CatalogStore implements RawStore {
     }
 
     public boolean dropTable(String catName, String dbName, String tableName)
-            throws MetaException, InvalidObjectException {
+        throws MetaException, InvalidObjectException {
         DeleteTableRequest deleteTableRequest = new DeleteTableRequest();
         deleteTableRequest.setCatalogName(catName);
         deleteTableRequest.setDatabaseName(dbName);
         deleteTableRequest.setTableName(tableName);
         deleteTableRequest.setProjectId(getProjectId());
-        deleteTableRequest.setPurgeFlag(true);
+        deleteTableRequest.setPurgeFlag(false);
         client.deleteTable(deleteTableRequest);
         return true;
     }
@@ -491,9 +616,9 @@ public class CatalogStore implements RawStore {
         StorageDescriptor lmsTableStorageDescriptor = lmsTable.getStorageDescriptor();
         storageDescriptor.setParameters(lmsTableStorageDescriptor.getParameters());
         List<FieldSchema> columns = lmsTableStorageDescriptor.getColumns().stream()
-                .map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList());
+            .map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList());
         List<FieldSchema> partitions = lmsTable.getPartitionKeys().stream()
-                .map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList());
+            .map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList());
         for (FieldSchema fieldSchema : partitions) {
             columns.remove(fieldSchema);
         }
@@ -510,14 +635,15 @@ public class CatalogStore implements RawStore {
         storageDescriptor.setSortCols(convertToSortOrder(lmsTableStorageDescriptor.getSortColumns()));
         storageDescriptor.setSerdeInfo(convertToSerDeInfo(lmsTableStorageDescriptor));
         storageDescriptor.setBucketCols(lmsTableStorageDescriptor.getBucketColumns());
+        storageDescriptor.setSkewedInfo(convertToSkewedInfo(lmsTableStorageDescriptor.getSkewedInfo()));
         table.setSd(storageDescriptor);
         table.setTableType(lmsTable.getTableType());
 
         // TODO
         if (lmsTable.getPartitionKeys() != null) {
             table.setPartitionKeys(
-                    lmsTable.getPartitionKeys().stream()
-                            .map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList()));
+                lmsTable.getPartitionKeys().stream()
+                    .map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList()));
         }
         table.setOwner(lmsTable.getOwner());
         table.setViewExpandedText(lmsTable.getViewExpandedText());
@@ -535,7 +661,7 @@ public class CatalogStore implements RawStore {
         }).collect(Collectors.toList());
     }
 
-    private SerDeInfo convertToSerDeInfo(io.polycat.catalog.common.model.StorageDescriptor lmsSd) {
+    private SerDeInfo convertToSerDeInfo(StorageDescriptor lmsSd) {
         io.polycat.catalog.common.model.SerDeInfo lmsSerDe = lmsSd.getSerdeInfo();
         SerDeInfo hiveSerDe = new SerDeInfo();
         if (lmsSerDe != null) {
@@ -581,8 +707,8 @@ public class CatalogStore implements RawStore {
         }
 
         if ("org.openx.data.jsonserde.JsonSerDe".equalsIgnoreCase(fileFormat) ||
-                "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe".equalsIgnoreCase(fileFormat) ||
-                "org.apache.hadoop.hive.serde2.OpenCSVSerde".equalsIgnoreCase(fileFormat)) {
+            "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe".equalsIgnoreCase(fileFormat) ||
+            "org.apache.hadoop.hive.serde2.OpenCSVSerde".equalsIgnoreCase(fileFormat)) {
             return fileFormat;
         }
 
@@ -599,25 +725,12 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public boolean addPartition(org.apache.hadoop.hive.metastore.api.Partition part) throws InvalidObjectException, MetaException {
+    public boolean addPartition(org.apache.hadoop.hive.metastore.api.Partition part)
+            throws InvalidObjectException, MetaException {
         return false;
     }
 
     private String makePartitionName(Table table, List<String> partValues) {
-        List<String> partitionNames = table.getPartitionKeys().stream().map(x -> x.getName())
-                .collect(Collectors.toList());
-
-        StringBuilder partitionFolder = new StringBuilder();
-        for (int i = 0; i < partitionNames.size(); i++) {
-            partitionFolder.append(partitionNames.get(i))
-                    .append("=")
-                    .append(FileUtils.escapePathName(partValues.get(i)))
-                    .append("/");
-        }
-        return partitionFolder.substring(0, partitionFolder.length() - 1);
-    }
-
-    private String makePartitionNameWithoutEscape(Table table, List<String> partValues) {
         List<String> partitionNames = table.getPartitionKeys().stream().map(x -> x.getName())
             .collect(Collectors.toList());
 
@@ -625,8 +738,22 @@ public class CatalogStore implements RawStore {
         for (int i = 0; i < partitionNames.size(); i++) {
             partitionFolder.append(partitionNames.get(i))
                 .append("=")
-                .append(partValues.get(i))
+                .append(FileUtils.escapePathName(partValues.get(i)))
                 .append("/");
+        }
+        return partitionFolder.substring(0, partitionFolder.length() - 1);
+    }
+
+    private String makePartitionNameWithoutEscape(Table table, List<String> partValues) {
+        List<String> partitionNames = table.getPartitionKeys().stream().map(x -> x.getName())
+                .collect(Collectors.toList());
+
+        StringBuilder partitionFolder = new StringBuilder();
+        for (int i = 0; i < partitionNames.size(); i++) {
+            partitionFolder.append(partitionNames.get(i))
+                    .append("=")
+                    .append(partValues.get(i))
+                    .append("/");
         }
         return partitionFolder.substring(0, partitionFolder.length() - 1);
     }
@@ -640,7 +767,8 @@ public class CatalogStore implements RawStore {
         partitionBase.setIndex(new FileStatsInput[]{});
     }
 
-    public void addPartition(String caName, String dbName, String tblName, org.apache.hadoop.hive.metastore.api.Partition part) throws MetaException {
+    public void addPartition(String caName, String dbName, String tblName,
+            org.apache.hadoop.hive.metastore.api.Partition part) throws MetaException {
         Table table = getTable(caName, dbName, tblName);
         PartitionInput partitionBase = buildPartitionBaseInput(table, part);
         String partName = makePartitionName(table, part.getValues());
@@ -663,7 +791,7 @@ public class CatalogStore implements RawStore {
         AddPartitionInput partitionInput = new AddPartitionInput();
         partitionInput.setPartitions(new PartitionInput[]{partitionBase});
         AddPartitionRequest request = new AddPartitionRequest(getProjectId(), getCatName(table),
-                table.getDbName(), table.getTableName(), partitionInput);
+            table.getDbName(), table.getTableName(), partitionInput);
         client.addPartition(request);
     }
 
@@ -672,7 +800,7 @@ public class CatalogStore implements RawStore {
     }
 
     public void addPartitions(String catalogName, String dbName, String tableName,
-                              Table table, List<org.apache.hadoop.hive.metastore.api.Partition> partitions) {
+            Table table, List<org.apache.hadoop.hive.metastore.api.Partition> partitions) {
 
         List<PartitionInput> partitionBaseList = new ArrayList<>();
         for (org.apache.hadoop.hive.metastore.api.Partition part : partitions) {
@@ -698,14 +826,14 @@ public class CatalogStore implements RawStore {
         AddPartitionInput partitionInput = new AddPartitionInput();
         partitionInput.setPartitions(partitionBaseList.toArray(new PartitionInput[partitionBaseList.size()]));
         AddPartitionRequest request = new AddPartitionRequest(getProjectId(), catalogName, dbName, tableName,
-                partitionInput);
+            partitionInput);
         client.addPartition(request);
     }
 
     public void addPartitions(String catalogName, String dbName, String tableName, Table table,
-                              List<org.apache.hadoop.hive.metastore.api.Partition> partitions, boolean ifNotExists) throws MetaException {
+            List<org.apache.hadoop.hive.metastore.api.Partition> partitions, boolean ifNotExists) throws MetaException {
         List<String> parts = partitions.stream().flatMap(partition -> partition.getValues().stream())
-                .collect(Collectors.toList());
+            .collect(Collectors.toList());
         org.apache.hadoop.hive.metastore.api.Partition partition = null;
         try {
             partition = getPartition(catalogName, dbName, tableName, parts);
@@ -719,14 +847,15 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public boolean addPartitions(String dbName, String tblName, List<org.apache.hadoop.hive.metastore.api.Partition> parts)
+    public boolean addPartitions(String dbName, String tblName,
+            List<org.apache.hadoop.hive.metastore.api.Partition> parts)
             throws InvalidObjectException, MetaException {
         return false;
     }
 
     @Override
     public boolean addPartitions(String dbName, String tblName, PartitionSpecProxy partitionSpec,
-                                 boolean ifNotExists) throws InvalidObjectException, MetaException {
+        boolean ifNotExists) throws InvalidObjectException, MetaException {
         return false;
     }
 
@@ -736,7 +865,8 @@ public class CatalogStore implements RawStore {
         return null;
     }
 
-    public org.apache.hadoop.hive.metastore.api.Partition getPartition(String catalogName, String dbName, String tableName, List<String> part_vals)
+    public org.apache.hadoop.hive.metastore.api.Partition getPartition(String catalogName, String dbName,
+            String tableName, List<String> part_vals)
             throws MetaException, NoSuchObjectException {
         Table table = getTable(catalogName, dbName, tableName);
         Partition lmsPartition = getLmsPartition(catalogName, dbName, tableName, part_vals, table);
@@ -746,13 +876,16 @@ public class CatalogStore implements RawStore {
         return convertToPartition(lmsPartition, dbName, tableName, table.getSd());
     }
 
-    private Partition getLmsPartition(String catalogName, String dbName, String tableName, List<String> partVals, Table table) throws MetaException {
+    private Partition getLmsPartition(String catalogName, String dbName, String tableName, List<String> partVals,
+        Table table) throws MetaException {
         String partitionName = makePartitionName(table, partVals);
         String partitionNameWithoutEscape = makePartitionNameWithoutEscape(table, partVals);
-        GetPartitionRequest request = new GetPartitionRequest(getProjectId(), catalogName, dbName, tableName, partitionName);
+        GetPartitionRequest request = new GetPartitionRequest(getProjectId(), catalogName, dbName, tableName,
+            partitionName);
         final Partition partition = client.getPartition(request);
-        if (partition == null && ! partitionName.equals(partitionNameWithoutEscape)){
-            request = new GetPartitionRequest(getProjectId(), catalogName, dbName, tableName, partitionNameWithoutEscape);
+        if (partition == null && !partitionName.equals(partitionNameWithoutEscape)) {
+            request = new GetPartitionRequest(getProjectId(), catalogName, dbName, tableName,
+                partitionNameWithoutEscape);
             return client.getPartition(request);
         }
         return partition;
@@ -760,17 +893,17 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean doesPartitionExist(String dbName, String tableName, List<String> part_vals)
-            throws MetaException, NoSuchObjectException {
+        throws MetaException, NoSuchObjectException {
         return true;
     }
 
     public boolean doesPartitionExist(String catName, String dbName, String tableName, List<String> partVals)
-            throws MetaException, NoSuchObjectException {
+        throws MetaException, NoSuchObjectException {
         try {
             final PartitionValuesInput partitionValuesInput = new PartitionValuesInput();
             partitionValuesInput.setPartitionValues(partVals);
             final DoesPartitionExistsRequest doesPartitionExistsRequest = new DoesPartitionExistsRequest(getProjectId(),
-                catName, dbName, tableName, partitionValuesInput);
+                    catName, dbName, tableName, partitionValuesInput);
             return client.doesPartitionExist(doesPartitionExistsRequest);
         } catch (Exception e) {
             return false;
@@ -800,7 +933,8 @@ public class CatalogStore implements RawStore {
                 partSd.setParameters(sd.getParameters());
             }
             if (partSd.getCols() != null) {
-                lmsPartSd.setColumns(partSd.getCols().stream().map(this::convertToColumnInput).collect(Collectors.toList()));
+                lmsPartSd.setColumns(
+                        partSd.getCols().stream().map(this::convertToColumnInput).collect(Collectors.toList()));
             }
             if (partSd.getSerdeInfo() != null) {
                 lmsPartSd.setSerdeInfo(convertToLmsSerDeInfo(partSd.getSerdeInfo()));
@@ -827,10 +961,10 @@ public class CatalogStore implements RawStore {
     }
 
     private org.apache.hadoop.hive.metastore.api.SkewedInfo convertToSkewedInfo(SkewedInfo lmsSkewedInfo) {
-        if (lmsSkewedInfo == null) {
-            return null;
-        }
         org.apache.hadoop.hive.metastore.api.SkewedInfo hiveSkewedInfo = new org.apache.hadoop.hive.metastore.api.SkewedInfo();
+        if (lmsSkewedInfo == null) {
+            return hiveSkewedInfo;
+        }
         hiveSkewedInfo.setSkewedColNames(lmsSkewedInfo.getSkewedColumnNames());
         hiveSkewedInfo.setSkewedColValues(lmsSkewedInfo.getSkewedColumnValues());
         Map<List<String>, String> skewedMaps = new HashMap<>(lmsSkewedInfo.getSkewedColumnValueLocationMaps().size());
@@ -869,10 +1003,7 @@ public class CatalogStore implements RawStore {
     }
 
     boolean checkIsMapNotExistException(CatalogException e) {
-        if (e.getStatusCode() == HttpStatus.NOT_FOUND_404) {
-            return true;
-        }
-        return false;
+        return e.getStatusCode() == HttpStatus.NOT_FOUND_404;
     }
 
     public MetaObjectName getObjectFromNameMap(String dbName) {
@@ -903,32 +1034,32 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean dropPartition(String dbName, String tableName, List<String> part_vals)
-            throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
+        throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
         return false;
     }
 
     public boolean dropPartition(String caName, String dbName, String tblName, List<String> part_vals)
-            throws MetaException {
+        throws MetaException {
         Table table = getTable(caName, dbName, tblName);
         if (table.getPartitionKeys().size() != part_vals.size() || table.getPartitionKeys().size() == 0) {
             throw new MetaException(
-                    "The number of input partition column values is not equal to the number of partition table columns");
+                "The number of input partition column values is not equal to the number of partition table columns");
         }
         List<String> partNames = new ArrayList<>();
         List<String> partitionKeys = table.getPartitionKeys().stream()
-                .map(partitionKey -> partitionKey.getName()).collect(Collectors.toList());
+            .map(partitionKey -> partitionKey.getName()).collect(Collectors.toList());
         partNames.add(PartitionUtil.makePartitionName(partitionKeys, part_vals));
         DropPartitionInput dropPartitionInput = new DropPartitionInput();
         dropPartitionInput.setPartitionNames(partNames);
         DropPartitionRequest request = new DropPartitionRequest(getProjectId(), caName,
-                dbName, tblName, dropPartitionInput);
+            dbName, tblName, dropPartitionInput);
         try {
             client.dropPartition(request);
         } catch (CatalogException e) {
             LOG.warn(e.getMessage() + "\n try to make deprecated partition names");
             final List<String> deprecatedPartVals = part_vals.stream()
-                    .map(p -> PartitionUtil.escapePathName(FileUtils.unescapePathName(p)))
-                    .collect(Collectors.toList());
+                .map(p -> PartitionUtil.escapePathName(FileUtils.unescapePathName(p)))
+                .collect(Collectors.toList());
             final ArrayList<String> deprecatedPartNames = new ArrayList<>();
             deprecatedPartNames.add(PartitionUtil.makePartitionName(partitionKeys, deprecatedPartVals));
             dropPartitionInput.setPartitionNames(deprecatedPartNames);
@@ -939,9 +1070,10 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(String dbName, String tableName, int max)
-            throws MetaException, NoSuchObjectException {
+        throws MetaException, NoSuchObjectException {
         Table table = getTable(dbName, tableName);
-        ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), getCurrentCatalog(), dbName, tableName, getFilterInput(max));
+        ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), getCurrentCatalog(), dbName, tableName,
+                getFilterInput(max));
         List<Partition> partitions = client.listPartitions(listFileRequest);
         return getHivePartitions(partitions, dbName, tableName, table.getSd());
 
@@ -955,38 +1087,44 @@ public class CatalogStore implements RawStore {
         return filterInput;
     }
 
-    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(String catName, String dbName, String tableName, int max)
+    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(String catName, String dbName,
+            String tableName, int max)
             throws MetaException {
         Table table = getTable(catName, dbName, tableName);
-        ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), catName, dbName, tableName, getFilterInput(max));
+        ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), catName, dbName, tableName,
+                getFilterInput(max));
         List<Partition> partitions = client.listPartitions(listFileRequest);
         return getHivePartitions(partitions, dbName, tableName, table.getSd());
     }
 
     public List<String> getPartNames(String catName, String dbName, String tableName, int max)
             throws MetaException, NoSuchObjectException {
-        ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), catName, dbName, tableName, getFilterInput(max));
+        ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), catName, dbName, tableName,
+                getFilterInput(max));
         List<Partition> partitions = client.listPartitions(listFileRequest);
         List<String> partitionKeys = PartitionUtil.getPartitionKeysFromTable(
-                client.getTable(new GetTableRequest(getProjectId(), catName, dbName, tableName)));
+            client.getTable(new GetTableRequest(getProjectId(), catName, dbName, tableName)));
         return partitions.stream()
-                .map(Partition::getPartitionValues)
-                .map(values -> PartitionUtil.makePartitionName(partitionKeys, values))
-                .collect(Collectors.toList());
+            .map(Partition::getPartitionValues)
+            .map(values -> PartitionUtil.makePartitionName(partitionKeys, values))
+            .collect(Collectors.toList());
     }
 
-    private org.apache.hadoop.hive.metastore.api.Partition convertToPartition(Partition partition, String dbName, String tableName,
-                                                                              org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
+    private org.apache.hadoop.hive.metastore.api.Partition convertToPartition(Partition partition, String dbName,
+            String tableName,
+            org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
         return new org.apache.hadoop.hive.metastore.api.Partition(partition.getPartitionValues(), dbName, tableName,
-                partition.getCreateTime().intValue(), 0,
-                convertToStorageDescriptor(partition.getStorageDescriptor(), sd), partition.getParameters());
+            partition.getCreateTime().intValue(), 0,
+            convertToStorageDescriptor(partition.getStorageDescriptor(), sd), partition.getParameters());
     }
 
-    private org.apache.hadoop.hive.metastore.api.StorageDescriptor convertToStorageDescriptor(StorageDescriptor lmsPartitionSd, org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
+    private org.apache.hadoop.hive.metastore.api.StorageDescriptor convertToStorageDescriptor(
+            StorageDescriptor lmsPartitionSd, org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
         org.apache.hadoop.hive.metastore.api.StorageDescriptor storageDescriptor = new org.apache.hadoop.hive.metastore.api.StorageDescriptor();
         if (lmsPartitionSd != null) {
             if (CollectionUtils.isNotEmpty(lmsPartitionSd.getColumns())) {
-                storageDescriptor.setCols(lmsPartitionSd.getColumns().stream().map(this::lmsSchemaToMsFieldSchema).collect(Collectors.toList()));
+                storageDescriptor.setCols(lmsPartitionSd.getColumns().stream().map(this::lmsSchemaToMsFieldSchema)
+                        .collect(Collectors.toList()));
             }
             if (CollectionUtils.isEmpty(storageDescriptor.getCols())) {
                 storageDescriptor.setCols(sd.getCols());
@@ -1002,7 +1140,8 @@ public class CatalogStore implements RawStore {
             if (lmsPartitionSd.getSerdeInfo() != null) {
                 storageDescriptor.setSerdeInfo(convertToSerDeInfo(lmsPartitionSd));
             }
-            if (storageDescriptor.getSerdeInfo() == null || StringUtils.isEmpty(storageDescriptor.getSerdeInfo().getSerializationLib())) {
+            if (storageDescriptor.getSerdeInfo() == null || StringUtils.isEmpty(
+                    storageDescriptor.getSerdeInfo().getSerializationLib())) {
                 storageDescriptor.setSerdeInfo(sd.getSerdeInfo());
             }
             storageDescriptor.setCompressed(lmsPartitionSd.getCompressed());
@@ -1036,7 +1175,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void alterTable(String dbName, String tblName, Table newt)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
         String catName = newt.getParameters().get("lms_name");
         if (catName == null || catName.isEmpty()) {
             throw new MetaException("catalog name can not be null");
@@ -1045,7 +1184,7 @@ public class CatalogStore implements RawStore {
     }
 
     private List<FieldSchema> removePartitionSchemas(List<FieldSchema> columnSchemas,
-                                                     List<FieldSchema> partitionSchemas) {
+            List<FieldSchema> partitionSchemas) {
         Set<String> names = partitionSchemas.stream().map(FieldSchema::getName).collect(Collectors.toSet());
         return columnSchemas.stream().filter(x -> !names.contains(x.getName())).collect(Collectors.toList());
     }
@@ -1064,28 +1203,28 @@ public class CatalogStore implements RawStore {
     }
 
     private List<FieldSchema> buildColumnSchema(Table table) {
-        if (table.getParameters().containsKey("spark.sql.sources.provider") &&
-                table.getParameters().get("spark.sql.sources.provider").equalsIgnoreCase("csv")) {
-            int partNum = Integer.parseInt(table.getParameters().get("spark.sql.sources.schema.numParts"));
-            List<FieldSchema> columnSchemas = new ArrayList<>();
-            for (int i = 0; i < partNum; i++) {
-                columnSchemas.addAll(getFieldSchemas(table, i));
-            }
-            return removePartitionSchemas(columnSchemas, table.getPartitionKeys());
-        } else {
+        // if (table.getParameters().containsKey("spark.sql.sources.provider") &&
+        //     table.getParameters().get("spark.sql.sources.provider").equalsIgnoreCase("csv")) {
+        //     int partNum = Integer.parseInt(table.getParameters().get("spark.sql.sources.schema.numParts"));
+        //     List<FieldSchema> columnSchemas = new ArrayList<>();
+        //     for (int i = 0; i < partNum; i++) {
+        //         columnSchemas.addAll(getFieldSchemas(table, i));
+        //     }
+        //     return removePartitionSchemas(columnSchemas, table.getPartitionKeys());
+        // } else {
             return table.getSd().getCols();
-        }
+        // }
     }
 
     private boolean isAlterTableColumn(String catName, String dbName, String tblName,
-                                       Table newTable, AlterColumnContext context)
+            Table newTable, AlterColumnContext context)
             throws MetaException {
         Table oldTable = getTable(catName, dbName, tblName);
         List<FieldSchema> oldColumns = buildColumnSchema(oldTable);
         List<FieldSchema> newColumns = buildColumnSchema(newTable);
         if (oldColumns.size() > newColumns.size()) {
             throw new MetaException(String.format("The number(%s) of modified columns is less than " +
-                    "the number of the original table", newColumns.size()));
+                "the number of the original table", newColumns.size()));
         }
 
         for (int i = 0; i < oldColumns.size(); i++) {
@@ -1097,7 +1236,8 @@ public class CatalogStore implements RawStore {
             }
 
             if (newColumns.get(i).getComment() != null &&
-                    !newColumns.get(i).getComment().equals(oldColumns.get(i).getComment())) {
+                !newColumns.get(i).getComment().equals(oldColumns.get(i).getComment()) ||
+                !newColumns.get(i).getType().equals(oldColumns.get(i).getType())) {
                 context.setColumnOperation(Operation.CHANGE_COLUMN);
                 context.setModifyColumn(newColumns.get(i));
                 return true;
@@ -1144,16 +1284,16 @@ public class CatalogStore implements RawStore {
             colChangeIn.setRenameColumnMap(renameColumnMap);
         } else {
             throw new CatalogException(String.format("Unsupported column operation(%s)",
-                    context.getColumnOperation().toString()));
+                context.getColumnOperation().toString()));
         }
 
         AlterColumnRequest request = new AlterColumnRequest(getProjectId(), caName, dbName, tblName,
-                colChangeIn);
+            colChangeIn);
         client.alterColumn(request);
     }
 
     public void alterTable(String catName, String dbName, String tblName, Table newt)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
         AlterColumnContext context = new AlterColumnContext();
         if (isAlterTableColumn(catName, dbName, tblName, newt, context)) {
             alterTableColumn(catName, dbName, tblName, context);
@@ -1186,18 +1326,18 @@ public class CatalogStore implements RawStore {
 
     private List<Column> buildColumnInputs(Table table, List<Column> partitions) {
         List<Column> columnInputs;
-        if (table.getParameters().containsKey("spark.sql.sources.provider") &&
-                table.getParameters().get("spark.sql.sources.provider").equalsIgnoreCase("csv")) {
-            int partNum = Integer.parseInt(table.getParameters().get("spark.sql.sources.schema.numParts"));
-            columnInputs = new ArrayList<>();
-            for (int i = 0; i < partNum; i++) {
-                columnInputs.addAll(getColumnInputs(table, i));
-            }
-            removePartitionColumns(columnInputs, partitions);
-        } else {
-            columnInputs = table.getSd().getCols().stream()
-                    .map(this::convertToTableInput).collect(Collectors.toList());
-        }
+        // if (table.getParameters().containsKey("spark.sql.sources.provider") &&
+        //     table.getParameters().get("spark.sql.sources.provider").equalsIgnoreCase("csv")) {
+        //     int partNum = Integer.parseInt(table.getParameters().get("spark.sql.sources.schema.numParts"));
+        //     columnInputs = new ArrayList<>();
+        //     for (int i = 0; i < partNum; i++) {
+        //         columnInputs.addAll(getColumnInputs(table, i));
+        //     }
+        //     removePartitionColumns(columnInputs, partitions);
+        // } else {
+        columnInputs = table.getSd().getCols().stream()
+                .map(this::convertToTableInput).collect(Collectors.toList());
+        // }
         return columnInputs;
     }
 
@@ -1207,7 +1347,7 @@ public class CatalogStore implements RawStore {
         List<Column> partitions = null;
         if (newt.getPartitionKeys() != null) {
             partitions = newt.getPartitionKeys().stream()
-                    .map(this::convertToTableInput).collect(Collectors.toList());
+                .map(this::convertToTableInput).collect(Collectors.toList());
         } else {
             partitions = Collections.emptyList();
         }
@@ -1220,8 +1360,8 @@ public class CatalogStore implements RawStore {
         tableInput.setRetention(newt.getRetention());
         String owner = newt.getOwner();
         if (newt.getParameters() != null &&
-                TableUtil.isIcebergTableByParams(newt.getParameters()) &&
-                newt.getParameters().containsKey(Constants.OWNER_PARAM)) {
+            TableUtil.isIcebergTableByParams(newt.getParameters()) &&
+            newt.getParameters().containsKey(Constants.OWNER_PARAM)) {
             owner = newt.getParameters().get(Constants.OWNER_PARAM);
             owner = getUserId(owner);
             newt.getParameters().put(Constants.OWNER_PARAM, owner);
@@ -1304,7 +1444,7 @@ public class CatalogStore implements RawStore {
     }
 
     private io.polycat.catalog.common.model.SerDeInfo fillSerDeInfo(
-            SerDeInfo hiveSerDe) {
+        SerDeInfo hiveSerDe) {
         if (hiveSerDe != null) {
             io.polycat.catalog.common.model.SerDeInfo serDeInfo = new io.polycat.catalog.common.model.SerDeInfo();
             serDeInfo.setName(hiveSerDe.getName());
@@ -1355,13 +1495,13 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<String> getTables(String dbName, String pattern, TableType tableType)
-            throws MetaException {
+        throws MetaException {
 
         return null;
     }
 
     public List<String> getTables(String catalog, String dbName, String pattern, TableType tableType)
-            throws MetaException {
+        throws MetaException {
         ListTablesRequest request = new ListTablesRequest();
         request.setCatalogName(catalog);
         request.setDatabaseName(dbName);
@@ -1380,15 +1520,37 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<TableMeta> getTableMeta(String dbNames, String tableNames, List<String> tableTypes)
-            throws MetaException {
+        throws MetaException {
         return null;
     }
 
     public List<Table> getTableObjectsByName(String catalogName, String dbname, List<String> tableNames)
-            throws MetaException, UnknownDBException {
-        List<Table> tables = listTables(catalogName, dbname, tableNames);
+        throws MetaException, UnknownDBException {
+        List<Table> tables = listTableObjects(catalogName, dbname, tableNames);
         Set<String> set = new HashSet<>(tableNames);
         return tables.stream().filter(t -> set.contains(t.getTableName())).collect(Collectors.toList());
+    }
+
+    private List<Table> listTableObjects(String catalogName, String dbname, List<String> tableNames) throws MetaException {
+        FilterListInput filterListInput = new FilterListInput();
+        if (tableNames != null && !tableNames.isEmpty()) {
+            filterListInput.setFilter(tableNames);
+        }
+        filterListInput.setFilter(tableNames);
+        ListTableObjectsRequest request = new ListTableObjectsRequest(getProjectId(), catalogName, dbname, filterListInput);
+        List<Table> tables = new ArrayList<>();
+        io.polycat.catalog.common.model.Table[] tableList;
+        String pageToken;
+        do {
+            PagedList<io.polycat.catalog.common.model.Table> tablePagedList = client.listTables(request);
+            tableList = tablePagedList.getObjects();
+            pageToken = tablePagedList.getNextMarker();
+            request.setNextToken(pageToken);
+            for (io.polycat.catalog.common.model.Table table : tableList) {
+                tables.add(mTblTodTbl(table));
+            }
+        } while (StringUtils.isNotEmpty(pageToken));
+        return tables;
     }
 
     private List<Table> listTables(String catalogName, String dbname, List<String> tableNames) throws MetaException {
@@ -1416,7 +1578,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<Table> getTableObjectsByName(String dbname, List<String> tableNames)
-            throws MetaException, UnknownDBException {
+        throws MetaException, UnknownDBException {
         return null;
     }
 
@@ -1427,8 +1589,23 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<String> listTableNamesByFilter(String dbName, String filter, short max_tables)
-            throws MetaException, UnknownDBException {
+        throws MetaException, UnknownDBException {
         return null;
+    }
+
+    public List<String> listTableNamesByFilter(String catName, String dbName, String filter, short max_tables)
+        throws MetaException {
+        final GetTableNamesRequest getTableNamesRequest = new GetTableNamesRequest();
+        getTableNamesRequest.setFilter(filter);
+        getTableNamesRequest.setProjectId(getProjectId());
+        getTableNamesRequest.setCatalogName(catName);
+        getTableNamesRequest.setDatabaseName(dbName);
+        getTableNamesRequest.setMaxResults(String.valueOf(max_tables));
+        try {
+            return Arrays.asList(client.getTableNames(getTableNamesRequest).getObjects());
+        } catch (CatalogException e) {
+            throw new MetaException(e.getMessage());
+        }
     }
 
     @Override
@@ -1437,67 +1614,74 @@ public class CatalogStore implements RawStore {
     }
 
     public List<String> listPartitionNames(String catName, String dbName, String tableName, short max)
-            throws MetaException {
+        throws MetaException {
         PartitionFilterInput filterInput = new PartitionFilterInput();
         filterInput.setMaxParts(max);
         ListTablePartitionsRequest request = new ListTablePartitionsRequest(getProjectId(), catName, dbName, tableName,
                 filterInput);
-        return client.listPartitionNames(request);
+        List<String> listPartitionNames = client.listPartitionNames(request);
+        if (listPartitionNames != null) {
+            return listPartitionNames.stream().map(PartitionUtil::escapePartitionName).collect(Collectors.toList());
+        }
+        return listPartitionNames;
     }
 
     @Override
     public PartitionValuesResponse listPartitionValues(String db_name, String tbl_name,
-                                                       List<FieldSchema> cols, boolean applyDistinct, String filter, boolean ascending,
-                                                       List<FieldSchema> order, long maxParts) throws MetaException {
+            List<FieldSchema> cols, boolean applyDistinct, String filter, boolean ascending,
+            List<FieldSchema> order, long maxParts) throws MetaException {
         return null;
     }
 
     public PartitionValuesResponse listPartitionValues(String ca_name, String db_name, String tbl_name,
-                                                       List<FieldSchema> cols, boolean applyDistinct, String filter, boolean ascending,
-                                                       List<FieldSchema> order, long maxParts) {
+            List<FieldSchema> cols, boolean applyDistinct, String filter, boolean ascending,
+            List<FieldSchema> order, long maxParts) {
         return null;
     }
 
     @Override
     public List<String> listPartitionNamesByFilter(String db_name, String tbl_name, String filter,
-                                                   short max_parts) throws MetaException {
+            short max_parts) throws MetaException {
         return null;
     }
 
     public List<String> listPartitionNamesByFilter(String ca_name, String db_name, String tbl_name,
-                                                   String filter, short max_parts) throws MetaException {
+            String filter, short max_parts) throws MetaException {
         PartitionFilterInput filterInput = new PartitionFilterInput();
         filterInput.setFilter(filter);
-        ListPartitionNamesByFilterRequest request = new ListPartitionNamesByFilterRequest(getProjectId(), ca_name, db_name, tbl_name,
+        ListPartitionNamesByFilterRequest request = new ListPartitionNamesByFilterRequest(getProjectId(), ca_name,
+                db_name, tbl_name,
                 filterInput);
         return client.listPartitionNamesByFilter(request);
     }
 
     @Override
     public void alterPartition(String db_name, String tbl_name, List<String> part_vals,
-                               org.apache.hadoop.hive.metastore.api.Partition new_part) throws InvalidObjectException, MetaException {
+            org.apache.hadoop.hive.metastore.api.Partition new_part) throws InvalidObjectException, MetaException {
 
     }
 
     public void alterPartition(String caName, String dbName, String tblName, List<String> partValues,
-                               org.apache.hadoop.hive.metastore.api.Partition newPart) throws InvalidObjectException, MetaException {
+            org.apache.hadoop.hive.metastore.api.Partition newPart) throws InvalidObjectException, MetaException {
         AlterPartitionInput input = new AlterPartitionInput();
         List<PartitionAlterContext> partitionContexts = new ArrayList<>();
         PartitionAlterContext context = convertToContext(newPart, partValues);
         partitionContexts.add(context);
         input.setPartitionContexts(partitionContexts.toArray(new PartitionAlterContext[0]));
         AlterPartitionRequest request = new AlterPartitionRequest(getProjectId(), caName, dbName, tblName,
-                input);
+            input);
         client.alterPartitions(request);
     }
 
     @Override
     public void alterPartitions(String db_name, String tbl_name, List<List<String>> part_vals_list,
-                                List<org.apache.hadoop.hive.metastore.api.Partition> new_parts) throws InvalidObjectException, MetaException {
+            List<org.apache.hadoop.hive.metastore.api.Partition> new_parts)
+            throws InvalidObjectException, MetaException {
 
     }
 
-    private PartitionAlterContext convertToContext(org.apache.hadoop.hive.metastore.api.Partition partition, List<String> oldValues) {
+    private PartitionAlterContext convertToContext(org.apache.hadoop.hive.metastore.api.Partition partition,
+            List<String> oldValues) {
         PartitionAlterContext context = new PartitionAlterContext();
         context.setOldValues(oldValues);
         context.setNewValues(partition.getValues());
@@ -1509,7 +1693,8 @@ public class CatalogStore implements RawStore {
     }
 
     public void alterPartitions(String caName, String dbName, String tblName, List<List<String>> partValuesList,
-                                List<org.apache.hadoop.hive.metastore.api.Partition> newParts) throws InvalidObjectException, MetaException {
+            List<org.apache.hadoop.hive.metastore.api.Partition> newParts)
+            throws InvalidObjectException, MetaException {
         AlterPartitionInput input = new AlterPartitionInput();
         List<PartitionAlterContext> partitionContexts = new ArrayList<>(newParts.size());
         Iterator<List<String>> partValItr = partValuesList.iterator();
@@ -1519,7 +1704,7 @@ public class CatalogStore implements RawStore {
         }
         input.setPartitionContexts(partitionContexts.toArray(new PartitionAlterContext[0]));
         AlterPartitionRequest request = new AlterPartitionRequest(getProjectId(), caName, dbName, tblName,
-                input);
+            input);
         client.alterPartitions(request);
     }
 
@@ -1530,93 +1715,119 @@ public class CatalogStore implements RawStore {
 
     @Override
     public Index getIndex(String dbName, String origTableName, String indexName)
-            throws MetaException {
+        throws MetaException {
         return null;
     }
 
     @Override
     public boolean dropIndex(String dbName, String origTableName, String indexName)
-            throws MetaException {
+        throws MetaException {
         return false;
     }
 
     @Override
     public List<Index> getIndexes(String dbName, String origTableName, int max)
-            throws MetaException {
+        throws MetaException {
         return null;
     }
 
     @Override
     public List<String> listIndexNames(String dbName, String origTableName, short max)
-            throws MetaException {
+        throws MetaException {
         return null;
     }
 
     @Override
     public void alterIndex(String dbname, String baseTblName, String name, Index newIndex)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
 
     }
 
     @Override
-    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByFilter(String dbName, String tblName, String filter,
-                                                                                      short maxParts) throws MetaException, NoSuchObjectException {
+    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByFilter(String dbName, String tblName,
+            String filter,
+            short maxParts) throws MetaException, NoSuchObjectException {
         return null;
     }
 
-    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByFilter(String caName, String dbName, String tblName,
-                                                                                      String filter, short maxParts) throws MetaException {
+    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByFilter(String caName, String dbName,
+            String tblName,
+            String filter, short maxParts) throws MetaException {
         Table table = getTable(caName, dbName, tblName);
         PartitionFilterInput filterInput = new PartitionFilterInput();
         filterInput.setFilter(filter);
         filterInput.setMaxParts(maxParts);
         ListPartitionByFilterRequest request = new ListPartitionByFilterRequest(getProjectId(),
-                caName, dbName, tblName, filterInput);
+            caName, dbName, tblName, filterInput);
 
         List<Partition> tablePartitions = client.getPartitionsByFilter(request);
         return tablePartitions.stream().map(partition ->
-                convertToPartition(partition, dbName, tblName, table.getSd())).collect(Collectors.toList());
+            convertToPartition(partition, dbName, tblName, table.getSd())).collect(Collectors.toList());
     }
 
     @Override
     public boolean getPartitionsByExpr(String dbName, String tblName, byte[] expr,
-                                       String defaultPartitionName, short maxParts, List<org.apache.hadoop.hive.metastore.api.Partition> result) throws TException {
-
+            String defaultPartitionName, short maxParts, List<org.apache.hadoop.hive.metastore.api.Partition> result)
+            throws TException {
         return false;
+    }
+
+    public boolean getPartitionsByExpr(String caName, String dbName, String tblName, byte[] expr,
+            String defaultPartitionName,
+            short maxParts, List<org.apache.hadoop.hive.metastore.api.Partition> result) throws TException {
+        final PartitionExpressionForMetastore partitionExpressionForMetastore = new PartitionExpressionForMetastore();
+        PartFilterExprUtil
+                .makeExpressionTree(partitionExpressionForMetastore, expr);
+
+        Table table = getTable(caName, dbName, tblName);
+        final GetPartitionsByExprInput getPartitionsByExprInput = new GetPartitionsByExprInput(defaultPartitionName,
+                expr, maxParts);
+        final ListPartitionsByExprRequest listPartitionsByExprRequest = new ListPartitionsByExprRequest(getProjectId(),
+                caName, dbName, tblName, getPartitionsByExprInput);
+        try {
+            final List<Partition> partitions = client.listPartitionsByExpr(listPartitionsByExprRequest);
+            partitions.forEach(partition -> result.add(convertToPartition(partition, dbName, tblName, table.getSd())));
+            return false;
+        } catch (CatalogException e) {
+            LOG.error("Failed get partitions by expr", e);
+            throw new MetaException(e.getMessage());
+        }
+
     }
 
     @Override
     public int getNumPartitionsByFilter(String dbName, String tblName, String filter)
-            throws MetaException, NoSuchObjectException {
+        throws MetaException, NoSuchObjectException {
         return 0;
     }
 
     @Override
     public int getNumPartitionsByExpr(String dbName, String tblName, byte[] expr)
-            throws MetaException, NoSuchObjectException {
+        throws MetaException, NoSuchObjectException {
         return 0;
     }
 
     @Override
     public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByNames(String dbName, String tblName,
-                                                                                     List<String> partNames) throws MetaException, NoSuchObjectException {
+            List<String> partNames) throws MetaException, NoSuchObjectException {
         return null;
     }
 
-    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByNames(String caName, String dbName, String tblName,
-                                                                                     List<String> partNames) throws MetaException, NoSuchObjectException {
+    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsByNames(String caName, String dbName,
+            String tblName,
+            List<String> partNames) throws MetaException, NoSuchObjectException {
         Table table = getTable(caName, dbName, tblName);
         PartitionFilterInput filterInput = new PartitionFilterInput();
         filterInput.setPartNames(partNames.toArray(new String[0]));
         GetTablePartitionsByNamesRequest request = new GetTablePartitionsByNamesRequest(getProjectId(),
-                caName, dbName, tblName, filterInput);
+            caName, dbName, tblName, filterInput);
         List<Partition> partitions = client.getPartitionsByNames(request);
         return getHivePartitions(partitions, dbName, tblName, table.getSd());
     }
 
     @Override
     public Table markPartitionForEvent(String dbName, String tblName, Map<String, String> partVals,
-                                       PartitionEventType evtType)
+            PartitionEventType evtType)
             throws MetaException, UnknownTableException, InvalidPartitionException,
             UnknownPartitionException {
         return null;
@@ -1624,7 +1835,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean isPartitionMarkedForEvent(String dbName, String tblName,
-                                             Map<String, String> partName, PartitionEventType evtType)
+            Map<String, String> partName, PartitionEventType evtType)
             throws MetaException, UnknownTableException, InvalidPartitionException,
             UnknownPartitionException {
         return false;
@@ -1632,7 +1843,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean addRole(String rowName, String ownerName)
-            throws InvalidObjectException, MetaException, NoSuchObjectException {
+        throws InvalidObjectException, MetaException, NoSuchObjectException {
         return false;
     }
 
@@ -1643,96 +1854,96 @@ public class CatalogStore implements RawStore {
 
     @Override
     public boolean grantRole(Role role, String userName, PrincipalType principalType,
-                             String grantor, PrincipalType grantorType, boolean grantOption)
+            String grantor, PrincipalType grantorType, boolean grantOption)
             throws MetaException, NoSuchObjectException, InvalidObjectException {
         return false;
     }
 
     @Override
     public boolean revokeRole(Role role, String userName, PrincipalType principalType,
-                              boolean grantOption) throws MetaException, NoSuchObjectException {
+            boolean grantOption) throws MetaException, NoSuchObjectException {
         return false;
     }
 
     @Override
     public PrincipalPrivilegeSet getUserPrivilegeSet(String userName, List<String> groupNames)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
         return null;
     }
 
     @Override
     public PrincipalPrivilegeSet getDBPrivilegeSet(String dbName, String userName,
-                                                   List<String> groupNames) throws InvalidObjectException, MetaException {
+            List<String> groupNames) throws InvalidObjectException, MetaException {
         return null;
     }
 
     @Override
     public PrincipalPrivilegeSet getTablePrivilegeSet(String dbName, String tableName,
-                                                      String userName, List<String> groupNames) throws InvalidObjectException, MetaException {
+            String userName, List<String> groupNames) throws InvalidObjectException, MetaException {
         return null;
     }
 
     @Override
     public PrincipalPrivilegeSet getPartitionPrivilegeSet(String dbName, String tableName,
-                                                          String partition, String userName, List<String> groupNames)
+            String partition, String userName, List<String> groupNames)
             throws InvalidObjectException, MetaException {
         return null;
     }
 
     @Override
     public PrincipalPrivilegeSet getColumnPrivilegeSet(String dbName, String tableName,
-                                                       String partitionName, String columnName, String userName, List<String> groupNames)
+            String partitionName, String columnName, String userName, List<String> groupNames)
             throws InvalidObjectException, MetaException {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalGlobalGrants(String principalName,
-                                                               PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalDBGrants(String principalName,
-                                                           PrincipalType principalType, String dbName) {
+            PrincipalType principalType, String dbName) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listAllTableGrants(String principalName,
-                                                        PrincipalType principalType, String dbName, String tableName) {
+            PrincipalType principalType, String dbName, String tableName) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalPartitionGrants(String principalName,
-                                                                  PrincipalType principalType, String dbName, String tableName, List<String> partValues,
-                                                                  String partName) {
+            PrincipalType principalType, String dbName, String tableName, List<String> partValues,
+            String partName) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalTableColumnGrants(String principalName,
-                                                                    PrincipalType principalType, String dbName, String tableName, String columnName) {
+            PrincipalType principalType, String dbName, String tableName, String columnName) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalPartitionColumnGrants(String principalName,
-                                                                        PrincipalType principalType, String dbName, String tableName, List<String> partValues,
-                                                                        String partName, String columnName) {
+            PrincipalType principalType, String dbName, String tableName, List<String> partValues,
+            String partName, String columnName) {
         return null;
     }
 
     @Override
     public boolean grantPrivileges(PrivilegeBag privileges)
-            throws InvalidObjectException, MetaException, NoSuchObjectException {
+        throws InvalidObjectException, MetaException, NoSuchObjectException {
         return false;
     }
 
     @Override
     public boolean revokePrivileges(PrivilegeBag privileges, boolean grantOption)
-            throws InvalidObjectException, MetaException, NoSuchObjectException {
+        throws InvalidObjectException, MetaException, NoSuchObjectException {
         return false;
     }
 
@@ -1753,7 +1964,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<RolePrincipalGrant> listRolesWithGrants(String principalName,
-                                                        PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
@@ -1763,18 +1974,20 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public org.apache.hadoop.hive.metastore.api.Partition getPartitionWithAuth(String dbName, String tblName, List<String> partVals,
-                                                                               String user_name, List<String> group_names)
+    public org.apache.hadoop.hive.metastore.api.Partition getPartitionWithAuth(String dbName, String tblName,
+            List<String> partVals,
+            String user_name, List<String> group_names)
             throws MetaException, NoSuchObjectException, InvalidObjectException {
         return null;
     }
 
-    public org.apache.hadoop.hive.metastore.api.Partition getPartitionWithAuth(String caName, String dbName, String tblName, List<String> partVals,
-                                                                               String user_name, List<String> group_names) throws NoSuchObjectException, MetaException {
+    public org.apache.hadoop.hive.metastore.api.Partition getPartitionWithAuth(String caName, String dbName,
+            String tblName, List<String> partVals,
+            String user_name, List<String> group_names) throws NoSuchObjectException, MetaException {
         Table table = getTable(caName, dbName, tblName);
         GetPartitionWithAuthInput filterInput = new GetPartitionWithAuthInput(user_name, group_names, partVals);
-        GetPartitionWithAuthRequest request = new GetPartitionWithAuthRequest(getProjectId(),caName, dbName,
-            tblName, filterInput);
+        GetPartitionWithAuthRequest request = new GetPartitionWithAuthRequest(getProjectId(), caName, dbName,
+                tblName, filterInput);
         Partition partition = client.getPartitionWithAuth(request);
         if (partition == null) {
             throw new NoSuchObjectException("partition values=" + partVals);
@@ -1783,53 +1996,59 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsWithAuth(String dbName, String tblName, short maxParts,
-                                                                                      String userName, List<String> groupNames)
+    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsWithAuth(String dbName, String tblName,
+            short maxParts,
+            String userName, List<String> groupNames)
             throws MetaException, NoSuchObjectException, InvalidObjectException {
         return null;
     }
 
-    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsWithAuth(String caName, String dbName, String tblName, short maxParts,
-                                                                                      String userName, List<String> groupNames) throws NoSuchObjectException, MetaException {
+    public List<org.apache.hadoop.hive.metastore.api.Partition> getPartitionsWithAuth(String caName, String dbName,
+            String tblName, short maxParts,
+            String userName, List<String> groupNames) throws NoSuchObjectException, MetaException {
         return getPartitions(caName, dbName, tblName, maxParts);
     }
 
     @Override
     public List<String> listPartitionNamesPs(String db_name, String tbl_name,
-                                             List<String> part_vals, short max_parts) throws MetaException, NoSuchObjectException {
+            List<String> part_vals, short max_parts) throws MetaException, NoSuchObjectException {
         return null;
     }
 
     public List<String> listPartitionNamesPs(String ca_name, String db_name, String tbl_name,
-                                             List<String> part_vals, short max_parts) throws MetaException, NoSuchObjectException {
+            List<String> part_vals, short max_parts) throws MetaException, NoSuchObjectException {
         PartitionFilterInput filterInput = new PartitionFilterInput();
         filterInput.setValues(part_vals.toArray(new String[0]));
         filterInput.setMaxParts(max_parts);
-        ListPartitionNamesPsRequest request = new ListPartitionNamesPsRequest(getProjectId(), ca_name, db_name, tbl_name,
+        ListPartitionNamesPsRequest request = new ListPartitionNamesPsRequest(getProjectId(), ca_name, db_name,
+                tbl_name,
                 filterInput);
         return client.listPartitionNamesPs(request);
     }
 
     @Override
-    public List<org.apache.hadoop.hive.metastore.api.Partition> listPartitionsPsWithAuth(String db_name, String tbl_name,
-                                                                                         List<String> part_vals, short max_parts, String userName, List<String> groupNames)
+    public List<org.apache.hadoop.hive.metastore.api.Partition> listPartitionsPsWithAuth(String db_name,
+            String tbl_name,
+            List<String> part_vals, short max_parts, String userName, List<String> groupNames)
             throws MetaException, InvalidObjectException, NoSuchObjectException {
         return null;
     }
 
-    public List<org.apache.hadoop.hive.metastore.api.Partition> listPartitionsPsWithAuth(String ca_name, String db_name, String tbl_name,
-                                                                                         List<String> part_vals, short max_parts, String userName, List<String> groupNames)
+    public List<org.apache.hadoop.hive.metastore.api.Partition> listPartitionsPsWithAuth(String ca_name, String db_name,
+            String tbl_name,
+            List<String> part_vals, short max_parts, String userName, List<String> groupNames)
             throws MetaException, InvalidObjectException, NoSuchObjectException {
         Table table = getTable(ca_name, db_name, tbl_name);
         GetPartitionsWithAuthInput input = new GetPartitionsWithAuthInput(max_parts, userName, groupNames,
-                part_vals);
+            part_vals);
         ListPartitionsWithAuthRequest request = new ListPartitionsWithAuthRequest(getProjectId(), ca_name, db_name,
-                tbl_name, input);
+            tbl_name, input);
         List<Partition> partitions = client.listPartitionsPsWithAuth(request);
         return getHivePartitions(partitions, db_name, tbl_name, table.getSd());
     }
 
-    private List<org.apache.hadoop.hive.metastore.api.Partition> getHivePartitions(List<Partition> partitions, String db_name, String tbl_name, org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
+    private List<org.apache.hadoop.hive.metastore.api.Partition> getHivePartitions(List<Partition> partitions,
+            String db_name, String tbl_name, org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
         List<org.apache.hadoop.hive.metastore.api.Partition> resList;
         if (CollectionUtils.isNotEmpty(partitions)) {
             resList = new ArrayList<>(partitions.size());
@@ -1843,41 +2062,116 @@ public class CatalogStore implements RawStore {
         return new ArrayList<>();
     }
 
+    public boolean updateTableColumnStatistics(String catalogName, ColumnStatistics colStats)
+        throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        ColumnStatisticsDesc statsDesc = colStats.getStatsDesc();
+        try {
+            UpdateTableColumnStatisticRequest request = new UpdateTableColumnStatisticRequest(getProjectId(),
+                catalogName, statsDesc.getDbName(), statsDesc.getTableName(),
+                LsmDataAccessor.toColumnStatistics(colStats, catalogName));
+            return client.updateTableColumnStatistics(request);
+        } catch (TException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     @Override
     public boolean updateTableColumnStatistics(ColumnStatistics colStats)
-            throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
         return false;
     }
 
     @Override
     public boolean updatePartitionColumnStatistics(ColumnStatistics statsObj, List<String> partVals)
-            throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        return false;
+    }
+
+    public boolean updatePartitionColumnStatistics(String catalogName, ColumnStatistics statsObj, List<String> partVals)
+        throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        ColumnStatisticsDesc statsDesc = statsObj.getStatsDesc();
+        try {
+            UpdatePartitionColumnStatisticRequest request = new UpdatePartitionColumnStatisticRequest(getProjectId(),
+                catalogName, statsDesc.getDbName(), statsDesc.getTableName(),
+                new ColumnStatisticsInput(LsmDataAccessor.toColumnStatistics(statsObj, catalogName), partVals));
+            return client.updatePartitionColumnStatistics(request);
+        } catch (TException e) {
+            e.printStackTrace();
+        }
         return false;
     }
 
     @Override
     public ColumnStatistics getTableColumnStatistics(String dbName, String tableName,
-                                                     List<String> colName) throws MetaException, NoSuchObjectException {
+            List<String> colName) throws MetaException, NoSuchObjectException {
         return null;
+    }
+
+
+    public ColumnStatistics getTableColumnStatistics(String catalogName, String dbName, String tableName,
+            List<String> colNames) {
+        if (CollectionUtils.isEmpty(colNames)) {
+            return null;
+        }
+        try {
+            GetTableColumnStatisticRequest request = new GetTableColumnStatisticRequest(getProjectId(), catalogName,
+                    dbName, tableName, colNames);
+            io.polycat.catalog.common.model.stats.ColumnStatisticsObj[] columnStatisticsObjs = client
+                    .getTableColumnsStatistics(
+                            request);
+            List<ColumnStatisticsObj> statisticsObjs = Arrays.stream(columnStatisticsObjs)
+                    .map(HiveDataAccessor::convertToHiveStatsObj).collect(Collectors.toList());
+            return new ColumnStatistics(new ColumnStatisticsDesc(true, dbName, tableName), statisticsObjs);
+        } catch (Exception e) {
+            LOG.warn("Get table column statistics error: {}", e);
+            return null;
+        }
     }
 
     @Override
     public List<ColumnStatistics> getPartitionColumnStatistics(String dbName, String tblName,
-                                                               List<String> partNames, List<String> colNames) throws MetaException, NoSuchObjectException {
+            List<String> partNames, List<String> colNames) throws MetaException, NoSuchObjectException {
         return null;
+    }
+
+    public List<ColumnStatistics> getPartitionColumnStatistics(String catalogName, String dbName, String tblName,
+            List<String> partNames, List<String> colNames) throws MetaException, NoSuchObjectException {
+        GetPartitionColumnStatisticsRequest request = new GetPartitionColumnStatisticsRequest(getProjectId(),
+                catalogName, dbName,
+                tblName, new GetPartitionColumnStaticsInput(partNames, colNames));
+        PartitionStatisticData result = client.getPartitionColumnStatistics(request);
+        return HiveDataAccessor.toColumnStatisticsList(result, dbName, tblName);
     }
 
     @Override
     public boolean deletePartitionColumnStatistics(String dbName, String tableName, String partName,
-                                                   List<String> partVals, String colName)
+            List<String> partVals, String colName)
             throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
         return false;
     }
 
+    public boolean deletePartitionColumnStatistics(String catalogName, String dbName, String tableName, String partName,
+            List<String> partVals, String colName)
+            throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        DeletePartitionColumnStatisticsRequest request = new DeletePartitionColumnStatisticsRequest(getProjectId(),
+                catalogName,
+                dbName, tableName, makePartitionName(getTable(catalogName, dbName, tableName), partVals), colName);
+        client.deletePartitionColumnStatistics(request);
+        return true;
+    }
+
     @Override
     public boolean deleteTableColumnStatistics(String dbName, String tableName, String colName)
-            throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
         return false;
+    }
+
+    public boolean deleteTableColumnStatistics(String catalogName, String dbName, String tableName, String colName) {
+        DeleteColumnStatisticsRequest request = new DeleteColumnStatisticsRequest(getProjectId(), catalogName,
+            dbName, tableName, colName);
+        client.deleteTableColumnStatistics(request);
+        return true;
     }
 
     @Override
@@ -1912,7 +2206,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void updateMasterKey(Integer seqNo, String key)
-            throws NoSuchObjectException, MetaException {
+        throws NoSuchObjectException, MetaException {
 
     }
 
@@ -1943,16 +2237,16 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void dropPartitions(String dbName, String tblName, List<String> partNames)
-            throws MetaException, NoSuchObjectException {
+        throws MetaException, NoSuchObjectException {
 
     }
 
     public void dropPartitions(String caName, String dbName, String tblName, List<String> partNames)
-            throws MetaException {
+        throws MetaException {
         DropPartitionInput dropPartitionInput = new DropPartitionInput();
         dropPartitionInput.setPartitionNames(partNames);
         DropPartitionRequest request = new DropPartitionRequest(getProjectId(), caName,
-                dbName, tblName, dropPartitionInput);
+            dbName, tblName, dropPartitionInput);
         try {
             client.dropPartition(request);
         } catch (CatalogException e) {
@@ -1974,31 +2268,31 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalDBGrantsAll(String principalName,
-                                                              PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalTableGrantsAll(String principalName,
-                                                                 PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalPartitionGrantsAll(String principalName,
-                                                                     PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalTableColumnGrantsAll(String principalName,
-                                                                       PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listPrincipalPartitionColumnGrantsAll(String principalName,
-                                                                           PrincipalType principalType) {
+            PrincipalType principalType) {
         return null;
     }
 
@@ -2014,7 +2308,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<HiveObjectPrivilege> listPartitionColumnGrantsAll(String dbName, String tableName,
-                                                                  String partitionName, String columnName) {
+            String partitionName, String columnName) {
         return null;
     }
 
@@ -2025,13 +2319,13 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<HiveObjectPrivilege> listPartitionGrantsAll(String dbName, String tableName,
-                                                            String partitionName) {
+            String partitionName) {
         return null;
     }
 
     @Override
     public List<HiveObjectPrivilege> listTableColumnGrantsAll(String dbName, String tableName,
-                                                              String columnName) {
+            String columnName) {
         return null;
     }
 
@@ -2072,18 +2366,18 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void alterFunction(String dbName, String funcName, Function newFunction)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
 
     }
 
     @Override
     public void dropFunction(String dbName, String funcName)
-            throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
+        throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
         throw new MetaException("Unexpected IO path");
     }
 
     public void dropFunction(String catalogName, String dbName, String funcName)
-            throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
+        throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
         FunctionRequestBase req = new FunctionRequestBase(getProjectId(), catalogName, dbName, funcName);
         client.dropFunction(req);
     }
@@ -2113,27 +2407,44 @@ public class CatalogStore implements RawStore {
         if (funcInput.getResourceUris() != null) {
             for (FunctionResourceUri fru : funcInput.getResourceUris()) {
                 ResourceUri resourceUri = new ResourceUri();
-                resourceUri.setResourceType(org.apache.hadoop.hive.metastore.api.ResourceType.valueOf(fru.getType().name()));
+                resourceUri
+                    .setResourceType(org.apache.hadoop.hive.metastore.api.ResourceType.valueOf(fru.getType().name()));
                 resourceUri.setUri(fru.getUri());
                 resourceUriList.add(resourceUri);
             }
         }
-        long TimeMillis = funcInput.getCreateTime();
-        // the last 3 digits of hms time are less than polycat
-        int createTime = (int) (TimeMillis / 1000);
         return new Function(funcInput.getFunctionName(),
-                funcInput.getDatabaseName(),
-                funcInput.getClassName(),
-                funcInput.getOwner(),
-                PrincipalType.valueOf(funcInput.getOwnerType()),
-                createTime,
-                FunctionType.valueOf(funcInput.getFuncType()),
-                resourceUriList);
+            funcInput.getDatabaseName(),
+            funcInput.getClassName(),
+            funcInput.getOwner(),
+            getOwnerType(funcInput.getOwnerType()),
+                (int)funcInput.getCreateTime(),
+            getFunctionType(funcInput.getFuncType()),
+            resourceUriList);
+    }
+
+    private FunctionType getFunctionType(String funcType) {
+        if (StringUtils.isNotEmpty(funcType)) {
+            try {
+                return FunctionType.valueOf(funcType);
+            } catch (Exception e) {
+                LOG.warn("Unknown funcType: {}", funcType);
+            }
+        }
+        return FunctionType.JAVA;
     }
 
     @Override
     public List<Function> getAllFunctions() throws MetaException {
         return null;
+    }
+
+
+    public List<Function> getAllFunctions(String catalogName) throws MetaException {
+        final GetAllFunctionRequest getAllFunctionRequest = new GetAllFunctionRequest(getProjectId(), catalogName);
+        final FunctionInput[] functionInputs = client.getAllFunctions(getAllFunctionRequest).getObjects();
+        return Arrays.stream(functionInputs).map(functionInput -> convertToFunction(functionInput))
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -2149,8 +2460,15 @@ public class CatalogStore implements RawStore {
 
     @Override
     public AggrStats get_aggr_stats_for(String dbName, String tblName, List<String> partNames,
-                                        List<String> colNames) throws MetaException, NoSuchObjectException {
+            List<String> colNames) throws MetaException, NoSuchObjectException {
         return null;
+    }
+
+    public AggrStats getAggrColStats(String catalogName, String dbName, String tblName, List<String> partNames,
+            List<String> colNames) throws MetaException, NoSuchObjectException {
+        GetAggregateColumnStatisticsRequest request = new GetAggregateColumnStatisticsRequest(getProjectId(),
+                catalogName, dbName, tblName, new GetPartitionColumnStaticsInput(partNames, colNames));
+        return HiveDataAccessor.toAggrStats(client.getAggrColStats(request));
     }
 
     @Override
@@ -2185,7 +2503,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void putFileMetadata(List<Long> fileIds, List<ByteBuffer> metadata,
-                                FileMetadataExprType type) throws MetaException {
+            FileMetadataExprType type) throws MetaException {
 
     }
 
@@ -2196,7 +2514,7 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void getFileMetadataByExpr(List<Long> fileIds, FileMetadataExprType type, byte[] expr,
-                                      ByteBuffer[] metadatas, ByteBuffer[] exprResults, boolean[] eliminated)
+            ByteBuffer[] metadatas, ByteBuffer[] exprResults, boolean[] eliminated)
             throws MetaException {
 
     }
@@ -2223,37 +2541,37 @@ public class CatalogStore implements RawStore {
 
     @Override
     public List<SQLPrimaryKey> getPrimaryKeys(String db_name, String tbl_name)
-            throws MetaException {
+        throws MetaException {
         return null;
     }
 
     @Override
     public List<SQLForeignKey> getForeignKeys(String parent_db_name, String parent_tbl_name,
-                                              String foreign_db_name, String foreign_tbl_name) throws MetaException {
+            String foreign_db_name, String foreign_tbl_name) throws MetaException {
         return null;
     }
 
     @Override
     public void createTableWithConstraints(Table tbl, List<SQLPrimaryKey> primaryKeys,
-                                           List<SQLForeignKey> foreignKeys) throws InvalidObjectException, MetaException {
+            List<SQLForeignKey> foreignKeys) throws InvalidObjectException, MetaException {
 
     }
 
     @Override
     public void dropConstraint(String dbName, String tableName, String constraintName)
-            throws NoSuchObjectException {
+        throws NoSuchObjectException {
 
     }
 
     @Override
     public void addPrimaryKeys(List<SQLPrimaryKey> pks)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
 
     }
 
     @Override
     public void addForeignKeys(List<SQLForeignKey> fks)
-            throws InvalidObjectException, MetaException {
+        throws InvalidObjectException, MetaException {
 
     }
 
@@ -2306,7 +2624,7 @@ public class CatalogStore implements RawStore {
             return getUserId();
         }
         String[] split = owner.split("#");
-        if(split.length == 2) {
+        if (split.length == 2) {
             return split[1];
         } else {
             return owner;

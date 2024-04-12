@@ -25,21 +25,20 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 
 import io.polycat.catalog.common.Constants;
-import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.exception.CatalogException;
-import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.PagedList;
-import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.plugin.response.CatalogWebServiceResult;
 import io.polycat.catalog.common.utils.GsonUtil;
+import io.polycat.catalog.common.model.BaseResponse;
+import io.polycat.catalog.common.model.CatalogResponse;
 
 import com.google.gson.JsonElement;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.Consts;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
@@ -56,12 +55,10 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
 
-import static io.polycat.catalog.common.Constants.KEY_ERRORS;
-import static io.polycat.catalog.common.Constants.KEY_ERROR_CODE;
-
+@Slf4j
 public class CatalogClientHelper {
 
-    private static final Logger LOGGER = Logger.getLogger(CatalogClientHelper.class);
+    // private static final Logger log = Logger.getLogger(CatalogClientHelper.class);
     public static final String NO_ERROR_CODE = "";
     public static final String HTTP_ERROR_CODE = "http.00000";
 
@@ -146,7 +143,7 @@ public class CatalogClientHelper {
                     EntityUtils.consume(httpResponse.getEntity());
                     httpResponse.close();
                 } catch (IOException e) {
-                    LOGGER.error("Failed to release connection");
+                    log.error("Failed to release connection");
                 }
             }
             if (null != httpRequestBase) {
@@ -297,15 +294,9 @@ public class CatalogClientHelper {
             throwCatalogExceptionIfHttpError(result);
             return makeResultWithModel(result, resultClass);
         } catch (HttpResponseException e) {
-            if (e.getMessage() == null) {
-                LOGGER.error("Error from service: " + e.getReasonPhrase());
-            } else {
-                LOGGER.error("Error from service: " + e.getMessage());
-            }
-
-            throw new CatalogException(e.getReasonPhrase(), e, e.getStatusCode());
+            throw throwCatalogException(e);
         } catch (Exception e) {
-            LOGGER.error("Error from service: " + e.getMessage());
+            log.error("Error from service: " + e.getMessage());
             throw new CatalogException(e.getMessage(), e);
         }
     }
@@ -331,16 +322,9 @@ public class CatalogClientHelper {
             throwCatalogExceptionIfHttpError(result);
             makeResultWithModel(result);
         } catch (HttpResponseException e) {
-            String message;
-            if (e.getReasonPhrase().isEmpty()) {
-                message = "code=" + e.getStatusCode();
-            } else {
-                message = e.getReasonPhrase();
-            }
-            LOGGER.error("Error from service: " + e.getMessage());
-            throw new CatalogException(message, e);
+            throw throwCatalogException(e);
         } catch (Exception e) {
-            LOGGER.error("Error from service: " + e.getMessage());
+            log.error("Error from service: " + e.getMessage());
             throw new CatalogException(e);
         }
     }
@@ -355,12 +339,21 @@ public class CatalogClientHelper {
             throwCatalogExceptionIfHttpError(result);
             return makeResultWithModelList(result, itemClass);
         } catch (HttpResponseException e) {
-            LOGGER.error("Error from service: " + e.getMessage());
-            throw new CatalogException(e.getReasonPhrase(), e);
+            throw throwCatalogException(e);
         } catch (Exception e) {
-            LOGGER.error("Error from service: " + e.getMessage());
+            log.error("Error from service: " + e.getMessage());
             throw new CatalogException(e);
         }
+    }
+
+    private static CatalogException throwCatalogException(HttpResponseException e) {
+        StringBuilder message = new StringBuilder("respCode=").append(e.getStatusCode())
+                .append(", ").append("errorCode=").append(e.getErrorCode());
+        if (!e.getReasonPhrase().isEmpty()) {
+            message.append(", ").append(e.getReasonPhrase());
+        }
+        log.error("Error from service: " + message);
+        return new CatalogException(message.toString(), e);
     }
 
     public static void throwCatalogExceptionIfHttpError(CatalogWebServiceResult result) throws HttpResponseException {

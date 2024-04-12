@@ -29,6 +29,8 @@ public class TestEmbeddedHms extends TestHmsPolyCatBridge {
     hiveConf.setIntVar(HiveConf.ConfVars.METASTORE_LIMIT_PARTITION_REQUEST, -1);
     hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_SCHEMA_VERIFICATION, false);
     hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_AUTO_CREATE_ALL, true);
+    // Disable incompatible type changes when modifying table field types
+    hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_DISALLOW_INCOMPATIBLE_COL_TYPE_CHANGES, false);
     hiveConf.setBoolean(
             HiveConf.ConfVars.HIVE_WAREHOUSE_SUBDIR_INHERIT_PERMS.varname, true);
     warehouse = new Warehouse(hiveConf);
@@ -60,7 +62,7 @@ public class TestEmbeddedHms extends TestHmsPolyCatBridge {
     }
   }
 
-  /*@Override
+  @Override
   public void testAlterTable() throws Exception {
 //    super.testDatabaseLocation();
 //    super.testSimpleTable();
@@ -85,6 +87,7 @@ public class TestEmbeddedHms extends TestHmsPolyCatBridge {
 //    super.testSynchronized();
 //    super.testAlterViewParititon();
 //    super.testColumnStatistics();
+//    super.testPartitionOps_statistics();
 //    super.testAlterPartition();
 //    super.testStatsFastTrivial();
 //    super.testDBOwner();
@@ -103,5 +106,5 @@ public class TestEmbeddedHms extends TestHmsPolyCatBridge {
 //    super.testPartitionFilter();
 //    super.testTableDatabase();
 //    super.testJDOPersistanceManagerCleanup();
-  }*/
+  }
 }

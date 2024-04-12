@@ -19,23 +19,21 @@ package io.polycat.catalog.server.controller;
 
 import java.util.function.Supplier;
 
+import io.polycat.catalog.server.util.BaseResponseUtil;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
-import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 
+import io.polycat.catalog.service.api.CatalogResourceService;
 import io.polycat.catalog.service.api.PrivilegeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.handler.SimpleMappingExceptionResolver;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 public abstract class BaseController<T> extends SimpleMappingExceptionResolver {
 
@@ -45,6 +43,9 @@ public abstract class BaseController<T> extends SimpleMappingExceptionResolver {
 
     @Autowired
     private PrivilegeService privilegeService;
+
+    @Autowired
+    protected CatalogResourceService resourceService;
 
     protected CatalogResponse<T> createResponse(String token, Supplier<CatalogResponse<T>> supplier) {
         try {
@@ -61,6 +62,30 @@ public abstract class BaseController<T> extends SimpleMappingExceptionResolver {
             return exceptionResponse(e);
         } catch (Exception e) {
             return errorResponse(e);
+        }
+    }
+
+    protected CatalogResponse<T> createResponse(String token, String projectId, Supplier<CatalogResponse<T>> supplier) {
+        try {
+            boolean valid = privilegeService.authenticationToken(token);
+            if (!valid) {
+                return ResponseUtil.responseWithException(
+                        new CatalogServerException(ErrorCode.AUTHORIZATION_TYPE_ERROR));
+            }
+            doesExistsProjectId(projectId);
+            return supplier.get();
+        } catch (CatalogServerException e) {
+            return exceptionResponse(e);
+        } catch (MetaStoreException e) {
+            return exceptionResponse(e);
+        } catch (Exception e) {
+            return errorResponse(e);
+        }
+    }
+
+    private void doesExistsProjectId(String projectId) {
+        if (!resourceService.doesExistsProjectId(projectId)) {
+            throw new CatalogServerException(ErrorCode.TENANT_PROJECT_DOES_NOT_EXIST, projectId);
         }
     }
 
@@ -85,6 +110,10 @@ public abstract class BaseController<T> extends SimpleMappingExceptionResolver {
     }
 
     protected CatalogResponse errorResponse(Exception e) {
+        // TODO Keep adding
+        if (e instanceof IllegalArgumentException) {
+            return exceptionResponse(new MetaStoreException(ErrorCode.ARGUMENT_ILLEGAL, e.getMessage()));
+        }
         ServletRequestAttributes servletRequestAttributes = getRequestAttributes();
         applyStatusCodeIfPossible(servletRequestAttributes.getRequest(),
                 servletRequestAttributes.getResponse(),
@@ -100,7 +129,6 @@ public abstract class BaseController<T> extends SimpleMappingExceptionResolver {
                 return BaseResponseUtil.responseWithException(
                         new CatalogServerException(ErrorCode.AUTHORIZATION_TYPE_ERROR));
             }
-
             return supplier.get();
         } catch (CatalogServerException e) {
             return exceptionResponse(e);
@@ -111,4 +139,21 @@ public abstract class BaseController<T> extends SimpleMappingExceptionResolver {
         }
     }
 
+    protected BaseResponse createBaseResponse(String token, String projectId, Supplier<BaseResponse> supplier) {
+        try {
+            boolean valid = privilegeService.authenticationToken(token);
+            if (!valid) {
+                return BaseResponseUtil.responseWithException(
+                        new CatalogServerException(ErrorCode.AUTHORIZATION_TYPE_ERROR));
+            }
+            doesExistsProjectId(projectId);
+            return supplier.get();
+        } catch (CatalogServerException e) {
+            return exceptionResponse(e);
+        } catch (MetaStoreException e) {
+            return exceptionResponse(e);
+        } catch (Exception e) {
+            return errorResponse(e);
+        }
+    }
 }

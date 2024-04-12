@@ -76,6 +76,7 @@ public class AuditLogHelper {
         uriCatalogRegex = Pattern.compile(String.format("/%s/%s/catalogs.*", baseVersion, NAME_LEGAL_CHARACTERS));
         uriDatabaseRegex = Pattern.compile(String.format("/%s/%s/catalogs/%s/databases.*", baseVersion, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS));
         uriTableRegex = Pattern.compile(String.format("/%s/%s/catalogs/%s/databases/%s/tables.*", baseVersion, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS));
+        // /v1/xxxxxxxx/catalogs/xxxxxxxx_sg2/databases/default/functions/list
         uriFunctionRegex = Pattern.compile(String.format("/%s/%s/catalogs/%s/databases/%s/functions.*", baseVersion, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS));
         uriPartitionRegex = Pattern.compile(String.format("/%s/%s/catalogs/%s/databases/%s/tables/%s/partitions.*", baseVersion, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS, NAME_LEGAL_CHARACTERS));
         uriRoleRegex = Pattern.compile(String.format("/%s/%s/roles.*", baseVersion, NAME_LEGAL_CHARACTERS));
@@ -235,7 +236,11 @@ public class AuditLogHelper {
     }
 
     private static Map<String, Object> getAttributeVariables(HttpServletRequest request) {
-        return (Map<String, Object>) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        Object attribute = request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        if (attribute == null) {
+            return new LinkedHashMap<>();
+        }
+        return (Map<String, Object>) attribute;
     }
 
     public static void setAuditLogResponseAttr(HttpServletResponse response, AuditLog auditLog, String data) {

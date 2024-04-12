@@ -20,22 +20,39 @@ package io.polycat.catalog.server.service.impl;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import io.polycat.catalog.common.*;
+
+import io.polycat.catalog.common.CatalogServerException;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
+import io.polycat.catalog.common.ErrorCode;
+import io.polycat.catalog.common.ObjectType;
+import io.polycat.catalog.common.Operation;
+import io.polycat.catalog.common.model.RolePrivilege;
+import io.polycat.catalog.common.fs.FSAccessController;
+import io.polycat.catalog.common.fs.FSOperationHelper;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.plugin.request.input.RoleInput;
+import io.polycat.catalog.common.plugin.request.input.ShowRolePrivilegesInput;
 import io.polycat.catalog.common.utils.GsonUtil;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
+import io.polycat.catalog.common.utils.ScanCursorUtils;
 import io.polycat.catalog.service.api.CatalogService;
+import io.polycat.catalog.service.api.DatabaseService;
 import io.polycat.catalog.service.api.RoleService;
+import io.polycat.catalog.service.api.TableService;
 import io.polycat.catalog.store.api.*;
+import io.polycat.catalog.store.common.StoreConvertor;
 import io.polycat.catalog.util.CheckUtil;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.CollectionUtils;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -47,6 +64,10 @@ public class RoleServiceImpl implements RoleService {
 
     private final static String dateFormat = "yyyy-MM-dd HH:mm:ss";
 
+    private final String pageTokenKey = this.getClass().getCanonicalName();
+
+    private final int maxBatchRowNum = 100000;
+
     @Autowired
     private RoleStore roleStore;
     @Autowired
@@ -55,6 +76,30 @@ public class RoleServiceImpl implements RoleService {
     @Autowired
     private CatalogService catalogService;
 
+    @Autowired
+    private DatabaseService databaseService;
+
+    @Autowired
+    private TableService tableService;
+
+    @Value("${fs.access-control.impl:#{null}}")
+    private String fsAccessControlClass;
+
+    private FSAccessController fsAccessController;
+
+    private FSAccessController getFsAccessController()
+            throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        if (this.fsAccessController == null) {
+            if (StringUtils.isEmpty(fsAccessControlClass)) {
+                return null;
+            }
+            final Class<?> clazz = Class.forName(fsAccessControlClass);
+            Constructor<?> meth = clazz.getDeclaredConstructor();
+            meth.setAccessible(true);
+            fsAccessController = (FSAccessController) meth.newInstance();
+        }
+        return this.fsAccessController;
+    }
 
     /**
      * create role
@@ -72,9 +117,9 @@ public class RoleServiceImpl implements RoleService {
             String roleId = roleStore.generateRoleObjectId(context, projectId);
             roleStore.insertRoleObjectName(context, projectId, roleInput.getRoleName(), roleId);
             roleStore.insertRoleProperties(context, projectId, roleId, roleInput.getRoleName(),
-                roleInput.getOwnerUser(), roleInput.getComment());
+                    roleInput.getOwnerUser(), roleInput.getComment());
             userPrivilegeStore.insertUserPrivilege(context, projectId, roleInput.getOwnerUser(),
-                ObjectType.ROLE.name(), roleId, true, 0);
+                    ObjectType.ROLE.name(), roleId, true, 0);
             return null;
         });
     }
@@ -88,7 +133,7 @@ public class RoleServiceImpl implements RoleService {
         roleStore.delAllRoleUser(context, projectId, roleId);
 
         userPrivilegeStore.deleteUserPrivilege(context, projectId, roleObject.getOwnerId(),
-            ObjectType.ROLE.name(), roleId);
+                ObjectType.ROLE.name(), roleId);
     }
 
     /**
@@ -108,7 +153,8 @@ public class RoleServiceImpl implements RoleService {
 
     /**
      * drop share by name
-     *  @param projectId
+     *
+     * @param projectId
      * @param roleName
      */
     @Override
@@ -122,9 +168,9 @@ public class RoleServiceImpl implements RoleService {
         });
     }
 
-    public static Role toRole(RoleObject roleObject, List<String> roleUserIds, List<ObjectPrivilege> objectPrivilegeList ) {
+    public static Role toRole(RoleObject roleObject, List<String> roleUserIds, List<ObjectPrivilege> objectPrivilegeList) {
         Role role = new Role();
-        List<io.polycat.catalog.common.model.RolePrivilege> rolePrivilegeList = new ArrayList<>();
+        List<RolePrivilege> rolePrivilegeList = new ArrayList<>();
         role.setProjectId(roleObject.getProjectId());
         role.setRoleId(roleObject.getRoleId());
         role.setRoleName(roleObject.getRoleName());
@@ -138,14 +184,14 @@ public class RoleServiceImpl implements RoleService {
         }
         for (int i = 0; i < objectPrivilegeList.size(); i++) {
             ObjectPrivilege objectPrivilege = objectPrivilegeList.get(i);
-            io.polycat.catalog.common.model.RolePrivilege rolePrivilege = new io.polycat.catalog.common.model.RolePrivilege();
+            RolePrivilege rolePrivilege = new RolePrivilege();
             rolePrivilege.setName(objectPrivilege.getObjectName());
             rolePrivilege.setPrivilege(objectPrivilege.getPrivilege());
             rolePrivilege.setGrantedOn(objectPrivilege.getObjectType());
             rolePrivilegeList.add(rolePrivilege);
 
         }
-        role.setRolePrivileges(rolePrivilegeList.toArray(new io.polycat.catalog.common.model.RolePrivilege[0]));
+        role.setRolePrivileges(rolePrivilegeList.toArray(new RolePrivilege[0]));
         return role;
     }
 
@@ -180,7 +226,6 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     *
      * @param projectId
      * @param roleId
      * @return
@@ -229,44 +274,38 @@ public class RoleServiceImpl implements RoleService {
         });
     }
 
-    private void addPrivilegeToRole(String projectId, String roleName, String objectType, CatalogInnerObject catalogInnerObject,
-        long privilege) {
-        TransactionRunnerUtil.transactionRunThrow(context -> {
-            String roleId = roleStore.getRoleId(context, projectId, roleName);
-            CheckUtil.assertNotNull(roleId, ErrorCode.ROLE_NOT_FOUND, roleName);
-            String rolePrivilegeObjectId = RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject);
-            RolePrivilegeObject rolePrivilegeObject = roleStore.getRolePrivilege(context, projectId,
+    private void addPrivilegeToRole(TransactionContext context, String projectId, String roleName, String objectType, CatalogInnerObject catalogInnerObject,
+                                    long privilege) {
+        String roleId = roleStore.getRoleId(context, projectId, roleName);
+        CheckUtil.assertNotNull(roleId, ErrorCode.ROLE_NOT_FOUND, roleName);
+        String rolePrivilegeObjectId = RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject);
+        RolePrivilegeObject rolePrivilegeObject = roleStore.getRolePrivilege(context, projectId,
                 roleId, objectType, rolePrivilegeObjectId);
-            if (rolePrivilegeObject == null) {
-                roleStore.insertRolePrivilege(context, projectId, roleId, objectType, rolePrivilegeObjectId, catalogInnerObject, privilege);
-            } else {
-                long newPrivilege = privilege | rolePrivilegeObject.getPrivilege();
-                roleStore.updateRolePrivilege(context, projectId, rolePrivilegeObject, newPrivilege);
-            }
-            return true;
-        });
+        if (rolePrivilegeObject == null) {
+            roleStore.insertRolePrivilege(context, projectId, roleId, objectType, rolePrivilegeObjectId, catalogInnerObject, privilege);
+        } else {
+            long newPrivilege = privilege | rolePrivilegeObject.getPrivilege();
+            roleStore.updateRolePrivilege(context, projectId, rolePrivilegeObject, newPrivilege);
+        }
     }
 
-    private void removePrivilegeFromRole(String projectId, String roleName, String objectType, CatalogInnerObject catalogInnerObject,
-        long privilege) {
-        TransactionRunnerUtil.transactionRunThrow(context -> {
-            String roleId = roleStore.getRoleId(context, projectId, roleName);
-            CheckUtil.assertNotNull(roleId, ErrorCode.ROLE_NOT_FOUND, roleName);
-            String rolePrivilegeObjectId = RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject);
-            RolePrivilegeObject rolePrivilegeObject = roleStore.getRolePrivilege(context, projectId,
+    private void removePrivilegeFromRole(TransactionContext context, String projectId, String roleName, String objectType, CatalogInnerObject catalogInnerObject,
+                                         long privilege) {
+        String roleId = roleStore.getRoleId(context, projectId, roleName);
+        CheckUtil.assertNotNull(roleId, ErrorCode.ROLE_NOT_FOUND, roleName);
+        String rolePrivilegeObjectId = RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject);
+        RolePrivilegeObject rolePrivilegeObject = roleStore.getRolePrivilege(context, projectId,
                 roleId, objectType, rolePrivilegeObjectId);
-            if (rolePrivilegeObject == null) {
-                throw new MetaStoreException(ErrorCode.ROLE_PRIVILEGE_INVALID);
-            }
+        if (rolePrivilegeObject == null) {
+            throw new MetaStoreException(ErrorCode.ROLE_PRIVILEGE_INVALID);
+        }
 
-            long newPrivilege = (~privilege) & rolePrivilegeObject.getPrivilege();
-            if (newPrivilege == 0) {
-                roleStore.deleteRolePrivilege(context, projectId, roleId, objectType, RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject));
-            } else {
-                roleStore.updateRolePrivilege(context, projectId, rolePrivilegeObject, newPrivilege);
-            }
-            return true;
-        });
+        long newPrivilege = (~privilege) & rolePrivilegeObject.getPrivilege();
+        if (newPrivilege == 0) {
+            roleStore.deleteRolePrivilege(context, projectId, roleId, objectType, RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject));
+        } else {
+            roleStore.updateRolePrivilege(context, projectId, rolePrivilegeObject, newPrivilege);
+        }
     }
 
     private void modifyPrivilege(String projectId, String roleName, RoleInput roleInput, boolean isAdd) {
@@ -285,19 +324,103 @@ public class RoleServiceImpl implements RoleService {
             throw new CatalogServerException(ErrorCode.ROLE_PRIVILEGE_INVALID);
         }
 
-        if (isAdd) {
-            checkObjectName(objectName);
-            addPrivilegeToRole(projectId, roleName, operationPrivilege.getObjectType().name(), catalogInnerObject, privilege);
-        } else {
-            removePrivilegeFromRole(projectId, roleName, operationPrivilege.getObjectType().name(), catalogInnerObject, privilege);
+        TransactionRunnerUtil.transactionRunThrow(context -> {
+            if (isAdd) {
+                checkObjectName(objectName);
+                addPrivilegeToRole(context, projectId, roleName, operationPrivilege.getObjectType().name(), catalogInnerObject, privilege);
+                addPrivilegeToFs(projectId, roleName, roleInput.getOperation(), operationPrivilege.getObjectType(), catalogInnerObject);
+            } else {
+                removePrivilegeFromRole(context, projectId, roleName, operationPrivilege.getObjectType().name(), catalogInnerObject, privilege);
+                removePrivilegeFromFs(projectId, roleName, roleInput.getOperation(), operationPrivilege.getObjectType(), catalogInnerObject);
+            }
+            return true;
+        });
+
+    }
+
+    private void addPrivilegeToFs(String projectId, String roleName, Operation operation, ObjectType objectType, CatalogInnerObject catalogInnerObject) {
+        FSAccessController fsAccessController = null;
+        try {
+            fsAccessController = getFsAccessController();
+        } catch (Exception e) {
+            log.error("Failed to get file system access controller, cannot modify file system privilege", e);
+            throw new CatalogServerException(ErrorCode.INNER_SERVER_ERROR, e);
+        }
+        if (fsAccessController != null) {
+            switch (objectType) {
+                case CATALOG:
+                    CatalogName catalogName = StoreConvertor.catalogName(projectId, catalogInnerObject.getObjectName());
+                    final Catalog catalog = catalogService.getCatalog(catalogName);
+                    fsAccessController.grantPrivilege(roleName, roleName,
+                            FSOperationHelper.getFsOperation(operation), catalog.getLocation(), false);
+                    break;
+                case DATABASE:
+                    final DatabaseName databaseName = StoreConvertor
+                            .databaseName(projectId, catalogInnerObject.getCatalogName(),
+                                    catalogInnerObject.getObjectName());
+                    final Database database = databaseService.getDatabaseByName(databaseName);
+                    fsAccessController.grantPrivilege(roleName, roleName,
+                            FSOperationHelper.getFsOperation(operation), database.getLocationUri(), false);
+                    break;
+                case TABLE:
+                    final TableName tableName = StoreConvertor
+                            .tableName(projectId, catalogInnerObject.getCatalogName(), catalogInnerObject.getDatabaseName(),
+                                    catalogInnerObject.getObjectName());
+                    final Table table = tableService.getTableByName(tableName);
+                    fsAccessController.grantPrivilege(roleName, roleName,
+                            FSOperationHelper.getFsOperation(operation),
+                            table.getStorageDescriptor().getLocation(), true);
+                    break;
+                default:
+                    break;
+            }
         }
     }
+
+    private void removePrivilegeFromFs(String projectId, String roleName, Operation operation, ObjectType objectType, CatalogInnerObject catalogInnerObject) {
+        FSAccessController fsAccessController = null;
+        try {
+            fsAccessController = getFsAccessController();
+        } catch (Exception e) {
+            log.error("Failed to get file system access controller, cannot modify file system privilege");
+        }
+        if (fsAccessController != null) {
+            switch (objectType) {
+                case CATALOG:
+                    CatalogName catalogName = StoreConvertor.catalogName(projectId, catalogInnerObject.getObjectName());
+                    final Catalog catalog = catalogService.getCatalog(catalogName);
+                    fsAccessController.revokePrivilege(roleName, roleName,
+                            FSOperationHelper.getFsOperation(operation), catalog.getLocation(), false);
+                    break;
+                case DATABASE:
+                    final DatabaseName databaseName = StoreConvertor
+                            .databaseName(projectId, catalogInnerObject.getCatalogName(),
+                                    catalogInnerObject.getObjectName());
+                    final Database database = databaseService.getDatabaseByName(databaseName);
+                    fsAccessController.revokePrivilege(roleName, roleName,
+                            FSOperationHelper.getFsOperation(operation), database.getLocationUri(), false);
+                    break;
+                case TABLE:
+                    final TableName tableName = StoreConvertor
+                            .tableName(projectId, catalogInnerObject.getCatalogName(), catalogInnerObject.getDatabaseName(),
+                                    catalogInnerObject.getObjectName());
+                    final Table table = tableService.getTableByName(tableName);
+                    fsAccessController.revokePrivilege(roleName, roleName,
+                            FSOperationHelper.getFsOperation(operation),
+                            table.getStorageDescriptor().getLocation(), true);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
 
     private void checkObjectName(String objectName) {
         String[] names = objectName.split(RolePrivilegeHelper.OBJECT_SEPARATE_SYMBOL);
         for (int i = 0; i < names.length; i++) {
             if (!names[i].endsWith(RolePrivilegeHelper.WILDCARD_SYMBOL)) {
-                CheckUtil.checkNameLegality("objectName", names[i]);
+                CheckUtil.checkNameLegalityDashedLine("objectName", names[i]);
             }
         }
     }
@@ -323,7 +446,7 @@ public class RoleServiceImpl implements RoleService {
     public void addAllPrivilegeOnObjectToRole(String projectId, String roleName, RoleInput roleInput) {
         String objectType = ObjectType.valueOf(roleInput.getObjectType().toUpperCase()).name();
         CatalogInnerObject catalogInnerObject = RolePrivilegeHelper.getCatalogObject(projectId,
-            objectType, roleInput.getObjectName());
+                objectType, roleInput.getObjectName());
         assertTypeWithNameConsistent(roleInput, objectType);
         long privilege = RolePrivilegeHelper.getObjectAllPrivilegesByType(objectType);
         if (privilege == 0) {
@@ -335,9 +458,9 @@ public class RoleServiceImpl implements RoleService {
             CheckUtil.assertNotNull(roleId, ErrorCode.ROLE_NOT_FOUND, roleName);
             String rolePrivilegeObjectId = RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject);
             RolePrivilegeObject rolePrivilegeObject = roleStore.getRolePrivilege(context, projectId,
-                roleId, objectType, rolePrivilegeObjectId);
+                    roleId, objectType, rolePrivilegeObjectId);
             if (rolePrivilegeObject == null) {
-                roleStore.insertRolePrivilege(context, projectId, roleId, objectType , rolePrivilegeObjectId, catalogInnerObject, privilege);
+                roleStore.insertRolePrivilege(context, projectId, roleId, objectType, rolePrivilegeObjectId, catalogInnerObject, privilege);
             } else {
                 long newPrivilege = privilege | rolePrivilegeObject.getPrivilege();
                 roleStore.updateRolePrivilege(context, projectId, rolePrivilegeObject, newPrivilege);
@@ -391,7 +514,7 @@ public class RoleServiceImpl implements RoleService {
     public void removeAllPrivilegeOnObjectFromRole(String projectId, String roleName, RoleInput roleInput) {
         String objectType = ObjectType.valueOf(roleInput.getObjectType().toUpperCase()).name();
         CatalogInnerObject catalogInnerObject = RolePrivilegeHelper.getCatalogObject(projectId,
-            objectType, roleInput.getObjectName());
+                objectType, roleInput.getObjectName());
         long privilege = 0xffffffff;
 
         TransactionRunnerUtil.transactionRunThrow(context -> {
@@ -399,7 +522,7 @@ public class RoleServiceImpl implements RoleService {
             CheckUtil.assertNotNull(roleId, ErrorCode.ROLE_NOT_FOUND, roleName);
             String rolePrivilegeObjectId = RolePrivilegeHelper.getRolePrivilegeObjectId(objectType, catalogInnerObject);
             RolePrivilegeObject rolePrivilegeObject = roleStore.getRolePrivilege(context, projectId,
-                roleId, objectType, rolePrivilegeObjectId);
+                    roleId, objectType, rolePrivilegeObjectId);
             if (rolePrivilegeObject == null) {
                 throw new MetaStoreException(ErrorCode.ROLE_PRIVILEGE_INVALID);
             }
@@ -407,7 +530,7 @@ public class RoleServiceImpl implements RoleService {
             long newPrivilege = (~privilege) & rolePrivilegeObject.getPrivilege();
             if (newPrivilege == 0) {
                 roleStore.deleteRolePrivilege(context, projectId, roleId, rolePrivilegeObject.getObjectType(),
-                    rolePrivilegeObject.getObjectId());
+                        rolePrivilegeObject.getObjectId());
             } else {
                 roleStore.updateRolePrivilege(context, projectId, rolePrivilegeObject, newPrivilege);
             }
@@ -488,13 +611,13 @@ public class RoleServiceImpl implements RoleService {
 
     /**
      * get role models in project
-     *
      * @param projectId
      * @param namePattern
+     * @param containOwner
      */
     @Override
-    public List<Role> getRoleModels(String projectId, String userId, String namePattern) {
-        List<RoleObject> roleObjects = TransactionRunnerUtil.transactionRunThrow(context -> roleStore.getAllRoleObjects(context, projectId, userId, namePattern)).getResult();
+    public List<Role> getRoleModels(String projectId, String userId, String namePattern, boolean containOwner) {
+        List<RoleObject> roleObjects = TransactionRunnerUtil.transactionRunThrow(context -> roleStore.getAllRoleObjects(context, projectId, userId, namePattern, containOwner)).getResult();
         return convertToRoleModel(roleObjects);
     }
 
@@ -508,7 +631,7 @@ public class RoleServiceImpl implements RoleService {
     public List<String> showPermObjectsByUser(String projectId, String userId, String objectType, String filterJson) {
         CheckUtil.checkStringParameter(objectType, "objectType");
         ObjectType type = ObjectType.valueOf(objectType);
-        List<Role> roleList = getRoleModels(projectId, userId, null);
+        List<Role> roleList = getRoleModels(projectId, userId, null, false);
         // get owner is $userId
         Set<String> ownerObjectIds = getOwnerObjectIds(projectId, userId, objectType);
         log.info("roleList: {}", roleList);
@@ -533,6 +656,60 @@ public class RoleServiceImpl implements RoleService {
 
 
         return resList;
+    }
+
+    @Override
+    public TraverseCursorResult<List<Role>> showRolePrivileges(String projectId,
+                                                         ShowRolePrivilegesInput input, Integer limit,
+                                                         String pageToken) {
+        return ScanCursorUtils.scan("", pageTokenKey, pageToken,
+             limit, maxBatchRowNum, (batchNum, batchOffset) -> TransactionRunnerUtil.transactionRunThrow(
+                context -> {
+                    return showRolePrivilegesInternal(context, projectId, input, batchNum, batchOffset);
+                }).getResult());
+    }
+
+    @Override
+    public TraverseCursorResult<List<PrivilegeRoles>> showPrivilegeRoles(String projectId,
+        ShowRolePrivilegesInput input, Integer limit, String pageToken) {
+        return ScanCursorUtils.scan("", pageTokenKey, pageToken,
+            limit, maxBatchRowNum, (batchNum, batchOffset) -> TransactionRunnerUtil.transactionRunThrow(
+                context -> {
+                    return showPrivilegeRolesInternal(context, projectId, input, batchNum, batchOffset);
+                }).getResult());
+    }
+
+    private List<PrivilegeRoles> showPrivilegeRolesInternal(TransactionContext context, String projectId, ShowRolePrivilegesInput input, int batchNum, long batchOffset) {
+        List<RoleObject> roleList = roleStore.showRoleInfos(context, projectId, input);
+        if (CollectionUtils.isEmpty(roleList)) {
+            return new ArrayList<>();
+        }
+        Map<String, String> roleNameIdMap = new HashMap<>();
+        roleList.forEach(roleObject -> roleNameIdMap.put(roleObject.getRoleId(), roleObject.getRoleName()));
+        List<PrivilegeRolesObject> privilegeObjectList = roleStore.showPrivilegeRoles(context, projectId, roleList.stream().map(RoleObject::getRoleId).collect(
+            Collectors.toList()), input, batchNum, batchOffset);
+        return privilegeObjectList.parallelStream().map(p -> convertToPrivilegeRoles(p, roleNameIdMap)).collect(Collectors.toList());
+    }
+
+    private PrivilegeRoles convertToPrivilegeRoles(PrivilegeRolesObject privilegeRolesObject, Map<String, String> roleNameIdMap) {
+        return new PrivilegeRoles(privilegeRolesObject.getObjectType(),
+            privilegeRolesObject.getObjectId(),
+            Arrays.asList(privilegeRolesObject.getRoles().split(",")).parallelStream().map(roleNameIdMap::get).collect(
+                Collectors.toList()));
+    }
+
+    private List<Role> showRolePrivilegesInternal(TransactionContext context, String projectId, ShowRolePrivilegesInput input, int batchNum, long batchOffset) {
+        List<RoleObject> roleList = roleStore.showRoleInfos(context, projectId, input);
+        if (CollectionUtils.isEmpty(roleList)) {
+            return new ArrayList<>();
+        }
+        List<RolePrivilegeObject> privilegeObjectList = roleStore.showRolePrivileges(context, projectId, roleList.stream().map(RoleObject::getRoleId).collect(
+            Collectors.toList()), input, batchNum, batchOffset);
+        Map<String, List<RolePrivilegeObject>> groupedByRoleIdPrivilegeObjects = privilegeObjectList.stream()
+            .collect(Collectors.groupingBy(RolePrivilegeObject::getRoleId));
+        return roleList.stream().filter(roleObject -> groupedByRoleIdPrivilegeObjects.containsKey(roleObject.getRoleId())).map(roleObject -> {
+            return toRole(roleObject, roleObject.getToUsers(), RolePrivilegeHelper.convertRolePrivilege(context, projectId, groupedByRoleIdPrivilegeObjects.get(roleObject.getRoleId())));
+        }).collect(Collectors.toList());
     }
 
     private Set<String> getOwnerObjectIds(String projectId, String userId, String objectType) {

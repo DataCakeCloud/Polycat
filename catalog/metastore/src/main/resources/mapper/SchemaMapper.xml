@@ -24,4 +24,8 @@
         DROP SCHEMA IF EXISTS schema_${projectId} CASCADE;
         CREATE SCHEMA schema_${projectId};
     </update>
+
+    <update id = "createSystemSchema">
+        CREATE SCHEMA IF NOT EXISTS system;
+    </update>
 </mapper>

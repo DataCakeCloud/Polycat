@@ -21,10 +21,14 @@ import java.util.List;
 
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @ApiModel(description = "aggregate multi partition statistic ")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class AggrStatisticData {
 
     @ApiModelProperty(value = "statistic", required = true)

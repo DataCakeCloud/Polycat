@@ -23,13 +23,13 @@ import java.util.Objects;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.store.api.AcceleratorStore;
 import io.polycat.catalog.common.model.AcceleratorPropertiesObject;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.SqlTemplate;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.plugin.request.input.AcceleratorInput;
 import io.polycat.catalog.common.plugin.request.input.SqlTemplateInput;
-import io.polycat.catalog.store.api.AcceleratorStore;
 
 import io.polycat.catalog.store.common.StoreMetadata;
 

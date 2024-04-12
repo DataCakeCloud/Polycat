@@ -29,5 +29,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Decimal {
     private short scale;
-    private ByteBuffer unscaled;
+    private byte[] unscaled;
 }

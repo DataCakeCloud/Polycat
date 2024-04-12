@@ -56,6 +56,10 @@ public class Constants {
     public static final String MARKER = "marker";
     public static final String LIMIT = "limit";
     public static final String PATTERN = "pattern";
+    public static final String COMMENT = "comment";
+
+    public static final String LOCATION = "location";
+    public static final String PARTITION_OVERWRITE = "partition-overwrite";
 
     // common end
 

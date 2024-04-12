@@ -19,11 +19,11 @@ package io.polycat.catalog.server.controller;
 
 import java.util.Optional;
 
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.model.MetaObjectName;
-import io.polycat.catalog.server.util.ResponseUtil;
 
 import io.polycat.catalog.service.api.ObjectNameMapService;
 import io.swagger.annotations.Api;
@@ -32,7 +32,6 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
 
 @Api(tags = "object name map api")

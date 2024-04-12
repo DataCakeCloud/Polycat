@@ -17,8 +17,6 @@
  */
 package io.polycat.catalog.client.Exception;
 
-import io.polycat.catalog.common.ErrorCode;
-
 import org.slf4j.helpers.MessageFormatter;
 
 public enum ClientErrorCode {
@@ -26,7 +24,9 @@ public enum ClientErrorCode {
     RESOURCE_FORMAT_ERROR("dash.10002", "resource {} name is illegal", 1),
     RESOURCE_LENGTH_ERROR("dash.10003", "resource {} length is illegal", 1),
     PARAMETER_FORMAT_ERROR("dash.10004", "parameter {} name is illegal", 1),
-    PARAMETER_LENGTH_ERROR("dash.10005", "parameter {} length is illegal", 1);
+    PARAMETER_LENGTH_ERROR("dash.10005", "parameter {} length is illegal", 1),
+    PARAMETER_CANNOT_NULL_ERROR("dash.10006", "parameter {} cannot be null", 1);
+
     private final String errorCode;
 
     private final String messageFormat;

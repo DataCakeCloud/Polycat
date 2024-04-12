@@ -19,6 +19,9 @@ package io.polycat.catalog.common;
 
 import lombok.Getter;
 
+import java.util.Arrays;
+import java.util.List;
+
 public enum Operation {
     // DDL Operation
     CREATE_CATALOG("CREATE CATALOG", JobType.DDL),
@@ -58,6 +61,7 @@ public enum Operation {
     REPLACE_COLUMN("REPLACE COLUMN", JobType.DDL),
     CHANGE_COLUMN("CHANGE COLUMN", JobType.DDL),
     SET_PROPERTIES("SET PROPERTIES", JobType.DDL),
+    SET_LOCATION("SET LOCATION", JobType.DDL),
     UNSET_PROPERTIES("UNSET PROPERTIES", JobType.DDL),
     UPDATE("UPDATE ROW", JobType.DDL),
     DELETE("DELETE ROW", JobType.DDL),
@@ -133,6 +137,7 @@ public enum Operation {
     TRUNCATE_PARTITION("TRUNCATE PARTITION", JobType.DML),
     ALTER_PARTITION("ALTER PARTITION", JobType.DDL),
     RENAME_PARTITION("RENAME PARTITION", JobType.DDL),
+    RENAME_TABLE("RENAME TABLE", JobType.DDL),
     COPY_INTO("COPY INTO", JobType.DDL),
 
     // Partition Operation
@@ -190,6 +195,18 @@ public enum Operation {
 
     @Getter
     private final JobType type;
+
+    public static List<Operation> ALTER_TABLE_CHILD_OPERATIONS = Arrays.asList(
+            ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, REPLACE_COLUMN, CHANGE_COLUMN,
+            SET_PROPERTIES, UNSET_PROPERTIES, SET_LOCATION, RENAME_TABLE,
+            ADD_PARTITION, DROP_PARTITION, RENAME_PARTITION, ADD_PARTITIONS);
+
+    public static Operation convertToParentOperation(Operation operation) {
+        if (Operation.ALTER_TABLE_CHILD_OPERATIONS.contains(operation)) {
+            return Operation.ALTER_TABLE;
+        }
+        return operation;
+    }
 
     Operation(String printName, JobType type) {
         this.printName = printName;

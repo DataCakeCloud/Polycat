@@ -21,15 +21,15 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.function.Function;
 
+import io.polycat.common.VectorBatch;
+import io.polycat.common.expression.rule.ToExpressionVisitor;
+import io.polycat.common.expression.rule.ToRexCallVisitor;
 import org.apache.calcite.rex.RexNode;
 import io.polycat.catalog.common.types.DataType;
-import io.polycat.common.expression.rule.ToExpressionVisitor;
 import io.polycat.catalog.common.model.record.Field;
 import io.polycat.catalog.common.model.record.Record;
-import io.polycat.common.VectorBatch;
 
 import org.apache.arrow.vector.FieldVector;
-import io.polycat.common.expression.rule.ToRexCallVisitor;
 
 public interface Expression extends Serializable {
 

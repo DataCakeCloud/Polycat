@@ -32,10 +32,8 @@ import io.polycat.catalog.common.plugin.request.input.PolicyInput;
 import io.polycat.catalog.common.plugin.request.input.RoleInput;
 import io.polycat.catalog.service.api.NewRoleService;
 import io.polycat.catalog.service.api.PolicyService;
-import io.polycat.catalog.service.api.UserGroupService;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

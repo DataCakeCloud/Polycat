@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 import io.polycat.catalog.authentication.Authentication;
 import io.polycat.catalog.authentication.model.TokenParseResult;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
@@ -50,7 +51,6 @@ import io.polycat.catalog.common.plugin.request.input.AuthorizationInput;
 import io.polycat.catalog.common.plugin.request.input.ShareInput;
 import io.polycat.catalog.common.utils.CatalogStringUtils;
 import io.polycat.catalog.server.security.ApiToOperation;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.service.api.PrivilegeService;
 import io.polycat.catalog.store.api.RoleStore;
 import io.polycat.catalog.store.api.ShareStore;

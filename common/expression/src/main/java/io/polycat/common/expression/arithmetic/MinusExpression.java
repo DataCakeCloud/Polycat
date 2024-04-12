@@ -21,6 +21,9 @@ import java.util.Collections;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import io.polycat.common.expression.interval.IntervalUtils;
+import io.polycat.common.expression.interval.TimeInterval;
+
 import io.polycat.catalog.common.model.record.DateWritable;
 import io.polycat.catalog.common.model.record.DecimalWritable;
 import io.polycat.catalog.common.model.record.Field;
@@ -33,8 +36,6 @@ import io.polycat.common.expression.Attribute;
 import io.polycat.common.expression.Expression;
 import io.polycat.common.expression.ExpressionUtil;
 import io.polycat.common.expression.NamedExpression;
-import io.polycat.common.expression.interval.IntervalUtils;
-import io.polycat.common.expression.interval.TimeInterval;
 import io.polycat.common.expression.rule.ToExpressionVisitor;
 
 public class MinusExpression extends NamedExpression {

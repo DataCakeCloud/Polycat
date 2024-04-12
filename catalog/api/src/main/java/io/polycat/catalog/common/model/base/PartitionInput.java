@@ -23,10 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.polycat.catalog.common.model.StorageDescriptor;
-import io.polycat.catalog.common.model.DataFile;
 import io.polycat.catalog.common.plugin.request.input.FileInput;
 import io.polycat.catalog.common.plugin.request.input.FileStatsInput;
+import io.polycat.catalog.common.model.StorageDescriptor;
 
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;

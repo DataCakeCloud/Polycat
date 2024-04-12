@@ -18,6 +18,7 @@
 package io.polycat.catalog.server.setup;
 
 import io.polycat.catalog.service.api.CatalogResourceService;
+import io.polycat.catalog.service.api.LockService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,9 +35,14 @@ public class ResourceSetupInitRunner implements ApplicationRunner {
 
     @Value("${tenant.project.name}")
     private String TENANT_PROJECT_NAME;
+    @Value("${tenant.resource.check:true}")
+    private boolean resourceCheck;
 
     @Autowired
     private CatalogResourceService catalogResourceService;
+
+    @Autowired
+    private LockService lockService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -48,7 +54,15 @@ public class ResourceSetupInitRunner implements ApplicationRunner {
             catalogResourceService.createResource(TENANT_PROJECT_NAME);
             log.info("Create resource success.");
         } else {
-            log.info("Resource exists.");
+            log.info("Resource exists...");
         }
+        // TODO tenant's schema、table initialization check.
+        if (resourceCheck) {
+            log.info("Start resource checking ......");
+            catalogResourceService.resourceCheck();
+            log.info("Resource check completed successfully ......");
+        }
+        catalogResourceService.init();
+        lockService.monitorLock();
     }
 }

@@ -19,15 +19,13 @@ package io.polycat.catalog.server.controller;
 
 import java.util.List;
 
+import io.polycat.catalog.server.util.BaseResponseUtil;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.model.PagedList;
 import io.polycat.catalog.common.model.Share;
 import io.polycat.catalog.common.plugin.request.input.ShareInput;
-import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
-import io.polycat.catalog.service.api.GlobalShareService;
-import io.polycat.catalog.service.api.PolicyService;
 import io.polycat.catalog.service.api.ShareService;
 
 import io.swagger.annotations.Api;
@@ -37,7 +35,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;

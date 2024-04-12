@@ -17,11 +17,6 @@
  */
 package io.polycat.catalog.common.model;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-
 
 import io.polycat.catalog.common.types.DataTypes;
 import io.polycat.catalog.store.protos.common.ColumnInfo;
@@ -30,7 +25,6 @@ import io.polycat.catalog.common.types.DataType;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 
 @Data
 @NoArgsConstructor

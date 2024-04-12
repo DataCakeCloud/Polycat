@@ -23,7 +23,6 @@ import io.polycat.catalog.common.model.MetaPolicyHistory;
 import io.polycat.catalog.common.model.MetaPrivilegePolicy;
 import io.polycat.catalog.common.model.Policy;
 import io.polycat.catalog.common.model.Principal;
-import io.polycat.catalog.common.model.PrincipalType;
 import io.polycat.catalog.common.plugin.request.input.PolicyInput;
 
 public interface PolicyService {

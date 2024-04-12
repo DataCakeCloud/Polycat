@@ -41,7 +41,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.jdo.JDODataStoreException;
 
-import io.polycat.hivesdk.impl.PolyCatMetaStoreClient;
+import io.polycat.hivesdk.hive3.impl.PolyCatMetaStoreClient;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;

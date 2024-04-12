@@ -51,6 +51,10 @@ public class PathUtil {
         return normalizePath(databaseLocation, tableFolderName(tableName, tableId));
     }
 
+    public static String tablePath(String databaseLocation, String tableName) {
+        return normalizePath(databaseLocation, tableName);
+    }
+
     public static String generateFileName(String ext) {
         return new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS").format(new Date()) + "." + ext;
     }

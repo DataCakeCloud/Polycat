@@ -23,6 +23,7 @@ import io.polycat.catalog.common.model.TableAccessUsers;
 import io.polycat.catalog.common.model.TableSource;
 import io.polycat.catalog.common.model.TableUsageProfile;
 import io.polycat.catalog.common.model.TableName;
+import io.polycat.catalog.common.model.TraverseCursorResult;
 import io.polycat.catalog.common.plugin.request.input.TableUsageProfileInput;
 import io.polycat.catalog.common.plugin.request.input.TopTableUsageProfileInput;
 
@@ -67,5 +68,6 @@ public interface UsageProfileService {
 
     List<TableAccessUsers> getTableAccessUsers(String projectId, List<TableSource> tableSources);
 
-    List<TableUsageProfile> getUsageProfileDetailsByCondition(TableSource tableSource, long startTime, long endTime, String userId, String taskId, int rowCount, String tag);
+    TraverseCursorResult<List<TableUsageProfile>> getUsageProfileDetailsByCondition(TableSource tableSource, long startTime, long endTime, List<String> operations,
+                                                                                           String userId, String taskId, String tag, int rowCount, String pageToken);
 }

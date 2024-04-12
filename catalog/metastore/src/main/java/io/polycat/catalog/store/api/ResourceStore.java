@@ -20,6 +20,8 @@ package io.polycat.catalog.store.api;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.TransactionContext;
 
+import java.util.List;
+
 public interface ResourceStore {
 
     void createResource(TransactionContext context, String projectId) throws MetaStoreException;
@@ -27,4 +29,8 @@ public interface ResourceStore {
     Boolean doesExistResource(TransactionContext context, String projectId) throws MetaStoreException;
 
     void dropResource(TransactionContext context, String projectId) throws MetaStoreException;
+
+    List<String> listProjects(TransactionContext context);
+
+    void resourceCheck(TransactionContext context);
 }

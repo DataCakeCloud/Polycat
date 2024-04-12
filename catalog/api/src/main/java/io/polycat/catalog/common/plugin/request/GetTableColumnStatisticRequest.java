@@ -18,14 +18,13 @@
 package io.polycat.catalog.common.plugin.request;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import io.polycat.catalog.common.Constants;
-import io.polycat.catalog.common.exception.CatalogException;
 import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
+import io.polycat.catalog.common.exception.CatalogException;
 import io.polycat.catalog.common.utils.GsonUtil;
 
 public class GetTableColumnStatisticRequest extends TableRequestBase<Void> {

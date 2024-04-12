@@ -20,6 +20,7 @@ package io.polycat.catalog.common.plugin.request.input;
 import io.polycat.catalog.common.model.stats.ColumnStatistics;
 
 import io.swagger.annotations.ApiModel;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -31,4 +32,10 @@ import lombok.NoArgsConstructor;
 public class ColumnStatisticsInput {
 
     ColumnStatistics columnStatistics;
+
+    List<String> partVals;
+
+    public ColumnStatisticsInput(ColumnStatistics columnStatistics) {
+        this.columnStatistics = columnStatistics;
+    }
 }

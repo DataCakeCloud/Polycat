@@ -20,8 +20,10 @@ package io.polycat.catalog.common.model;
 import java.util.List;
 
 import lombok.Data;
+import lombok.experimental.FieldNameConstants;
 
 @Data
+@FieldNameConstants
 public class RoleObject {
     private String projectId;
     private String roleName;

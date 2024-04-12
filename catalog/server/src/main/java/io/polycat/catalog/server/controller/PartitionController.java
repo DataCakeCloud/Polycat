@@ -19,6 +19,8 @@ package io.polycat.catalog.server.controller;
 
 import java.util.List;
 
+import io.polycat.catalog.server.util.BaseResponseUtil;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.model.PagedList;
@@ -45,8 +47,6 @@ import io.polycat.catalog.common.plugin.request.input.PartitionValuesInput;
 import io.polycat.catalog.common.plugin.request.input.SetPartitionColumnStatisticsInput;
 import io.polycat.catalog.common.plugin.request.input.TruncatePartitionInput;
 import io.polycat.catalog.common.utils.GsonUtil;
-import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.service.api.PartitionService;
 import io.polycat.catalog.store.common.StoreConvertor;
 
@@ -348,8 +348,9 @@ public class PartitionController extends BaseController {
         @ApiParam(value = "table name", required = true) @PathVariable(value = "table-name") String tableName,
         @ApiParam(value = "expr input body", required = true) @RequestBody GetPartitionsByExprInput input,
         @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
-        String apiMethod = Thread.currentThread().getStackTrace()[1].getMethodName();
+        // String apiMethod = Thread.currentThread().getStackTrace()[1].getMethodName();
         return createResponse(token, () -> {
+            //client: listPartitionsByExpr(ListPartitionsByExprRequest request)
             TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
             Partition[] partitions = partitionService.listPartitionsByExpr(tableNameParam, input);
             return ResponseUtil.responseSuccess(partitions);
@@ -381,12 +382,31 @@ public class PartitionController extends BaseController {
         @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
         @ApiParam(value = "database name", required = true) @PathVariable(value = "database-name") String databaseName,
         @ApiParam(value = "table name", required = true) @PathVariable(value = "table-name") String tableName,
+        @ApiParam(value = "escape", required = false) @RequestParam(value = "escape", defaultValue = "true", required = false) boolean escape,
         @ApiParam(value = "filter input body", required = true) @RequestBody PartitionFilterInput filterInput,
         @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
         //client: listPartitionNames(ListTablePartitionsRequest request)
         return createResponse(token, () -> {
             TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
-            String[] partitionNames = partitionService.listPartitionNames(tableNameParam, filterInput.getMaxParts());
+            String[] partitionNames = partitionService.listPartitionNames(tableNameParam, filterInput, escape);
+            return ResponseUtil.responseSuccess(partitionNames);
+        });
+    }
+
+    @PostMapping(value = "/listValues", produces = "application/json;charset=UTF-8")
+    @ApiOperation(value = "list partition values")
+    public CatalogResponse<String[]> listPartitionValues(
+            @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
+            @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
+            @ApiParam(value = "database name", required = true) @PathVariable(value = "database-name") String databaseName,
+            @ApiParam(value = "table name", required = true) @PathVariable(value = "table-name") String tableName,
+            @ApiParam(value = "escape", required = false) @RequestParam(value = "escape", defaultValue = "true", required = false) boolean escape,
+            @ApiParam(value = "filter input body", required = true) @RequestBody PartitionFilterInput filterInput,
+            @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
+        //client: listPartitionNames(ListTablePartitionsRequest request)
+        return createResponse(token, () -> {
+            TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
+            String[] partitionNames = partitionService.listPartitionNames(tableNameParam, filterInput, escape);
             return ResponseUtil.responseSuccess(partitionNames);
         });
     }
@@ -425,7 +445,34 @@ public class PartitionController extends BaseController {
         });
     }
 
+    @PostMapping(value = "/getPartitionCount", produces = "application/json;charset=UTF-8")
+    @ApiOperation(value = "get partition count")
+    public CatalogResponse<Integer> getPartitionCount(
+        @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
+        @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
+        @ApiParam(value = "database name", required = true) @PathVariable(value = "database-name") String databaseName,
+        @ApiParam(value = "table name", required = true) @PathVariable(value = "table-name") String tableName,
+        @ApiParam(value = "filter input body", required = true) @RequestBody PartitionFilterInput filterInput,
+        @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
+        return createResponse(token, () -> {
+            TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
+            return ResponseUtil.responseSuccess(partitionService.getTablePartitionCount(tableNameParam, filterInput));
+        });
+    }
 
+    @PostMapping(value = "/getLatestPartitionName", produces = "application/json;charset=UTF-8")
+    @ApiOperation(value = "get latest partition name")
+    public CatalogResponse<String> getLatestPartitionName(
+        @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
+        @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
+        @ApiParam(value = "database name", required = true) @PathVariable(value = "database-name") String databaseName,
+        @ApiParam(value = "table name", required = true) @PathVariable(value = "table-name") String tableName,
+        @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
+        return createResponse(token, () -> {
+            TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
+            return ResponseUtil.responseSuccess(partitionService.getLatestPartitionName(tableNameParam));
+        });
+    }
 
     @PostMapping(params = "operate=truncate", produces = "application/json;charset=UTF-8")
     @ApiOperation(value = "truncate partition")
@@ -486,7 +533,7 @@ public class PartitionController extends BaseController {
     }
 
     @PostMapping(value = "/columnStatistics", params = "operate=set", produces = "application/json;charset=UTF-8")
-    @ApiOperation(value = "delete columns statistics")
+    @ApiOperation(value = "set columns statistics")
     public BaseResponse setPartitionColumnStatistics(
         @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
         @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
@@ -521,8 +568,8 @@ public class PartitionController extends BaseController {
     }
 
     @PostMapping(value = "/columnStatistics", params = "operate=update", produces = "application/json;charset=UTF-8")
-    @ApiOperation(value = "delete columns statistics")
-    public BaseResponse updatePartitionColumnStatistics(
+    @ApiOperation(value = "update columns statistics")
+    public CatalogResponse<Boolean> updatePartitionColumnStatistics(
         @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
         @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
         @ApiParam(value = "database name", required = true) @PathVariable(value = "database-name") String databaseName,
@@ -532,13 +579,12 @@ public class PartitionController extends BaseController {
         //UnSupport
         return createResponse(token, () -> {
             TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
-            partitionService.updatePartitionColumnStatistics(tableNameParam, statsInfo);
-            return BaseResponseUtil.responseSuccess();
+            return ResponseUtil.responseSuccess(partitionService.updatePartitionColumnStatistics(tableNameParam, statsInfo));
         });
     }
 
     @PostMapping(value = "/columnStatistics", params = "operate=getAggr", produces = "application/json;charset=UTF-8")
-    @ApiOperation(value = "delete columns statistics")
+    @ApiOperation(value = "get aggregate columns statistics")
     public CatalogResponse<AggrStatisticData> getAggregateColumnStatistics(
         @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
         @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
@@ -556,7 +602,7 @@ public class PartitionController extends BaseController {
     }
 
     @PostMapping(value = "/columnStatistics", params = "operate=get", produces = "application/json;charset=UTF-8")
-    @ApiOperation(value = "delete columns statistics")
+    @ApiOperation(value = "get columns statistics")
     public CatalogResponse<PartitionStatisticData> getColumnStatistics(
         @ApiParam(value = "project id", required = true) @PathVariable(value = "project-id") String projectId,
         @ApiParam(value = "catalog name", required = true) @PathVariable(value = "catalog-name") String catalogName,
@@ -567,7 +613,7 @@ public class PartitionController extends BaseController {
         //UnSupport
         return createResponse(token, () -> {
             TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
-            PartitionStatisticData partStats = partitionService.getPartitionColumnStatistic(tableNameParam,
+            PartitionStatisticData partStats = partitionService.getPartitionColumnStatistics(tableNameParam,
                 input.getPartNames(), input.getColNames());
             return ResponseUtil.responseSuccess(partStats);
         });

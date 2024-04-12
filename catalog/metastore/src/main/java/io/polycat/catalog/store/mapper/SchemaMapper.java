@@ -33,4 +33,6 @@ public interface SchemaMapper {
 
     @Update("DROP SCHEMA schema_${projectId} CASCADE")
     void dropSchema(@Param("projectId") String projectId);
+
+    void createSystemSchema();
 }

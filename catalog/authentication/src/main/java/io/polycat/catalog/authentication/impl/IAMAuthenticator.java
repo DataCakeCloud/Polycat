@@ -18,9 +18,9 @@
 package io.polycat.catalog.authentication.impl;
 
 import io.polycat.catalog.authentication.api.Authenticator;
-import io.polycat.catalog.authentication.model.AuthenticationResult;
 import io.polycat.catalog.authentication.model.Identity;
 import io.polycat.catalog.authentication.model.TokenParseResult;
+import io.polycat.catalog.authentication.model.AuthenticationResult;
 
 import java.io.IOException;
 

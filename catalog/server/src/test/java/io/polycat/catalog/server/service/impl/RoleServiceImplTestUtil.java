@@ -18,6 +18,7 @@
 package io.polycat.catalog.server.service.impl;
 
 import io.polycat.catalog.common.ObjectType;
+import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.CatalogInnerObject;
 import io.polycat.catalog.common.model.Role;
 import io.polycat.catalog.common.model.RolePrivilege;
@@ -97,7 +98,7 @@ public class RoleServiceImplTestUtil extends  TestUtil{
         roleInput.setObjectType(ObjectType.CATALOG.name());
         roleInput.setRoleName(role1);
         roleInput.setObjectName(catalogNameString);
-        roleInput.setOperation(io.polycat.catalog.common.Operation.ALTER_CATALOG);
+        roleInput.setOperation(Operation.ALTER_CATALOG);
         roleService.addPrivilegeToRole(projectId, role1, roleInput);
 
         Role role = roleService.getRoleByName(projectId, role1);

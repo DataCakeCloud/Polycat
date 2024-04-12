@@ -35,10 +35,8 @@
 
     </update>
     <insert id="insertRolePrivilege">
-        INSERT INTO schema_${projectId}.role_privilege (role_id, object_type, object_id, privilege, catalog_id,
-        database_id)
-        VALUES (#{data.roleId}, #{data.objectType}, #{data.objectId}, #{data.privilege}, #{data.catalogId},
-        #{data.databaseId})
+        INSERT INTO schema_${projectId}.role_privilege (role_id, object_type, object_id, privilege, catalog_id, database_id)
+        VALUES (#{data.roleId}, #{data.objectType}, #{data.objectId}, #{data.privilege}, #{data.catalogId}, #{data.databaseId})
     </insert>
 
     <select id="getRolePrivilege" resultType="io.polycat.catalog.store.gaussdb.pojo.RolePrivilegeRecord">
@@ -53,5 +51,33 @@
     <select id="getRolePrivilegesByFilter" resultType="io.polycat.catalog.store.gaussdb.pojo.RolePrivilegeRecord">
         SELECT * FROM schema_${projectId}.role_privilege
         WHERE ${filter}
+        ORDER BY object_type, object_id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="getRoleInfoByFilter"
+            resultType="io.polycat.catalog.store.gaussdb.pojo.RoleObjectRecord">
+        WITH t_rp AS (
+            SELECT t1.role_id, t1.name role_name, t1.comment  FROM (
+                SELECT * FROM schema_${projectId}.role_properties WHERE ${roleNameFilter}
+            ) t1 JOIN (
+                SELECT role_id FROM schema_${projectId}.role_user WHERE ${roleUserFilter} GROUP BY role_id
+            ) t2 ON t1.role_id = t2.role_id JOIN (
+                SELECT role_id FROM schema_${projectId}.role_privilege WHERE ${rolePrivilegeFilter} GROUP BY role_id
+            ) t3 ON t1.role_id = t3.role_id
+        )
+        SELECT role_id, role_name, comment, string_agg(DISTINCT user_id, ',') AS users FROM (
+            SELECT t1.*, t2.user_id AS user_id FROM t_rp AS t1
+            LEFT JOIN schema_${projectId}.role_user AS t2
+            ON t1.role_id = t2.role_id
+        ) tmp GROUP BY role_id, role_name, comment
+    </select>
+
+    <select id="getPrivilegeRolesByFilter" resultType="io.polycat.catalog.common.model.PrivilegeRolesObject">
+        SELECT object_type, object_id, string_agg(DISTINCT role_id, ',') roles  FROM schema_${projectId}.role_privilege
+        WHERE ${filter}
+            GROUP BY object_type, object_id
+            ORDER BY object_type, object_id
+            LIMIT #{limit} OFFSET #{offset}
     </select>
 </mapper>

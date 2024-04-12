@@ -348,7 +348,7 @@ public class PGTableServiceImplTestV2 extends PGBaseServiceImplTest{
 
     @Test
     public void partition_add_should_success() {
-        String parNamePrefix = "datepart=20201014/hour=18/request_app=app1/event=download";
+        String parNamePrefix = "datepart=20201014/hour=18/request_app=xxxxxxxx/event=download";
         DatabaseName database = StoreConvertor.databaseName(PROJECT_ID, CATALOG_NAME, DATABASE_NAME);
         TableInput tableInput = createTableDTO(TABLE_NAME, 20);
         tableInput.setPartitionKeys(Arrays.asList(new Column("datepart", "string", "partition:datepart"),
@@ -367,7 +367,8 @@ public class PGTableServiceImplTestV2 extends PGBaseServiceImplTest{
             addPartitionInput = buildPartitions(tableByName, perLoopCount, parNamePrefix + "_" + i);
             partitionService.addPartitions(StoreConvertor.tableName(database, TABLE_NAME), addPartitionInput);
         }
-        valueAssertEquals(loop * perLoopCount, partitionService.listPartitionNames(tableName, -1).length);
+        PartitionFilterInput filterInput = new PartitionFilterInput();
+        valueAssertEquals(loop * perLoopCount, partitionService.listPartitionNames(tableName, filterInput, false).length);
     }
 
         @Test

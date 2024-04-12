@@ -32,6 +32,7 @@ import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
 
 public class RequestChecker {
 
+    static final String namePatternDashedLine = "[^0-9-][\\w-]*";
     static final Pattern RESOURCE_PATTERN = Pattern.compile("[a-z0-9_]*", Pattern.CASE_INSENSITIVE);
     static final Pattern PARAMETER_PATTERN = Pattern.compile("[a-z0-9-_.~!*'();:@&=+$,/?#\\]\\[]*", Pattern.CASE_INSENSITIVE);
     public static void check(ProjectRequestBase request) {
@@ -66,7 +67,7 @@ public class RequestChecker {
         }
         if (request instanceof CatalogRequestBase) {
             CatalogRequestBase req = (CatalogRequestBase) request;
-            if (!checkResourceFormat(req.getCatalogName())) {
+            if (checkResourceDashFormat(req.getCatalogName())) {
                 throw new CatalogClientException(ClientErrorCode.RESOURCE_FORMAT_ERROR, "catalog");
             }
 
@@ -94,6 +95,10 @@ public class RequestChecker {
                 throw new CatalogClientException(ClientErrorCode.PARAMETER_LENGTH_ERROR, key);
             }
         });
+    }
+
+    private static boolean checkResourceDashFormat(String name) {
+        return name == null || !name.matches(namePatternDashedLine);
     }
 
     private static boolean checkResourceFormat(String name) {

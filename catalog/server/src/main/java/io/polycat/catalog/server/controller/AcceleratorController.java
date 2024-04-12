@@ -19,14 +19,14 @@ package io.polycat.catalog.server.controller;
 
 import java.util.List;
 
+import io.polycat.catalog.server.util.BaseResponseUtil;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.model.AcceleratorObject;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.model.DatabaseName;
 import io.polycat.catalog.common.model.PagedList;
 import io.polycat.catalog.common.plugin.request.input.AcceleratorInput;
-import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.service.api.AcceleratorService;
 import io.polycat.catalog.store.common.StoreConvertor;
 
@@ -36,7 +36,6 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

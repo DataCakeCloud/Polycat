@@ -29,6 +29,9 @@ public class TableIdent {
     private String tableId;
     private String rootCatalogId;
 
+    public TableIdent() {
+    }
+
     public TableIdent(String projectId, String catalogId, String databaseId, String tableId) {
         this.projectId = projectId;
         this.catalogId = catalogId;

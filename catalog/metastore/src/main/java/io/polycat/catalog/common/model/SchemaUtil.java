@@ -20,10 +20,8 @@ package io.polycat.catalog.common.model;
 
 import io.polycat.catalog.common.model.record.Field;
 import io.polycat.catalog.common.model.record.StringWritable;
-import io.polycat.catalog.common.types.ArrayType;
 import io.polycat.catalog.common.types.DataType;
 import io.polycat.catalog.common.types.DataTypes;
-import io.polycat.catalog.common.types.MapType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +32,7 @@ public class SchemaUtil {
     public static Schema convertSchema(List<Column> columns) {
         List<SchemaField> fields = new ArrayList<>(columns.size());
         for (Column column : columns) {
-            io.polycat.catalog.common.types.DataType dataType = DataTypes.valueOf(column.getColType());
+            DataType dataType = DataTypes.valueOf(column.getColType());
 
             fields.add(new SchemaField(null, column.getColumnName(), dataType,
                 column.getComment(), Collections.emptyMap()));

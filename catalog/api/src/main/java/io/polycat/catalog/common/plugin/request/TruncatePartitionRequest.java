@@ -22,8 +22,8 @@ import java.util.Map;
 
 import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
 import io.polycat.catalog.common.plugin.request.input.TruncatePartitionInput;
+import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
 
 public class TruncatePartitionRequest extends TableRequestBase<TruncatePartitionInput> {
 

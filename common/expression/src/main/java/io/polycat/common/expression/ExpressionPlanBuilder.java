@@ -21,16 +21,26 @@ import io.polycat.catalog.common.exception.CarbonSqlException;
 import io.polycat.catalog.common.model.record.*;
 import io.polycat.catalog.common.types.DataType;
 import io.polycat.catalog.common.types.DataTypes;
-import io.polycat.common.expression.arithmetic.*;
 import io.polycat.common.expression.bool.AndExpression;
 import io.polycat.common.expression.bool.OrExpression;
-import io.polycat.common.expression.comparison.*;
 import io.polycat.common.expression.interval.IntervalUnit;
 import io.polycat.common.expression.interval.TimeInterval;
 import io.polycat.common.sql.ParserUtil;
 import io.polycat.sql.PolyCatSQLBaseVisitor;
 import io.polycat.sql.PolyCatSQLParser;
 import io.polycat.sql.PolyCatSQLParser.*;
+
+import io.polycat.common.expression.arithmetic.DivideExpression;
+import io.polycat.common.expression.arithmetic.MinusExpression;
+import io.polycat.common.expression.arithmetic.ModExpression;
+import io.polycat.common.expression.arithmetic.PlusExpression;
+import io.polycat.common.expression.arithmetic.TimesExpression;
+import io.polycat.common.expression.comparison.EqualExpression;
+import io.polycat.common.expression.comparison.GreaterThanExpression;
+import io.polycat.common.expression.comparison.GreaterThanOrEqualExpression;
+import io.polycat.common.expression.comparison.LessThanExpression;
+import io.polycat.common.expression.comparison.LessThanOrEqualExpression;
+import io.polycat.common.expression.comparison.NotEqualExpression;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;

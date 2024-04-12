@@ -41,9 +41,6 @@ import org.apache.commons.lang3.EnumUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Service;
-
-import javax.annotation.Resource;
 
 @Configuration
 @ConditionalOnProperty(name = "metastore.type", havingValue = "polyCat")

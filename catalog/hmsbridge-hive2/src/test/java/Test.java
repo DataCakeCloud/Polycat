@@ -20,10 +20,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import io.polycat.catalog.client.CatalogUserInformation;
-import io.polycat.catalog.client.PolyCatClient;
-import io.polycat.catalog.common.plugin.CatalogContext;
-import io.polycat.catalog.common.plugin.request.ListTablePartitionsRequest;
-import io.polycat.catalog.common.plugin.request.input.PartitionFilterInput;
 import io.polycat.catalog.hms.hive2.CatalogStore;
 
 import org.apache.hadoop.conf.Configuration;
@@ -45,10 +41,130 @@ import scala.collection.Iterator;
 
 public class Test {
 
+    /*@org.junit.jupiter.api.Test
+    public void test_partition() {
+        PolyCatClient polyCatClient = new PolyCatClient("polycat-catalog-ue1.uxxxxxxxx.org", 80);
+        CatalogContext catalogContext = new CatalogContext("xxxxxxxx", "bdp", "TenantA",
+            "rO0ABXNyADJpby5sYWtlY2F0LmNhdGFsb2cuYXV0aGVudGljYXRpb24ubW9kZWwuTG9jYWxUb2tlbjcmbiYxJvNvAgADTAAJYWNjb3VudElkdAASTGphdmEvbGFuZy9TdHJpbmc7TAAGcGFzc3dkcQB+AAFMAAZ1c2VySWRxAH4AAXhwdAAHdGVuYW50QXQABGRhc2h0AAR0ZXN0");
+        polyCatClient.setContext(catalogContext);
+        GetTableRequest getTableRequest = new GetTableRequest("xxxxxxxx", "xxxxxxxx_ue1", "default",
+            "test_bdp_polycat001");
+        // Table table = polyCatClient.getTable(getTableRequest);
+
+        PartitionInput partitionInput = new PartitionInput();
+        //(values:[20220329], dbName:default, tableName:test_bdp_polycat002, createTime:0, lastAccessTime:0, sd:StorageDescriptor(cols:[FieldSchema(name:beyla_id, type:string, comment:)], location:s3://xxxxxxxx.bigdata.dwd.us-east-1.prod/default/test_bdp_polycat002/dt=20220329, inputFormat:org.apache.hadoop.mapred.TextInputFormat, outputFormat:org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat, compressed:false, numBuckets:0, serdeInfo:SerDeInfo(name:null, serializationLib:org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, parameters:{serialization.format=1}), bucketCols:[], sortCols:[], parameters:{}), parameters:{})
+        List<ColumnInput> columnInputs = new ArrayList();
+        ColumnInput columnInput = new ColumnInput();
+        columnInput.setColumnName("dt");
+        columnInput.setComment("");
+        columnInput.setDataType("String");
+        columnInputs.add(columnInput);
+        PartitionBase partitionBase = new PartitionBase();
+        partitionBase.setPartitionName("dt=20220330");
+        partitionBase.setLocation("s3://xxxxxxxx.bigdata.dwd.us-east-1.prod/default/test_bdp_polycat004/dt=20220330");
+        partitionBase.setFiles(new FileInput[]{});
+        partitionBase.setIndex(new FileStatsInput[]{});
+        partitionInput.setSchema(columnInputs.toArray(new ColumnInput[columnInputs.size()]));
+        partitionInput.setPartitions(new PartitionBase[]{partitionBase});
+        partitionInput.setOverwrite(false);
+        AddPartitionRequest addPartitionRequest = new AddPartitionRequest("xxxxxxxx", "xxxxxxxx_ue1", "default",
+            "test_bdp_polycat004", partitionInput);
+        // polyCatClient.addPartitions(addPartitionRequest);
+        polyCatClient.addPartition(addPartitionRequest);
+        // System.out.println(partitionsByNames);
+    }
+
+    @org.junit.jupiter.api.Test
+    public void get_partition() {
+        PolyCatClient polyCatClient = new PolyCatClient("polycat-catalog-ue1.uxxxxxxxx.org", 80);
+        CatalogContext catalogContext = new CatalogContext("xxxxxxxx", "bdp", "TenantA",
+            "rO0ABXNyADJpby5sYWtlY2F0LmNhdGFsb2cuYXV0aGVudGljYXRpb24ubW9kZWwuTG9jYWxUb2tlbjcmbiYxJvNvAgADTAAJYWNjb3VudElkdAASTGphdmEvbGFuZy9TdHJpbmc7TAAGcGFzc3dkcQB+AAFMAAZ1c2VySWRxAH4AAXhwdAAHdGVuYW50QXQABGRhc2h0AAR0ZXN0");
+        polyCatClient.setContext(catalogContext);
+        PartitionFilterInput partitionFilterInput = new PartitionFilterInput();
+        ArrayList<String> part_vals = new ArrayList<>();
+        part_vals.add("p_date_ymd=20180828/p_sum_date_ymd=20180907/p_elapsed_days=4");
+        partitionFilterInput.setPartNames(part_vals.toArray(new String[0]));
+        ListTablePartitionsRequest listTablePartitionsRequest = new ListTablePartitionsRequest("xxxxxxxx", "xxxxxxxx_ue1",
+            "test_tmp", "st_daily_new_users_retention_rates", partitionFilterInput);
+        List<TablePartition> partitionsByNames = polyCatClient.getPartitionsByNames(listTablePartitionsRequest);
+        System.out.println(partitionsByNames);
+    }
+
+    @org.junit.jupiter.api.Test
+    public void doesPartitionsExist() {
+        PolyCatClient polyCatClient = new PolyCatClient("polycat-catalog-ue1.uxxxxxxxx.org", 80);
+        CatalogContext catalogContext = new CatalogContext("xxxxxxxx", "bdp", "TenantA",
+            "rO0ABXNyADJpby5sYWtlY2F0LmNhdGFsb2cuYXV0aGVudGljYXRpb24ubW9kZWwuTG9jYWxUb2tlbjcmbiYxJvNvAgADTAAJYWNjb3VudElkdAASTGphdmEvbGFuZy9TdHJpbmc7TAAGcGFzc3dkcQB+AAFMAAZ1c2VySWRxAH4AAXhwdAAHdGVuYW50QXQABGRhc2h0AAR0ZXN0");
+        polyCatClient.setContext(catalogContext);
+        PartitionNameInput partitionNameInput = new PartitionNameInput();
+        partitionNameInput.setPartitionName("dt=20220131/hour=07");
+        DoesPartitionExistsRequest doesPartitionExistsRequest = new DoesPartitionExistsRequest("xxxxxxxx", "xxxxxxxx_ue1",
+            "ads_cpi", "dwd_ads_adping_ecevent_shopeev2", partitionNameInput);
+        boolean doesPartitionExist = polyCatClient.doesPartitionExist(doesPartitionExistsRequest);
+        System.out.println(doesPartitionExist);
+
+    }*/
+
+
+    /*@org.junit.jupiter.api.Test
+    public void listPartitionNamesPs() {
+        PolyCatClient polyCatClient = new PolyCatClient("polycat-catalog-ue1.uxxxxxxxx.org", 80);
+        CatalogContext catalogContext = new CatalogContext("xxxxxxxx", "bdp", "TenantA",
+            "rO0ABXNyADJpby5sYWtlY2F0LmNhdGFsb2cuYXV0aGVudGljYXRpb24ubW9kZWwuTG9jYWxUb2tlbjcmbiYxJvNvAgADTAAJYWNjb3VudElkdAASTGphdmEvbGFuZy9TdHJpbmc7TAAGcGFzc3dkcQB+AAFMAAZ1c2VySWRxAH4AAXhwdAAHdGVuYW50QXQABGRhc2h0AAR0ZXN0");
+        polyCatClient.setContext(catalogContext);
+        PartitionFilterInput partitionFilterInput = new PartitionFilterInput();
+        partitionFilterInput.setMaxParts((short) -1);
+        ArrayList<String> part_vals = new ArrayList<>();
+        part_vals.add("20220508");
+        part_vals.add("");
+        partitionFilterInput.setValues(part_vals.toArray(new String[0]));
+        ListTablePartitionsRequest listTablePartitionsRequest = new ListTablePartitionsRequest("xxxxxxxx", "xxxxxxxx_ue1",
+            "bd_dws", "dws_beyla_device_remain_agg_inc_daily", partitionFilterInput);
+        System.out.println(listTablePartitionsRequest);
+        List<String> strings = polyCatClient.listPartitionNamesPs(listTablePartitionsRequest);
+        System.out.println(strings);
+    }*/
+
+    /*@org.junit.jupiter.api.Test
+    public void createTable() {
+        PolyCatClient polyCatClient = PolyCatClient.getInstance(new Configuration());
+        CatalogContext catalogContext = new CatalogContext("shenzhen", "xxxxxxxx_ue1", "default", "zhangsan", "TenantA",
+            "rO0ABXNyADJpby5sYWtlY2F0LmNhdGFsb2cuYXV0aGVudGljYXRpb24ubW9kZWwuTG9jYWxUb2tlbjcmbiYxJvNvAgADTAAJYWNjb3VudElkdAASTGphdmEvbGFuZy9TdHJpbmc7TAAGcGFzc3dkcQB+AAFMAAZ1c2VySWRxAH4AAXhwdAANU2hlblpoZW5EYVh1ZXQABGRhc2h0AAR0ZXN0");
+        polyCatClient.setContext(catalogContext);
+
+        CreateTableRequest createTableRequest = new CreateTableRequest();
+        createTableRequest.setCatalogName("xxxxxxxx_ue1");
+        createTableRequest.setDatabaseName("default");
+        TableInput tableInput = new TableInput();
+        StorageInput storageInput = new StorageInput();
+        tableInput.setStorageInput(storageInput);
+        tableInput.setName("t1");
+        List<ColumnInput> columnInputs = new ArrayList<>();
+        ColumnInput columnInput = new ColumnInput();
+        columnInput.setColumnName("c1");
+        columnInput.setDataType(DataType.STRING.name());
+        columnInputs.add(columnInput);
+        tableInput.setColumns(columnInputs);
+        tableInput.setUserId("zhangsan");
+        tableInput.setColumns(columnInputs);
+        List<ColumnInput> partitionInputs = new ArrayList<>();
+        ColumnInput partitionInput = new ColumnInput();
+        columnInput.setColumnName("p1");
+        columnInput.setDataType(DataType.STRING.name());
+        partitionInputs.add(partitionInput);
+        tableInput.setPartitions(partitionInputs);
+        createTableRequest.setInput(tableInput);
+        polyCatClient.createTable(createTableRequest);
+
+        PagedList<Database> databasePagedList = polyCatClient
+            .listDatabases(new ListDatabasesRequest("shenzhen", "xxxxxxxx_ue1"));
+        System.out.println(databasePagedList);
+    }*/
+
     @org.junit.jupiter.api.Test
     public void testMSC() throws TException {
         HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.uris", "thrift://hms-polycat-region1.xxx.com:9083");
+        hiveConf.set("hive.metastore.uris", "thrift://hms-polycat-ue1.uxxxxxxxx.org:9083");
         HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
         org.apache.hadoop.hive.metastore.api.Database temp_database = hiveMetaStoreClient.getDatabase("temp_database");
         System.out.println(temp_database);
@@ -58,7 +174,7 @@ public class Test {
     @org.junit.jupiter.api.Test
     public void testSparkAST() throws ParseException {
         SparkConf sparkConf = new SparkConf();
-        sparkConf.set("spark.hadoop.hive.metastore.uris", "thrift://hms-polycat-region1.xxx.com:9083");
+        sparkConf.set("spark.hadoop.hive.metastore.uris", "thrift://hms-polycat-ue1.uxxxxxxxx.org:9083");
         SparkSession sparkSession = SparkSession.builder().master("local").config(sparkConf).enableHiveSupport()
             .getOrCreate();
         String sql = "WITH assets_tbl AS\n"
@@ -112,7 +228,7 @@ public class Test {
             + "\n"
             + ")\n"
             + "\n"
-            + "INSERT OVERWRITE TABLE analyst.dwsabcdsign_acti_diff_task_fun_remain_inc_daily PARTITION (dt)\n"
+            + "INSERT OVERWRITE TABLE analyst.dws_xxxxxxxx_sign_acti_diff_task_fun_remain_inc_daily PARTITION (dt)\n"
             + "SELECT  distinct a.dt\n"
             + "       ,a.nation\n"
             + "       ,a.message\n"
@@ -153,7 +269,7 @@ public class Test {
             + "LEFT JOIN\n"
             + "(\n"
             + "\tSELECT  *\n"
-            + "\tFROM analyst.dwsabcdsign_acti_diff_task_fun_remain_inc_daily\n"
+            + "\tFROM analyst.dws_xxxxxxxx_sign_acti_diff_task_fun_remain_inc_daily\n"
             + "\tWHERE dt IN ('20220523' , '20220521' , '20220517' , '20220424' ) \n"
             + "\n"
             + ")c\n"
@@ -286,7 +402,7 @@ public class Test {
         System.out.println(table);
         Partition partition = hiveMetaStoreClient.getPartition("sprs_dwd_prod", "dwd_push_user_info_all_daily", Arrays.asList("20201122", "hlaki", "content"));
         System.out.println(partition);
-        hiveMetaStoreClient.getPartition("sprs_dwd_prod", "dwd_push_user_info_all_daily", "datepart=20201121/request_app=app1/biz_scene=content");
+        hiveMetaStoreClient.getPartition("sprs_dwd_prod", "dwd_push_user_info_all_daily", "datepart=20201121/request_app=xxxxxxxx/biz_scene=content");
         hiveMetaStoreClient.getDatabases("*");
         hiveMetaStoreClient.listPartitions("sprs_dwd_prod", "dwd_push_user_info_all_daily", Arrays.asList("20201122", "hlaki", "content"), (short)10);
         hiveMetaStoreClient.listPartitions("sprs_dwd_prod", "dwd_push_user_info_all_daily", (short)10);
@@ -307,36 +423,36 @@ public class Test {
             "datepart=20210512/hour=23/request_app=vwatchit/event=click_comment");
         final CatalogStore catalogStore = new CatalogStore();
         final Configuration configuration = new Configuration();
-        configuration.set("polycat.user.project", "project1");
+        configuration.set("polycat.user.project", "xxxxxxxx");
         configuration.set("polycat.user.name", "bdp");
         configuration.set("polycat.user.password", "bdp");
         configuration.set("polycat.user.tenant", "tenantA");
         catalogStore.setConf(configuration);
         final ArrayList<Partition> partitions = new ArrayList<>();
         partitions.add(partition);
-        catalogStore.addPartitions("catalog_1", "sprs_dwd_prod", "dwd_log_main_event_inc_hourly", table, partitions);
-        // catalogStore.addPartition("catalog_1", "sprs_dwd_prod", "dwd_log_main_event_inc_hourly", partition);
+        catalogStore.addPartitions("xxxxxxxx_sg2", "sprs_dwd_prod", "dwd_log_main_event_inc_hourly", table, partitions);
+        // catalogStore.addPartition("xxxxxxxx_sg2", "sprs_dwd_prod", "dwd_log_main_event_inc_hourly", partition);
     }
 
     @org.junit.jupiter.api.Test
     public void testPartitions() throws TException {
         Configuration conf = new Configuration();
-        conf.set("polycat.catalog.name", "catalog_1");
+        conf.set("polycat.catalog.name", "xxxxxxxx_ue1");
         conf.set(CatalogUserInformation.POLYCAT_USER_NAME, "bdp");
         conf.set(CatalogUserInformation.POLYCAT_USER_PASSWORD, "bdp");
-        conf.set(CatalogUserInformation.POLYCAT_USER_PROJECT, "project1");
+        conf.set(CatalogUserInformation.POLYCAT_USER_PROJECT, "xxxxxxxx");
         conf.set(CatalogUserInformation.POLYCAT_USER_TENANT, "tenantA");
         // 配置里面要有 gateway.conf
         CatalogStore catalogStore = new CatalogStore(conf);
-        final Table table = catalogStore.getTable("catalog_1", "analyst", "dwd_muslim_beyla_event_di");
-        final List<Partition> partitionList = catalogStore.getPartitions("catalog_1", "analyst", "dwd_muslim_beyla_event_di", (short) 0);
+        final Table table = catalogStore.getTable("xxxxxxxx_ue1", "analyst", "dwd_muslim_beyla_event_di");
+        final List<Partition> partitionList = catalogStore.getPartitions("xxxxxxxx_ue1", "analyst", "dwd_muslim_beyla_event_di", (short) 0);
         partitionList.forEach(partition -> {
             if (partition.getValues().contains("%2fCleanDetail%2fAccesstoUsagePermission") && partition.getValues().contains("20220701")) {
                 System.out.println(partition);
                 try {
                     List<String> partNames = new ArrayList<String>();
                     partNames.add(Warehouse.makePartName(table.getPartitionKeys(), partition.getValues()));
-                    catalogStore.dropPartitions("catalog_1", "analyst", "dwd_muslim_beyla_event_di", partNames);
+                    catalogStore.dropPartitions("xxxxxxxx_ue1", "analyst", "dwd_muslim_beyla_event_di", partNames);
                 } catch (MetaException metaException) {
                     metaException.printStackTrace();
                 }
@@ -361,7 +477,7 @@ public class Test {
     @org.junit.jupiter.api.Test
     public void testHMS() throws TException {
         HiveConf conf = new HiveConf();
-        conf.set("hive.metastore.uris", "thrift://hms-polycat-region1.xxx.com:9083");
+        conf.set("hive.metastore.uris", "thrift://hms-polycat-sg1.uxxxxxxxx.org:9083");
         HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(conf);
         final org.apache.hadoop.hive.metastore.api.Database database = hiveMetaStoreClient.getDatabase("default");
         System.out.println(database);

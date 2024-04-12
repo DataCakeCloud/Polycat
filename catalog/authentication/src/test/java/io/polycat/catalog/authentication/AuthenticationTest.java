@@ -18,6 +18,7 @@
 package io.polycat.catalog.authentication;
 
 import java.io.IOException;
+
 import io.polycat.catalog.authentication.model.LocalIdentity;
 import io.polycat.catalog.common.GlobalConfig;
 

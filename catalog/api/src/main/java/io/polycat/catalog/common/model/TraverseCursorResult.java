@@ -28,9 +28,17 @@ public class TraverseCursorResult<T> {
 
     private CatalogToken continuation;
 
+    private CatalogToken previousToken;
+
     public TraverseCursorResult(final T result, final CatalogToken continuation) {
         this.resultValue = result;
         this.continuation = continuation;
+    }
+
+    public TraverseCursorResult(final T result, final CatalogToken continuation, CatalogToken previousToken) {
+        this.resultValue = result;
+        this.continuation = continuation;
+        this.previousToken = previousToken;
     }
 
     public Optional<CatalogToken> getContinuation() {
@@ -39,6 +47,13 @@ public class TraverseCursorResult<T> {
 
     public T getResult() {
         return resultValue;
+    }
+
+    public String getPreviousTokenString() {
+        if (previousToken != null) {
+            return previousToken.toString();
+        }
+        return null;
     }
 }
 

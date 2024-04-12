@@ -66,7 +66,7 @@ public class CatalogServiceMultiThreadsTest extends TestUtil {
 
     @BeforeAll
     public static void setUp() throws Exception {
-        TestUtil.clearFDB();
+        clearFDB();
     }
 
     @Test

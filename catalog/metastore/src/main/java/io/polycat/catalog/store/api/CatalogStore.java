@@ -127,5 +127,4 @@ public interface CatalogStore {
     List<CatalogObject> getParentBranchCatalog(TransactionContext context, CatalogIdent subbranchCatalogIdent);
 
     List<CatalogObject> getNextLevelSubBranchCatalogs(TransactionContext context, CatalogIdent parentBranchCatalogIdent);
-
 }

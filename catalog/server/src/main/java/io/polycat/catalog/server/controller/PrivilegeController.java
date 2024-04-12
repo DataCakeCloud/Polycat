@@ -20,11 +20,10 @@ package io.polycat.catalog.server.controller;
 import java.util.List;
 
 
-import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.model.AuthorizationResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.plugin.request.input.AuthorizationInput;
-import io.polycat.catalog.server.util.ResponseUtil;
 
 import io.polycat.catalog.service.api.PrivilegeService;
 import io.swagger.annotations.Api;
@@ -34,8 +33,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

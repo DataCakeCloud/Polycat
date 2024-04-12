@@ -17,6 +17,8 @@
  */
 package io.polycat.catalog.common;
 
+import io.polycat.catalog.common.ErrorCode;
+
 public class IllegelDirectoryException extends RuntimeException {
 
     private ErrorCode errorCode;

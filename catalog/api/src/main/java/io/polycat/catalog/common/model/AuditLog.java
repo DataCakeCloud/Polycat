@@ -21,7 +21,6 @@ package io.polycat.catalog.common.model;
 import io.polycat.catalog.common.ObjectType;
 import lombok.Builder;
 import lombok.Data;
-import lombok.Getter;
 import lombok.experimental.Accessors;
 
 import java.util.Map;

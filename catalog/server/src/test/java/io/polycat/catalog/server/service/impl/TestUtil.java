@@ -57,20 +57,15 @@ import io.polycat.catalog.service.api.DataLineageService;
 import io.polycat.catalog.service.api.DatabaseService;
 import io.polycat.catalog.service.api.DelegateService;
 import io.polycat.catalog.service.api.FunctionService;
-import io.polycat.catalog.service.api.GlobalShareService;
-import io.polycat.catalog.service.api.NewRoleService;
 import io.polycat.catalog.service.api.ObjectNameMapService;
 import io.polycat.catalog.service.api.PartitionService;
-import io.polycat.catalog.service.api.PolicyService;
 import io.polycat.catalog.service.api.PrivilegeService;
 import io.polycat.catalog.service.api.RoleService;
 import io.polycat.catalog.service.api.ShareService;
 import io.polycat.catalog.service.api.TableService;
 import io.polycat.catalog.service.api.UsageProfileService;
-import io.polycat.catalog.service.api.UserGroupService;
 import io.polycat.catalog.service.api.ViewService;
 import io.polycat.catalog.store.api.StoreBase;
-import io.polycat.catalog.store.api.VersionManager;
 import io.polycat.catalog.store.common.StoreConvertor;
 import io.polycat.catalog.store.fdb.record.impl.StoreImpl;
 import io.polycat.catalog.store.fdb.record.impl.TableDataStoreImpl;
@@ -79,14 +74,13 @@ import io.polycat.catalog.store.protos.common.DataFile;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 //@Component
 public class TestUtil {
-    public static final String projectId = UuidUtil.generateUUID32();
+    public static final String projectId = "testProjectId";
 
     public static CatalogResourceService catalogResourceService;
     @Autowired
@@ -218,7 +212,7 @@ public class TestUtil {
     }
 
     public void createCatalogBeforeClass() {
-        String catalogName = UUID.randomUUID().toString().toLowerCase();
+        String catalogName = "test_catalog_name";
         catalogNameString = catalogName;
 
         CatalogInput catalogInput = getCatalogInput(catalogName);
@@ -245,7 +239,7 @@ public class TestUtil {
     }
 
     public void createDatabaseBeforeClass() {
-        String dbName = UUID.randomUUID().toString().toLowerCase();
+        String dbName = "testDbName";
 
         DatabaseInput databaseInput = getDatabaseDTO(projectId, catalog.getCatalogName(), dbName);
 
@@ -256,7 +250,7 @@ public class TestUtil {
     }
 
     public void createTableBeforeClass() {
-        String tableName = UUID.randomUUID().toString().toLowerCase();
+        String tableName = "testTableName";
         tableNameString = tableName;
         TableInput tableInput = getTableDTO(tableNameString, 3);
         DatabaseName databaseName = StoreConvertor.databaseName(projectId, catalogNameString, databaseNameString);

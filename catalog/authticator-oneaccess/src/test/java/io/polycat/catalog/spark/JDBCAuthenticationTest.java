@@ -30,8 +30,8 @@ import java.util.concurrent.CountDownLatch;
 import io.polycat.catalog.client.CatalogUserInformation;
 import io.polycat.catalog.client.PolyCatClient;
 import io.polycat.catalog.common.GlobalConfig;
-import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.Logger;
+import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.exception.CarbonSqlException;
 import io.polycat.catalog.common.plugin.CatalogPlugin;
 import io.polycat.catalog.common.plugin.request.CreateCatalogRequest;
@@ -40,12 +40,7 @@ import io.polycat.catalog.common.plugin.request.input.CatalogInput;
 import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
 import io.polycat.catalog.server.CatalogApplication;
 import io.polycat.catalog.store.api.StoreBase;
-import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 
-import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.subspace.Subspace;
 import io.polycat.catalog.store.fdb.record.impl.StoreImpl;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.launcher.InProcessLauncher;
@@ -113,7 +108,7 @@ public class JDBCAuthenticationTest {
                 .setMaster("local")
                 .setConf("spark.ui.enabled", "false")
                 .setConf("spark.metrics.staticSources.enabled", "false")
-                .setConf("spark.sql.catalog.lms", "io.polycat.catalog.spark.SparkCatalog")
+                .setConf("spark.sql.catalog.lms", "SparkCatalog")
                 .setConf("spark.sql.defaultCatalog", "lms")
                 .setConf("spark.sql.extensions", "org.apache.spark.sql.PolyCatExtensions")
                 .setConf("spark.polycat.iceberg.enabled", "false")
@@ -121,7 +116,7 @@ public class JDBCAuthenticationTest {
                 .setConf("spark.hadoop.javax.jdo.option.ConnectionURL",
                     "jdbc:derby:;databaseName=" + targetPath + "/metastore_db2;create=true")
                 .setConf("spark.hadoop.hive.metastore.rawstore.impl",
-                    "io.polycat.catalog.hms.hive2.CatalogStore")
+                    "CatalogStore")
                 .setConf("spark.hadoop." + CatalogUserInformation.POLYCAT_USER_NAME, "test")
                 .setConf("spark.hadoop." + CatalogUserInformation.POLYCAT_USER_PASSWORD, "dash")
                 .setConf("spark.hadoop." + PolyCatConf.POLYCAT_CONFI_DIR, "../../conf")
@@ -189,7 +184,7 @@ public class JDBCAuthenticationTest {
         checkQueryResult(statement2);
 
         assertThrows(SQLException.class, () -> statement2.executeQuery("select * from db1.t2"),
-            "Error running query: io.polycat.catalog.common.exception.CatalogException: No permission. SELECT TABLE");
+            "Error running query: CatalogException: No permission. SELECT TABLE");
 
     }
 

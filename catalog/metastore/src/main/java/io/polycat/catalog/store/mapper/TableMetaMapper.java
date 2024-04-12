@@ -20,7 +20,6 @@ package io.polycat.catalog.store.mapper;
 import java.util.List;
 
 import io.polycat.catalog.common.model.TableNameObject;
-import io.polycat.catalog.common.model.TableReferenceObject;
 import io.polycat.catalog.store.gaussdb.pojo.DroppedTableRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableBaseHistoryRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableBaseRecord;

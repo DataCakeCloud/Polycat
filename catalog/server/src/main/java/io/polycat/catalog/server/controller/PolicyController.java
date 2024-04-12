@@ -19,6 +19,8 @@ package io.polycat.catalog.server.controller;
 
 import java.util.List;
 
+import io.polycat.catalog.server.util.BaseResponseUtil;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
@@ -28,8 +30,6 @@ import io.polycat.catalog.common.model.MetaPrivilegePolicyAggrData;
 import io.polycat.catalog.common.model.PagedList;
 import io.polycat.catalog.common.model.Policy;
 import io.polycat.catalog.common.plugin.request.input.PolicyInput;
-import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.service.api.PolicyService;
 
 import io.swagger.annotations.Api;
@@ -39,7 +39,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;

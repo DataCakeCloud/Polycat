@@ -19,9 +19,9 @@ package io.polycat.catalog.store.common;
 
 import java.util.Arrays;
 
+import io.polycat.catalog.store.fdb.record.DirectoryStringMap;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.store.fdb.record.DirectoryStringMap;
 import io.polycat.catalog.store.protos.AcceleratorObjectNameProto;
 import io.polycat.catalog.store.protos.AcceleratorPropertiesProto;
 import io.polycat.catalog.store.protos.AcceleratorTemplateProto;

@@ -23,11 +23,8 @@ import java.util.Optional;
 
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.CatalogIdent;
-import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.common.model.DatabaseHistoryObject;
 import io.polycat.catalog.common.model.DatabaseIdent;
-import io.polycat.catalog.common.model.DatabaseName;
-import io.polycat.catalog.common.model.DatabaseNameObject;
 import io.polycat.catalog.common.model.DatabaseObject;
 import io.polycat.catalog.common.model.DroppedDatabaseNameObject;
 import io.polycat.catalog.common.model.ScanRecordCursorResult;

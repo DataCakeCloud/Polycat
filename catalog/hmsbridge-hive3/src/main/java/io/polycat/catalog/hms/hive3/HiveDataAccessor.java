@@ -18,43 +18,15 @@
 package io.polycat.catalog.hms.hive3;
 
 import java.security.InvalidParameterException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import io.polycat.catalog.common.model.Column;
 
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Order;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.SkewedInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.*;
 
 public class HiveDataAccessor {
-    public static Table toTable(io.polycat.catalog.common.model.Table lsmTbl) {
-        Table table = new Table();
-        table.setCatName(lsmTbl.getCatalogName());
-        table.setDbName(lsmTbl.getDatabaseName());
-        table.setTableName(lsmTbl.getTableName());
-        table.setOwner(lsmTbl.getOwner());
-        table.setOwnerType(PrincipalType.valueOf(lsmTbl.getOwnerType()));
-        table.setRetention(lsmTbl.getRetention().intValue());
-        table.setSd(convertToStorageDescriptor(lsmTbl.getStorageDescriptor()));
-        table.setPartitionKeys(convertToColumns(lsmTbl.getPartitionKeys()));
-        table.setParameters(lsmTbl.getParameters());
-        table.setViewOriginalText(lsmTbl.getViewOriginalText());
-        table.setViewExpandedText(lsmTbl.getViewExpandedText());
-        table.setTableType(lsmTbl.getTableType());
-        table.setCreateTime(toInteger(lsmTbl.getCreateTime()));
-        table.setLastAccessTime(toInteger(lsmTbl.getLastAccessTime()));
-        // privileges
-        return table;
-    }
+
 
     private static int toInteger(Long longNum) {
         if (longNum == null) {
@@ -91,7 +63,8 @@ public class HiveDataAccessor {
         return null;
     }
 
-    private static Map<List<String>, String> getSkewedValueLocationMap(io.polycat.catalog.common.model.SkewedInfo lmsSkewInfo) {
+    private static Map<List<String>, String> getSkewedValueLocationMap(
+        io.polycat.catalog.common.model.SkewedInfo lmsSkewInfo) {
         Map<List<String>, String> hiveMap = new HashMap<>();
         Map<String, String> lsmSkewMap = lmsSkewInfo.getSkewedColumnValueLocationMaps();
         lsmSkewMap.keySet().forEach(valStr -> hiveMap.put(convertToValueList(valStr), lsmSkewMap.get(valStr)));
@@ -114,7 +87,6 @@ public class HiveDataAccessor {
                         isValid = false;
                     } else {
                         int lengthOfString = Integer.parseInt(length.toString());
-                        System.out.println(lengthOfString);
                         valueList.add(valStr.substring(j + 1, j + 1 + lengthOfString));
                         i = j + 1 + lengthOfString;
                         isValid = true;

@@ -18,37 +18,39 @@
 package io.polycat.probe.spark
 
 import io.polycat.probe.EventProcessor
-import io.polycat.probe.model.TableMetaInfo
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener}
+import org.apache.spark.scheduler.SparkListener
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.util.QueryExecutionListener
 
 class PolyCatSparkListener extends SparkListener with QueryExecutionListener with Logging {
-
   val conf: Configuration = SparkSession.getActiveSession.map(ss => ss.sparkContext.hadoopConfiguration).getOrElse(new Configuration())
-  val DEFAULT_CATALOG_CONFIG = "polycat.catalog.name"
-  val DEFAULT_USAGE_PROFILES_TASK_ID= "polycat.usageprofiles.taskId"
+  val qeHashCode = new java.util.HashSet[Int]()
+  val processor = new EventProcessor(conf)
 
-  override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
-    val eventProcessor = new EventProcessor(conf)
-    val defaultCatalog = conf.get(DEFAULT_CATALOG_CONFIG)
-    val taskId = conf.get(DEFAULT_USAGE_PROFILES_TASK_ID, "")
-    val usageProfileExtracter = new SparkUsageProfileExtracter(defaultCatalog)
-    val tableUsageProfiles = usageProfileExtracter.extractTableUsageProfile(qe)
-
-    if (!tableUsageProfiles.isEmpty) {
-      val metaInfo = new TableMetaInfo
-      metaInfo.setTableUsageProfiles(tableUsageProfiles)
-      metaInfo.setTaskId(taskId);
-      eventProcessor.pushEvent(metaInfo)
+  def pushTableUsageProfile(qe: QueryExecution): Unit = {
+    val command = SparkTransferSqlParser.execSQL
+    if (qeHashCode.contains(qe.analyzed.hashCode())) {
+      log.info("The current statement has been processed and will be skipped directly. Skipped statement:{}", command)
+    } else {
+      try {
+        val tableUsageProfiles = new SparkUsageProfileExtracter(conf, command).extractTableUsageProfile(qe)
+        processor.pushTableUsageProfile(tableUsageProfiles)
+        qeHashCode.add(qe.analyzed.hashCode())
+      } catch {
+        case e: Exception => log.warn("push tableUsageProfiles error!", e)
+      }
     }
   }
 
+  override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
+    pushTableUsageProfile(qe)
+  }
+
   override def onFailure(funcName: String, qe: QueryExecution, exception: Exception): Unit = {
-    logError(s"query execution exec error!\n $exception.getStackTrace.toString")
+    pushTableUsageProfile(qe)
   }
 
 }

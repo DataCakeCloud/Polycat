@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import io.polycat.catalog.server.util.TransactionRunner;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
@@ -45,7 +46,6 @@ import io.polycat.catalog.common.plugin.request.input.TableNameInput;
 import io.polycat.catalog.common.utils.CatalogToken;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.server.util.TransactionRunner;
 import io.polycat.catalog.service.api.IndexService;
 import io.polycat.catalog.store.api.*;
 import io.polycat.catalog.store.common.StoreConvertor;

@@ -23,14 +23,11 @@ import java.util.List;
 import java.util.Map;
 
 import io.polycat.catalog.common.model.User;
-import io.polycat.catalog.common.plugin.request.input.ShareInput;
 import io.polycat.catalog.common.plugin.request.input.UserGroupInput;
-import io.polycat.catalog.service.api.GlobalShareService;
 import io.polycat.catalog.service.api.UserGroupService;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

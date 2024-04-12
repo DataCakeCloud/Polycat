@@ -55,6 +55,14 @@
         ELSE function_name LIKE CONCAT(#{pattern}::text, '%') END
     </select>
 
+    <select id="listAllFunctions" resultType="io.polycat.catalog.store.gaussdb.pojo.FunctionInfoRecord">
+        SELECT func.catalog_id, func.database_id, db.database_name, func.function_name, func.class_name,
+        func.owner_name, func.owner_type, func.function_type, func.create_time, func.resource_uris
+        FROM  (SELECT * FROM schema_${projectId}.function_info WHERE catalog_id=#{catalogId}) func
+        JOIN schema_${projectId}.database db
+        ON func.catalog_id = db.catalog_id AND func.database_id = db.database_id
+    </select>
+
     <delete id="deleteFunction">
         DELETE FROM schema_${projectId}.function_info WHERE catalog_id=#{catalogId} AND database_id=#{databaseId} AND
         function_name=#{functionName}

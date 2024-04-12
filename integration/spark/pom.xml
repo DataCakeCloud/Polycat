@@ -44,7 +44,7 @@
         <!-- dependent polycat modules -->
         <dependency>
             <groupId>io.polycat</groupId>
-            <artifactId>polycat-hiveSDK</artifactId>
+            <artifactId>polycat-hiveSDK-hive3</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

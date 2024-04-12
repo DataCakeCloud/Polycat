@@ -44,7 +44,6 @@ import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.StaticMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClientFactory;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.prestosql.spi.procedure.Procedure;
 

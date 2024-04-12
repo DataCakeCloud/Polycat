@@ -18,18 +18,16 @@
 package io.polycat.catalog.store.gaussdb;
 
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.ObjectNameMap;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.store.api.ObjectNameMapStore;
 import io.polycat.catalog.store.gaussdb.pojo.ObjectNameMapRecord;
-import io.polycat.catalog.store.mapper.DatabaseMapper;
 import io.polycat.catalog.store.mapper.ObjectNameMapMapper;
+import io.polycat.catalog.common.ObjectType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;

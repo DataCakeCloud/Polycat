@@ -20,12 +20,11 @@ package io.polycat.catalog.store.api;
 import java.util.List;
 
 import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.FunctionObject;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.plugin.request.input.FunctionInput;
-
-import com.apple.foundationdb.record.query.RecordQuery;
 
 
 public interface FunctionStore {
@@ -52,6 +51,7 @@ public interface FunctionStore {
      */
     List <String> listFunctions(TransactionContext context, DatabaseIdent databaseIdent, String pattern);
 
+    List<FunctionObject> listAllFunctions(TransactionContext context, CatalogIdent catalogIdent);
 
     void dropFunction(TransactionContext context, DatabaseIdent databaseIdent, String functionName);
 

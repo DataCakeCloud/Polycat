@@ -17,11 +17,27 @@
  */
 package io.polycat.catalog.service.api;
 
+import java.util.List;
+
 public interface CatalogResourceService {
+
+    void init();
 
     void createResource(String projectId);
 
+    @Deprecated
     Boolean doesExistResource(String projectId);
 
+    /**
+     * projectId exists
+     * @param projectId projectId
+     * @return
+     */
+    Boolean doesExistsProjectId(String projectId);
+
     void dropResource(String projectId);
+
+    void resourceCheck();
+
+    List<String> listProjects();
 }

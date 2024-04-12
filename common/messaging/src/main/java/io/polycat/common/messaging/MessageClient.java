@@ -20,8 +20,6 @@ package io.polycat.common.messaging;
 import java.io.IOException;
 import java.util.Iterator;
 
-import io.polycat.common.messaging.MessagingFactory;
-
 /**
  * 消息服务Client端接口。
  * 使用{@link MeF#setupMessageService(String, Address, MessageService)}创建服务端

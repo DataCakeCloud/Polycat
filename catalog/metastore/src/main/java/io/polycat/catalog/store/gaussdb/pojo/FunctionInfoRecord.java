@@ -17,12 +17,9 @@
  */
 package io.polycat.catalog.store.gaussdb.pojo;
 
-import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -30,6 +27,7 @@ import java.util.List;
 public class FunctionInfoRecord {
     private String catalogId;
     private String databaseId;
+    private String databaseName;
     private String functionName;
     private String className;
     private String ownerName;

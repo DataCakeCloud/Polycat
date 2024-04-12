@@ -74,7 +74,7 @@ public class AlterColumnServiceTest extends TestUtil {
 
     private void beforeAllSetUp() {
         if (isFirstCall) {
-            TestUtil.clearFDB();
+            clearFDB();
             // create catalog
             catalogName = new CatalogName(projectId, myCatalogName);
             CatalogInput catalogInput = getCatalogInput(catalogName.getCatalogName());

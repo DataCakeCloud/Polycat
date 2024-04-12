@@ -22,13 +22,13 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.CatalogInnerObject;
 import io.polycat.catalog.common.model.CatalogName;
 import io.polycat.catalog.common.model.CatalogObject;
-import io.polycat.catalog.common.model.Database;
 import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.DatabaseName;
 import io.polycat.catalog.common.model.DatabaseObject;
@@ -36,7 +36,6 @@ import io.polycat.catalog.common.model.ObjectIdent;
 import io.polycat.catalog.common.model.TableObject;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.model.ViewName;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.service.api.ViewService;
 import io.polycat.catalog.store.api.Transaction;
 import io.polycat.catalog.store.common.StoreConvertor;
@@ -49,7 +48,6 @@ import io.polycat.catalog.common.model.TableName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 @Configuration
 @ConditionalOnProperty(name = "metastore.type", havingValue = "polyCat")

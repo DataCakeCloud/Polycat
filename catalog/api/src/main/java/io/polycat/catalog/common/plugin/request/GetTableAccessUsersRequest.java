@@ -17,8 +17,8 @@
  */
 package io.polycat.catalog.common.plugin.request;
 
-import io.polycat.catalog.common.model.TableSource;
 import io.polycat.catalog.common.plugin.request.base.CatalogRequestBase;
+import io.polycat.catalog.common.model.TableSource;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

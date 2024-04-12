@@ -31,5 +31,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PartitionStatisticData {
 
+    /**
+     * <partitionKey, List<ColumnStatistics>>
+     */
     Map<String, List<ColumnStatisticsObj>> statisticsResults;
+
 }

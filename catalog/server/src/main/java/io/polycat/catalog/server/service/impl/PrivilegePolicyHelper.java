@@ -22,8 +22,8 @@ import java.util.List;
 
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
-import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.CatalogInnerObject;
 import io.polycat.catalog.common.model.CatalogObject;
@@ -276,11 +276,11 @@ public class PrivilegePolicyHelper {
     }
 
     private String getObjectIdByType(String objectType, String objId) {
-        if (objectType.equals(io.polycat.catalog.common.ObjectType.TABLE.name()) || objectType.equals(
-            io.polycat.catalog.common.ObjectType.VIEW.name())) {
+        if (objectType.equals(ObjectType.TABLE.name()) || objectType.equals(
+            ObjectType.VIEW.name())) {
             String[] objectId = objId.split("\\.");
             return objectId[2];
-        } else if (objectType.equals(io.polycat.catalog.common.ObjectType.DATABASE.name())) {
+        } else if (objectType.equals(ObjectType.DATABASE.name())) {
             String[] objectId = objId.split("\\.");
             return objectId[1];
         }

@@ -20,14 +20,13 @@ package io.polycat.catalog.authentication.impl;
 import java.io.IOException;
 
 import io.polycat.catalog.authentication.api.Authenticator;
-import io.polycat.catalog.authentication.model.AuthenticationResult;
 import io.polycat.catalog.authentication.model.Identity;
 import io.polycat.catalog.authentication.model.ImcIdentity;
-import io.polycat.catalog.authentication.model.LocalIdentity;
 import io.polycat.catalog.authentication.model.TokenParseResult;
 import io.polycat.catalog.authentication.oneAccess.ImcClient;
 import io.polycat.catalog.authentication.oneAccess.OneAccessClient;
 import io.polycat.catalog.authentication.oneAccess.TenantInfo;
+import io.polycat.catalog.authentication.model.AuthenticationResult;
 
 import lombok.SneakyThrows;
 

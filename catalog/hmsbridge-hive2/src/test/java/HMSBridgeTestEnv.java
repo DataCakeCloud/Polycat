@@ -77,7 +77,7 @@ public class HMSBridgeTestEnv {
             .config("spark.ui.enabled", "false")
             .config("spark.metrics.staticSources.enabled", "false")
             .config("spark.hadoop.hive.metastore.rawstore.impl",
-                "io.polycat.catalog.hms.hive2.HMSBridgeStore")
+                "HMSBridgeStore")
             .config("spark.sql.warehouse.dir", warehouse)
             .config("spark.hadoop.javax.jdo.option.ConnectionURL",
                 "jdbc:derby:;databaseName=" + targetPath + "/metastore_db;create=true")

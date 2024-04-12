@@ -17,6 +17,8 @@
  */
 package io.polycat.catalog.common.model;
 
+import com.google.common.collect.Lists;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 
 @Data
 public class TableStorageObject {
-
+    public static final String DEFAULT_SD_FILE_FORMAT = "parquet";
     private String location = "";
     private String sourceShortName = "";
     private String fileFormat = "parquet";
@@ -44,6 +46,7 @@ public class TableStorageObject {
     private SerDeInfo serdeInfo;
     private List<Order> sortColumns = new ArrayList<>();
     private Boolean storedAsSubDirectories = false;
+    private SkewedInfo skewedInfo = new SkewedInfo();
 
     public TableStorageObject(TableInput tableInput, String location) {
         StorageDescriptor storageDescriptor = tableInput.getStorageDescriptor();
@@ -81,6 +84,9 @@ public class TableStorageObject {
         if (storageDescriptor.getStoredAsSubDirectories() != null) {
             this.storedAsSubDirectories = storageDescriptor.getStoredAsSubDirectories();
         }
+        if (storageDescriptor.getSkewedInfo() != null) {
+            this.skewedInfo = storageDescriptor.getSkewedInfo();
+        }
     }
 
     public TableStorageObject(StorageInfo storageInfo) {
@@ -100,6 +106,24 @@ public class TableStorageObject {
             this.sortColumns.add(new Order(order.getColumn(), order.getSortOrder()));
         });
         this.storedAsSubDirectories = storageInfo.getStoredAsSubDirectories();
+        this.skewedInfo = constructSkewedInfo(storageInfo.getSkewedInfo());
+    }
+
+    private SkewedInfo constructSkewedInfo(io.polycat.catalog.store.protos.common.SkewedInfo skewedInfo) {
+        SkewedInfo si = new SkewedInfo();
+        if (skewedInfo == null) {
+            return si;
+        }
+        si.setSkewedColumnNames(skewedInfo.getSkewedColumnNamesList());
+        if (skewedInfo.getSkewedColumnValuesCount() > 0) {
+            List<List<String>> skewedValues = Lists.newArrayList();
+            for (int i = 0; i < skewedInfo.getSkewedColumnValuesCount(); i++) {
+                skewedValues.add(new ArrayList<String>(skewedInfo.getSkewedColumnValues(i).getValuesList()));
+            }
+            si.setSkewedColumnValues(skewedValues);
+        }
+        si.setSkewedColumnValueLocationMaps(skewedInfo.getSkewedColumnValueLocationMapsMap());
+        return si;
     }
 
 }

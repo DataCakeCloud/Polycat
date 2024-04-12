@@ -17,10 +17,10 @@
  */
 package io.polycat.catalog.store.common;
 
+import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.CatalogHistoryObject;
 import io.polycat.catalog.common.model.CatalogIdent;
-import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.store.protos.common.CatalogInfo;
 
 public class CatalogStoreConvertor {

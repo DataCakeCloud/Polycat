@@ -17,36 +17,25 @@
 #
 
 FROM openjdk:8
-
 RUN set -ex && \
     apt-get upgrade  && \
     apt-get install bash && \
     rm /bin/sh && \
     ln -sv /bin/bash /bin/sh
 
-WORKDIR /opt
+ADD obslib/lib/ /opt/lib
+ADD apache-hive-2.3.7-bin /opt/apache-hive-2.3.7-bin
+ADD hadoop-3.1.1.tar.gz  /opt/
+ADD lib/hadoop-huaweicloud-3.1.1-hw-45.jar /opt/apache-hive-2.3.7-bin/lib
+ADD catalog/hmsbridge-hive2/target/polycat-catalog-hmsbridge-hive2-0.1-SNAPSHOT.jar /opt/apache-hive-2.3.7-bin/lib
+ADD catalog/api/target/polycat-catalog-api-0.1-SNAPSHOT.jar /opt/apache-hive-2.3.7-bin/lib
+ADD catalog/authentication/target/polycat-catalog-authentication-0.1-SNAPSHOT.jar /opt/apache-hive-2.3.7-bin/lib
+ADD catalog/client/target/polycat-catalog-client-0.1-SNAPSHOT.jar /opt/apache-hive-2.3.7-bin/lib
+
 ENV HIVE_HOME=/opt/apache-hive-2.3.7-bin
 ENV HADOOP_HOME=/opt/hadoop-3.1.1
 ENV HADOOP_CONF_DIR=${HIVE_HOME}/conf
 
-# RUN wget https://mirrors.huaweicloud.com/apache/hadoop/common/hadoop-3.1.1/hadoop-3.1.1.tar.gz -O - | tar -xz
-# RUN wget -c https://mirrors.huaweicloud.com/apache/hive/hive-2.3.7/apache-hive-2.3.7-bin.tar.gz -O - | tar -xz
-
-ADD hadoop-3.1.1.tar.gz /opt/
-ADD apache-hive-2.3.7-bin.tar.gz /opt/
-
-COPY lib/* ${HIVE_HOME}/lib/
-RUN rm ${HIVE_HOME}/lib/jackson-core-2.6.5.jar -f && \
- rm ${HIVE_HOME}/lib/jackson-annotations-2.6.0.jar -f && \
- rm ${HIVE_HOME}/lib/jackson-databind-2.6.5.jar -f && \
- rm ${HIVE_HOME}/lib/jackson-jaxrs-base-2.4.6.jar -f && \
- rm ${HIVE_HOME}/lib/jackson-jaxrs-json-provider-2.4.6.jar -f && \
- rm ${HIVE_HOME}/lib/jackson-module-jaxb-annotations-2.4.6.jar -f && \
- rm ${HIVE_HOME}/lib/avatica-1.8.0.jar -f
-
-
 WORKDIR $HIVE_HOME
 EXPOSE 9083
-
-ENTRYPOINT ["bin/hive"]
-CMD ["--service", "metastore"]
+ENTRYPOINT ["bin/hive","--service", "metastore"]

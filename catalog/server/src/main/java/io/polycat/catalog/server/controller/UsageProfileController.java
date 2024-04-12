@@ -33,7 +33,6 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -177,22 +176,30 @@ public class UsageProfileController extends BaseController {
     public CatalogResponse<PagedList<TableUsageProfile>> getUsageProfileDetails(
             @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
             @ApiParam(value = "catalog name", required = true) @RequestParam(value = "catalogName") String catalogName,
-            @ApiParam(value = "database name", required = true) @RequestParam(value = "databaseName") String databaseName,
-            @ApiParam(value = "table name", required = true) @RequestParam(value = "tableName") String tableName,
+            @ApiParam(value = "database name", required = true) @RequestParam(value = "databaseName", required = true) String databaseName,
+            @ApiParam(value = "table name", required = true) @RequestParam(value = "tableName", required = false) String tableName,
             @ApiParam(value = "user id", required = false) @RequestParam(value = "userId", required = false) String userId,
             @ApiParam(value = "task id", required = false) @RequestParam(value = "taskId", required = false) String taskId,
             @ApiParam(value = "tag name", required = false) @RequestParam(value = "tag", required = false) String tag,
             @ApiParam(value = "row count", required = false, defaultValue = "100") @RequestParam(value = "rowCount", required = false, defaultValue = "100") int rowCount,
+            @ApiParam(value = "pageToken") @RequestParam(value = "pageToken", required = false) String pageToken,
+            @ApiParam(value = "operations") @RequestParam(value = "operations", required = false) List<String> operations,
             @ApiParam(value = "start timestamp", required = false) @RequestParam(value = "startTime", required = false, defaultValue = "0") long startTime,
             @ApiParam(value = "end timestamp", required = false) @RequestParam(value = "endTime", required = false, defaultValue = "0") long endTime,
             @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
         return createResponse(token, () -> {
+            PagedList<TableUsageProfile> result = new PagedList<>();
             TableSource tableSource = new TableSource(projectId, catalogName, databaseName, tableName);
-            List<TableUsageProfile> usageProfileList = usageProfileService.getUsageProfileDetailsByCondition(tableSource, startTime, endTime, userId, taskId, rowCount, tag);
-            return ResponseUtil.responseSuccess(usageProfileList);
+            TraverseCursorResult<List<TableUsageProfile>> searchResult = usageProfileService.getUsageProfileDetailsByCondition(
+                    tableSource, startTime, endTime, operations, userId, taskId, tag, rowCount, pageToken);
+            result.setObjectList(searchResult.getResult());
+            result.setPreviousMarker(searchResult.getPreviousTokenString());
+            searchResult.getContinuation().ifPresent(catalogToken -> {
+                result.setNextMarker(catalogToken.toString());
+            });
+            return ResponseUtil.responseSuccess(result);
         });
     }
-
 
 }
 

@@ -27,6 +27,7 @@ import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.Catalog;
+import io.polycat.catalog.common.types.DataTypes;
 import io.polycat.catalog.common.model.CatalogName;
 import io.polycat.catalog.common.model.Column;
 import io.polycat.catalog.common.model.Database;
@@ -248,22 +249,22 @@ public class PartitionServiceImplTest extends TestUtil {
         }
         Expression equal = null;
         if (stringFilter != null) {
-            FieldExpression stringField = new FieldExpression(0, io.polycat.catalog.common.types.DataTypes.STRING);
+            FieldExpression stringField = new FieldExpression(0, DataTypes.STRING);
             equal = new EqualExpression(stringField, new LiteralExpression(
-                new StringWritable(stringFilter), io.polycat.catalog.common.types.DataTypes.STRING));
+                new StringWritable(stringFilter), DataTypes.STRING));
         }
         Expression gt = null;
         if (intFilter != null) {
-            FieldExpression intField = new FieldExpression(1, io.polycat.catalog.common.types.DataTypes.INTEGER);
+            FieldExpression intField = new FieldExpression(1, DataTypes.INTEGER);
             gt = new GreaterThanExpression(intField, new LiteralExpression(
-                new IntWritable(intFilter.intValue()), io.polycat.catalog.common.types.DataTypes.INTEGER));
+                new IntWritable(intFilter.intValue()), DataTypes.INTEGER));
 
         }
         if (equal != null && gt != null) {
             List<Expression> operands = new ArrayList<>(2);
             operands.add(equal);
             operands.add(gt);
-            return new AndExpression(operands, io.polycat.catalog.common.types.DataTypes.BOOLEAN);
+            return new AndExpression(operands, DataTypes.BOOLEAN);
         }
         return equal != null ? equal : gt;
     }

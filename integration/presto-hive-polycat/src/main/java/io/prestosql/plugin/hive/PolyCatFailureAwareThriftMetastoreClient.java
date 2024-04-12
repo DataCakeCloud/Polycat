@@ -33,7 +33,7 @@ package io.prestosql.plugin.hive;
 import java.util.List;
 import java.util.Map;
 
-import io.polycat.hivesdk.impl.PolyCatMetaStoreClient;
+import io.polycat.hivesdk.hive3.impl.PolyCatMetaStoreClient;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

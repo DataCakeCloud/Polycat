@@ -17,10 +17,10 @@
  */
 package io.polycat.catalog.store.gaussdb;
 
+import io.polycat.catalog.store.api.IndexStore;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.plugin.request.input.IndexInput;
 import io.polycat.catalog.common.plugin.request.input.IndexRefreshInput;
-import io.polycat.catalog.store.api.IndexStore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 

@@ -17,12 +17,18 @@
  */
 package io.polycat.catalog.server.service.impl;
 
+import io.polycat.catalog.server.util.TransactionFrameRunner;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.server.util.TransactionFrameRunner;
 import io.polycat.catalog.service.api.CatalogResourceService;
 import io.polycat.catalog.store.api.*;
 import io.polycat.catalog.util.CheckUtil;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -49,7 +55,7 @@ public class CatalogResourceServiceImpl implements CatalogResourceService {
     private FunctionStore functionStore;
 
     @Autowired
-    private UsageProfileStore usageProfileStore;
+    private List<SubspaceStore> createSubSpace;
 
     @Autowired
     private TableMetaStore tableMetaStore;
@@ -63,6 +69,19 @@ public class CatalogResourceServiceImpl implements CatalogResourceService {
     @Autowired
     private ObjectNameMapStore objectNameMapStore;
 
+    private static Set<String> projectIds =  new HashSet<String>();
+
+    @Override
+    public void init() {
+        // init projectIds
+        CatalogResourceServiceImpl.projectIds.addAll(listProjects());
+    }
+
+    /**
+     * TODO Resource operation, in the future, it needs to go out separately for separate management
+     * @param context
+     * @param projectId
+     */
     private void createResourceInner(TransactionContext context, String projectId) {
         resourceStore.createResource(context, projectId);
 
@@ -88,12 +107,14 @@ public class CatalogResourceServiceImpl implements CatalogResourceService {
         tableMetaStore.createTableSchemaHistorySubspace(context, projectId);
         tableMetaStore.createTableStorageHistorySubspace(context, projectId);
         tableMetaStore.createTableCommitSubspace(context, projectId);
-
-        usageProfileStore.createUsageProfileSubspace(context, projectId);
+        tableDataStore.createColumnStatisticsSubspace(context, projectId);
 
         userPrivilegeStore.createUserPrivilegeSubspace(context, projectId);
         roleStore.createRoleSubspace(context, projectId);
         objectNameMapStore.createObjectNameMapSubspace(context, projectId);
+
+        //TODO all store should impl CreateSubSpaceStore
+        createSubSpace.forEach(store -> store.createSubspace(context, projectId));
     }
 
     @Override
@@ -104,6 +125,7 @@ public class CatalogResourceServiceImpl implements CatalogResourceService {
             createResourceInner(context, projectId);
             return null;
         }).getResult();
+        projectIds.add(projectId);
     }
 
     @Override
@@ -113,6 +135,17 @@ public class CatalogResourceServiceImpl implements CatalogResourceService {
         return runner.run(context -> {
             return resourceStore.doesExistResource(context, projectId);
         }).getResult();
+    }
+
+    /**
+     * projectId exists
+     *
+     * @param projectId projectId
+     * @return
+     */
+    @Override
+    public Boolean doesExistsProjectId(String projectId) {
+        return projectIds.contains(projectId);
     }
 
     private void dropResourceInner(TransactionContext context, String projectId) {
@@ -130,6 +163,21 @@ public class CatalogResourceServiceImpl implements CatalogResourceService {
         runner.run(context -> {
             dropResourceInner(context, projectId);
             return null;
+        }).getResult();
+    }
+
+    @Override
+    public void resourceCheck() {
+        TransactionRunnerUtil.transactionRunThrow(context -> {
+            resourceStore.resourceCheck(context);
+            return null;
+        }).getResult();
+    }
+
+    @Override
+    public List<String> listProjects() {
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            return resourceStore.listProjects(context);
         }).getResult();
     }
 }

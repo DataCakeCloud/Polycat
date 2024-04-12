@@ -20,7 +20,6 @@ package io.polycat.catalog.store.mapper;
 import io.polycat.catalog.common.model.UsageProfileAccessStatObject;
 import io.polycat.catalog.common.model.UsageProfileObject;
 import io.polycat.catalog.common.model.UsageProfilePrePreStatObject;
-import io.polycat.catalog.store.gaussdb.pojo.RoleUserRecord;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
@@ -36,6 +35,14 @@ public interface UsageProfileMapper {
     void createUsageProfilePreStatSubspace(String projectId);
 
     void createUsageProfileAccessStatSubspace(String projectId);
+
+    /**
+     * Create table portraits using heat views
+     *
+     * @param projectId
+     * @param millisecond
+     */
+    void createViewTableProfileHotStatSubspace(@Param("projectId") String projectId, @Param("millisecond") long millisecond);
 
     @Update("DROP TABLE IF EXISTS schema_${projectId}.table_usage_profile_detail")
     void dropUsageProfileSubspace(@Param("projectId") String projectId);
@@ -56,7 +63,7 @@ public interface UsageProfileMapper {
 
     void insertUsageProfileDetail(@Param("projectId") String projectId, @Param("data") UsageProfileObject usageProfileObject);
 
-    UsageProfilePrePreStatObject getUsageProfilePreStat(@Param("projectId") String projectId, @Param("data") UsageProfilePrePreStatObject preStatObject);
+    List<UsageProfilePrePreStatObject> getUsageProfilePreStat(@Param("projectId") String projectId, @Param("data") UsageProfilePrePreStatObject preStatObject);
 
     void insertUsageProfilePreStat(@Param("projectId") String projectId, @Param("data") UsageProfilePrePreStatObject buildPreStatObject);
 
@@ -74,5 +81,5 @@ public interface UsageProfileMapper {
 
     List<String> getTableAccessUsers(@Param("projectId") String projectId, @Param("catalogName") String catalogName, @Param("databaseName") String databaseName, @Param("tableName") String tableName);
 
-    List<UsageProfileObject> getUsageProfileDetailsByCondition(@Param("projectId") String projectId, @Param("filter") String filter, @Param("rowCount") int rowCount);
+    List<UsageProfileObject> getUsageProfileDetailsByCondition(@Param("projectId") String projectId, @Param("filter") String filter, @Param("rowCount") int rowCount, @Param("offset") long batchOffset);
 }

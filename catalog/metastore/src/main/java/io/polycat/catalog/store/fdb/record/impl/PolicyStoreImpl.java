@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import io.polycat.catalog.store.api.PolicyStore;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.MetaPolicyHistory;
@@ -29,7 +30,6 @@ import io.polycat.catalog.common.model.ObsPrivilegePolicy;
 import io.polycat.catalog.common.model.PrincipalType;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.store.api.PolicyStore;
 import io.polycat.catalog.store.common.StoreMetadata;
 import io.polycat.catalog.store.fdb.record.DirectoryStoreHelper;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;

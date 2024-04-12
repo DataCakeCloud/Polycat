@@ -18,7 +18,6 @@
 package io.polycat.catalog.server.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
-import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.model.base.PartitionInput;
@@ -36,7 +35,6 @@ import org.springframework.dao.DuplicateKeyException;
 import java.io.File;
 import java.util.*;
 
-import static io.polycat.catalog.common.ObjectType.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -308,8 +306,9 @@ public class PGTableServiceImplTest extends PGBaseServiceImplTest{
         valueAssertEquals(true, partitionService.doesPartitionExists(tableName, partitionValuesInput));
         partitionValuesInput.setPartitionValues(Collections.singletonList("11"));
         valueAssertEquals(false, partitionService.doesPartitionExists(tableName, partitionValuesInput));
-
-        final String[] partitionNames = partitionService.listPartitionNames(tableName, 100);
+        PartitionFilterInput filterInput = new PartitionFilterInput();
+        filterInput.setMaxParts(100);
+        final String[] partitionNames = partitionService.listPartitionNames(tableName, filterInput, false);
         valueAssertEquals(1, partitionNames.length);
         valueAssertEquals("dt=0", partitionNames[0]);
 

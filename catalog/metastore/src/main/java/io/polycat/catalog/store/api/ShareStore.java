@@ -20,13 +20,13 @@ package io.polycat.catalog.store.api;
 import java.util.List;
 
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.ScanRecordCursorResult;
 import io.polycat.catalog.common.model.ShareConsumerObject;
 import io.polycat.catalog.common.model.ShareNameObject;
 import io.polycat.catalog.common.model.ShareObject;
 import io.polycat.catalog.common.model.SharePrivilegeObject;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.model.TransactionIsolationLevel;
+import io.polycat.catalog.common.model.ScanRecordCursorResult;
 
 public interface ShareStore {
 

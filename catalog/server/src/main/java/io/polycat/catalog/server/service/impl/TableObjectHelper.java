@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import io.polycat.catalog.server.util.TransactionRunner;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
@@ -42,22 +44,21 @@ import io.polycat.catalog.common.model.TableName;
 import io.polycat.catalog.common.model.TableNameObject;
 import io.polycat.catalog.common.model.TableObject;
 import io.polycat.catalog.common.model.TableBaseObject;
-import io.polycat.catalog.common.model.TableReferenceObject;
 import io.polycat.catalog.common.model.TableSchemaHistoryObject;
 import io.polycat.catalog.common.model.TableSchemaObject;
 import io.polycat.catalog.common.model.TableStorageHistoryObject;
 import io.polycat.catalog.common.model.TableStorageObject;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.model.TransactionIsolationLevel;
-import io.polycat.catalog.server.util.TransactionRunner;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.store.api.TableMetaStore;
 import io.polycat.catalog.store.common.StoreConvertor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 
+@Slf4j
 @Configuration
 @ConditionalOnProperty(name = "metastore.type", havingValue = "polyCat")
 public class TableObjectHelper {
@@ -88,6 +89,8 @@ public class TableObjectHelper {
         //get tableId
         String tableId = getTableId(context, branchDatabaseIdent, tableName.getTableName());
         if (tableId == null) {
+            log.warn(ErrorCode.TABLE_NOT_FOUND.getMessageFormat(), String.format("%s.%s.%s",
+                    tableName.getCatalogName(), tableName.getDatabaseName(), tableName.getTableName()));
             throw new CatalogServerException(ErrorCode.TABLE_NOT_FOUND, tableName.getTableName());
         }
 

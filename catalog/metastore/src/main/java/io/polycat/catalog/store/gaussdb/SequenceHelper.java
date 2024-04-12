@@ -17,10 +17,10 @@
  */
 package io.polycat.catalog.store.gaussdb;
 
+import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.store.mapper.SequenceMapper;
 

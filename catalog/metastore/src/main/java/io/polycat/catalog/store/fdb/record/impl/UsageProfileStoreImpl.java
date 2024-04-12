@@ -238,8 +238,13 @@ public class UsageProfileStoreImpl implements UsageProfileStore {
     }
 
     @Override
-    public List<UsageProfileObject> getUsageProfileDetailsByCondition(TransactionContext context, String projectId, UsageProfileObject upo, long startTime, long endTime, int rowCount) {
+    public List<TableUsageProfile> getUsageProfileDetailsByCondition(TransactionContext context, String projectId, UsageProfileObject upo, List<String> operations, long startTime, long endTime, int rowCount, long offset) {
         return null;
+    }
+
+    @Override
+    public void createSubspace(TransactionContext context, String projectId) {
+
     }
 
     private static class UsageProfileStoreImplHandler {

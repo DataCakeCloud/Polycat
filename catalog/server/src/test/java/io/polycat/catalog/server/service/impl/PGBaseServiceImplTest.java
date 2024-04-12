@@ -23,7 +23,6 @@ import io.polycat.catalog.common.plugin.request.input.CatalogInput;
 import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
 import io.polycat.catalog.common.plugin.request.input.TableInput;
 import io.polycat.catalog.common.types.DataTypes;
-import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.service.api.CatalogResourceService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;

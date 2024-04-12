@@ -19,10 +19,9 @@ package io.polycat.catalog.authentication.api;
 
 import java.io.IOException;
 
-import io.polycat.catalog.authentication.model.AuthenticationResult;
 import io.polycat.catalog.authentication.model.Identity;
-import io.polycat.catalog.authentication.model.Token;
 import io.polycat.catalog.authentication.model.TokenParseResult;
+import io.polycat.catalog.authentication.model.AuthenticationResult;
 
 /*
    Authenticator Interface Class

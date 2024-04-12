@@ -24,7 +24,6 @@ import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
 import io.polycat.catalog.common.plugin.request.input.AlterTableInput;
-import io.polycat.catalog.common.plugin.request.input.TableInput;
 
 public class AlterTableRequest extends TableRequestBase<AlterTableInput> {
     public Map<String, String> getParams() {

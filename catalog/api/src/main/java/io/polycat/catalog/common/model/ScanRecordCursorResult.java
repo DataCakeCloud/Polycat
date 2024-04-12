@@ -17,6 +17,8 @@
  */
 package io.polycat.catalog.common.model;
 
+import io.polycat.catalog.common.utils.CodecUtil;
+
 import java.util.Optional;
 
 public class ScanRecordCursorResult<T> {
@@ -25,9 +27,17 @@ public class ScanRecordCursorResult<T> {
 
     private byte[] continuation;
 
+    private long nextOffset;
+
     public ScanRecordCursorResult(final T result, final byte[] continuation) {
         this.resultValue = result;
         this.continuation = continuation;
+    }
+
+    public ScanRecordCursorResult(final T result, final long nextOffset) {
+        this.resultValue = result;
+        this.nextOffset = nextOffset;
+        this.continuation = CodecUtil.longToBytes(nextOffset);
     }
 
     public Optional<byte[]> getContinuation() {
@@ -36,6 +46,10 @@ public class ScanRecordCursorResult<T> {
 
     public T getResult() {
         return resultValue;
+    }
+
+    public long getNextOffset() {
+        return nextOffset;
     }
 }
 

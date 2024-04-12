@@ -124,8 +124,8 @@ PolyCat提供HTTS证书的方式提供安全通道服务。
 
 当调用授权的时候：
 
-1. GRANT ROLE role1 TO USER user1@app1的时候，需要到外部身份提供者验证user1是否有效。
-2. GRANT ROLE role1 TO USER user1@app1的时候，需要查看Role有权限的Table的桶，以及它Owner的IAM用户。同时查看被授权用户的映射IAM用户。如果这两个用户不一样，除了做内部对象的授权记录，还需要做外部IAM对象的授权记录。
+1. GRANT ROLE role1 TO USER user1@xxxxxxxx的时候，需要到外部身份提供者验证user1是否有效。
+2. GRANT ROLE role1 TO USER user1@xxxxxxxx的时候，需要查看Role有权限的Table的桶，以及它Owner的IAM用户。同时查看被授权用户的映射IAM用户。如果这两个用户不一样，除了做内部对象的授权记录，还需要做外部IAM对象的授权记录。
 3. 做外部对象的授权记录的时候，需要调用IAM的接口进行IAM中（租户A-桶-目录）->（租户B->用户）的权限新增。
 4. REVOKE权限的时候，需要调用IAM的接口进行IAM权限收回（有引用计数，少于1才真正删除）
 

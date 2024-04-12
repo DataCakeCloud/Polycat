@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 public class UDFTest extends HMSBridgeTestEnv {
     String dir = "target/";
     String udfJar = "udf-jar-package/jar/HelloUDF.jar";
-    String udfClassName = "io.polycat.test.udf.HelloUDF";
+    String udfClassName = "HelloUDF";
     String udfJarLocation;
 
     private void createAndUseDbInPolyCat(String dbName) {

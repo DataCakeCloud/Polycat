@@ -20,9 +20,9 @@ package io.polycat.catalog.common.plugin.request;
 import java.util.Objects;
 
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.plugin.CatalogContext;
 import io.polycat.catalog.common.plugin.request.base.CatalogRequestBase;
 import io.polycat.catalog.common.plugin.request.input.MergeBranchInput;
+import io.polycat.catalog.common.plugin.CatalogContext;
 
 import lombok.Data;
 

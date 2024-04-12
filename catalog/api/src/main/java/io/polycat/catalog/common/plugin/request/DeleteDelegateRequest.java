@@ -19,7 +19,6 @@ package io.polycat.catalog.common.plugin.request;
 
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.plugin.request.base.DelegateRequestBase;
-import io.polycat.catalog.common.plugin.request.base.ProjectRequestBase;
 
 import lombok.Data;
 

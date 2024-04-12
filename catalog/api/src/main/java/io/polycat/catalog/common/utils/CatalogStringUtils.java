@@ -17,10 +17,11 @@
  */
 package io.polycat.catalog.common.utils;
 
+import io.polycat.catalog.common.model.TableName;
+import io.polycat.catalog.common.model.stats.ColumnStatisticsDesc;
+import io.polycat.catalog.common.plugin.request.input.TableInput;
 import io.polycat.catalog.common.model.CatalogInnerObject;
 import io.polycat.catalog.common.model.DatabaseName;
-import io.polycat.catalog.common.model.TableName;
-import io.polycat.catalog.common.plugin.request.input.TableInput;
 
 import java.util.Locale;
 
@@ -69,5 +70,14 @@ public class CatalogStringUtils {
         tableInput.setCatalogName(normalizeIdentifier(tableInput.getCatalogName()));
         tableInput.setDatabaseName(normalizeIdentifier(tableInput.getDatabaseName()));
         tableInput.setTableName(normalizeIdentifier(tableInput.getTableName()));
+    }
+
+    public static void columnStatisticsDescNormalize(ColumnStatisticsDesc statisticsDesc) {
+        if (statisticsDesc == null) {
+            return;
+        }
+        statisticsDesc.setCatName(normalizeIdentifier(statisticsDesc.getCatName()));
+        statisticsDesc.setDbName(normalizeIdentifier(statisticsDesc.getDbName()));
+        statisticsDesc.setTableName(normalizeIdentifier(statisticsDesc.getTableName()));
     }
 }

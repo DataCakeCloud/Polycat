@@ -21,17 +21,18 @@ import java.util.List;
 
 import io.polycat.catalog.audit.api.UserLog;
 import io.polycat.catalog.audit.impl.UserLogAop;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.model.PagedList;
+import io.polycat.catalog.common.model.PrivilegeRoles;
 import io.polycat.catalog.common.model.Role;
+import io.polycat.catalog.common.model.TraverseCursorResult;
 import io.polycat.catalog.common.plugin.request.input.RoleInput;
+import io.polycat.catalog.common.plugin.request.input.ShowRolePrivilegesInput;
 import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
-import io.polycat.catalog.service.api.PolicyService;
 import io.polycat.catalog.service.api.RoleService;
-import io.polycat.catalog.service.api.NewRoleService;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -40,7 +41,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -310,7 +310,7 @@ public class RoleController extends BaseController {
      * show roles
      *
      * @param projectId
-     * @param namePattern
+     * @param pattern
      * @return CatalogResponse
      */
     @ApiOperation(value = "show roles")
@@ -319,12 +319,13 @@ public class RoleController extends BaseController {
     public CatalogResponse<PagedList<Role>> showRoles(
         @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
         @ApiParam(value = "user id", required = false) @RequestParam(value = "userId", required = false) String userId,
-        @ApiParam(value = "name pattern") @RequestParam(value = "namePattern", required = false)
-            String namePattern,
+        @ApiParam(value = "contain owner", required = false) @RequestParam(value = "containOwner", required = false, defaultValue = "true") boolean containOwner,
+        @ApiParam(value = "name pattern") @RequestParam(value = "pattern", required = false)
+            String pattern,
         @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
         return createResponse(token, () -> {
             PagedList<Role> result = new PagedList<>();
-            List<Role> roles = roleService.getRoleModels(projectId, userId, namePattern);
+            List<Role> roles = roleService.getRoleModels(projectId, userId, pattern, containOwner);
             result.setObjects(roles.toArray(new Role[0]));
             return ResponseUtil.responseSuccess(result);
         });
@@ -372,6 +373,36 @@ public class RoleController extends BaseController {
             List<String> roles = roleService.showPermObjectsByUser(projectId, userId, objectType, filter);
             result.setObjects(roles.toArray(new String[0]));
             return ResponseUtil.responseSuccess(result);
+        });
+    }
+
+    @ApiOperation(value = "show role privileges")
+    @PostMapping(value = "showRolePrivileges", produces = "application/json;charset=UTF-8")
+    public CatalogResponse<PagedList<Role>> showRolePrivileges(
+            @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
+            @ApiParam(value = "searchInput", required = false) @RequestBody ShowRolePrivilegesInput input,
+            @ApiParam(value = "maxResults") @RequestParam(value = "maxResults", required = false, defaultValue = "10") Integer maxResults,
+            @ApiParam(value = "pageToken") @RequestParam(value = "pageToken", required = false) String pageToken,
+            @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
+        return createResponse(token, projectId, () -> {
+            TraverseCursorResult<List<Role>> searchResult = roleService.showRolePrivileges(projectId,
+                input, maxResults, pageToken);
+            return ResponseUtil.responseSuccess(new PagedList<Role>().setResult(searchResult));
+        });
+    }
+
+    @ApiOperation(value = "show Privilege roles")
+    @PostMapping(value = "showPrivilegeRoles", produces = "application/json;charset=UTF-8")
+    public CatalogResponse<PagedList<PrivilegeRoles>> showPrivilegeRoles(
+        @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
+        @ApiParam(value = "searchInput", required = false) @RequestBody ShowRolePrivilegesInput input,
+        @ApiParam(value = "maxResults") @RequestParam(value = "maxResults", required = false, defaultValue = "10") Integer maxResults,
+        @ApiParam(value = "pageToken") @RequestParam(value = "pageToken", required = false) String pageToken,
+        @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
+        return createResponse(token, projectId, () -> {
+            TraverseCursorResult<List<PrivilegeRoles>> searchResult = roleService.showPrivilegeRoles(projectId,
+                input, maxResults, pageToken);
+            return ResponseUtil.responseSuccess(new PagedList<PrivilegeRoles>().setResult(searchResult));
         });
     }
 }

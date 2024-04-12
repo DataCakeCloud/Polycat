@@ -18,9 +18,9 @@
 package io.polycat.catalog.common.plugin.request;
 
 import io.polycat.catalog.common.Operation;
+import io.polycat.catalog.common.plugin.request.base.DatabaseRequestBase;
 import io.polycat.catalog.common.model.CatalogInnerObject;
 import io.polycat.catalog.common.plugin.CatalogContext;
-import io.polycat.catalog.common.plugin.request.base.DatabaseRequestBase;
 
 import lombok.Data;
 

@@ -20,7 +20,6 @@ package io.polycat.catalog.server.util;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.Resource;
 
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
@@ -28,10 +27,6 @@ import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.store.api.RetriableException;
 import io.polycat.catalog.store.api.Transaction;
-import io.polycat.catalog.store.fdb.record.impl.RetriableExceptionImpl;
-
-import lombok.Data;
-import org.springframework.beans.factory.annotation.Autowired;
 
 public class TransactionRunner implements AutoCloseable {
     private int maxAttempts = 16;

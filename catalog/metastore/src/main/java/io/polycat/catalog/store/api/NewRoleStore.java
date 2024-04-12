@@ -24,10 +24,7 @@ import io.polycat.catalog.common.model.PrincipalSource;
 import io.polycat.catalog.common.model.PrincipalType;
 import io.polycat.catalog.common.model.RoleObject;
 import io.polycat.catalog.common.model.RolePrincipalObject;
-import io.polycat.catalog.common.model.ScanRecordCursorResult;
 import io.polycat.catalog.common.model.TransactionContext;
-
-import com.apple.foundationdb.record.IsolationLevel;
 
 public interface NewRoleStore {
 

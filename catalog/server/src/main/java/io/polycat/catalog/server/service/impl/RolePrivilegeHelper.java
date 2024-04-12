@@ -33,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -406,6 +407,9 @@ public class RolePrivilegeHelper {
     public static List<ObjectPrivilege> convertRolePrivilege(TransactionContext context, String projectId,
                                                              List<RolePrivilegeObject> rolePrivilegeObjectList) {
         List<ObjectPrivilege> objectPrivilegeList = new ArrayList<>();
+        if (CollectionUtils.isEmpty(rolePrivilegeObjectList)) {
+            return objectPrivilegeList;
+        }
         String objectName;
         for (RolePrivilegeObject rolePrivilege : rolePrivilegeObjectList) {
             String objectType = rolePrivilege.getObjectType();

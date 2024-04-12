@@ -17,9 +17,9 @@
  */
 package io.polycat.catalog.common.utils;
 
+import io.polycat.catalog.common.model.Table;
 import io.polycat.catalog.common.model.Catalog;
 import io.polycat.catalog.common.model.CatalogHistoryObject;
-import io.polycat.catalog.common.model.Table;
 
 public class ModelConvertor {
     public static final long DEFAULT_CREATE_TIME = 0L;

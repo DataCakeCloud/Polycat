@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import io.polycat.catalog.common.Constants;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
@@ -101,4 +102,23 @@ public class Table implements Serializable {
         }
         return Collections.emptyList();
     }
+
+    public String getProperty(String name) {
+        if (this.parameters != null) {
+            return this.getParameters().get(name);
+        }
+        return null;
+    }
+
+    public String getDescription() {
+        if (description == null) {
+            return getProperty(Constants.COMMENT);
+        }
+        return description;
+    }
+
+    public String getQualifiedName() {
+        return String.format("%s.%s.%s", catalogName, databaseName, tableName);
+    }
+
 }

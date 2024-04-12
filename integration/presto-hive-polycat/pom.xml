@@ -43,8 +43,14 @@
     <dependencies>
         <dependency>
             <groupId>io.polycat</groupId>
-            <artifactId>polycat-hiveSDK</artifactId>
+            <artifactId>polycat-hiveSDK-hive3</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>polycat-catalog-server</artifactId>
+                    <groupId>io.polycat</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

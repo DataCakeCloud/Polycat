@@ -21,7 +21,6 @@ import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.Role;
 import io.polycat.catalog.common.plugin.request.input.RoleInput;
 import io.polycat.catalog.service.api.NewRoleService;
-import io.polycat.catalog.service.api.PolicyService;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;

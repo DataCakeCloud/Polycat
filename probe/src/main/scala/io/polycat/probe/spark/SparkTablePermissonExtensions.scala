@@ -21,6 +21,6 @@ import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 
 class SparkTablePermissonExtensions extends (SparkSessionExtensions => Unit) {
   override def apply(extensions: SparkSessionExtensions): Unit = {
-    extensions.injectCheckRule((sparkSession: SparkSession) => new SparkTablePermissonCheck(sparkSession))
+    extensions.injectCheckRule((sparkSession: SparkSession) => new SparkTablePermissionCheck(sparkSession))
   }
 }

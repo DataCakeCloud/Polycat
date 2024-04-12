@@ -17,14 +17,17 @@
  */
 package io.polycat.catalog.store.fdb.record.impl;
 
+import io.polycat.catalog.common.model.ColumnStatisticsAggrObject;
+import io.polycat.catalog.common.model.ColumnStatisticsObject;
+import io.polycat.catalog.common.CatalogServerException;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.model.TableName;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
-import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.DataPartitionSetObject;
 import io.polycat.catalog.common.model.IndexPartitionSetObject;
 import io.polycat.catalog.common.model.PartitionObject;
@@ -35,6 +38,7 @@ import io.polycat.catalog.common.model.TableIndexesHistoryObject;
 import io.polycat.catalog.common.model.TableIndexesObject;
 import io.polycat.catalog.common.model.TablePartitionSetType;
 import io.polycat.catalog.common.model.TransactionContext;
+import io.polycat.catalog.common.plugin.request.input.PartitionFilterInput;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.store.api.TableDataStore;
@@ -340,6 +344,21 @@ public class TableDataStoreImpl implements TableDataStore {
     }
 
     @Override
+    public Integer getTablePartitionCountByFilter(TransactionContext context, TableIdent tableIdent, String filter) {
+        return null;
+    }
+
+    @Override
+    public Integer getTablePartitionCountByKeyValues(TransactionContext context, TableIdent tableIdent, List<String> partitionKeys, List<String> values) {
+        return null;
+    }
+
+    @Override
+    public String getLatestPartitionName(TransactionContext context, TableIdent tableIdent) {
+        return null;
+    }
+
+    @Override
     public List<PartitionObject> getPartitionsByPartitionNamesWithColumnInfo(TransactionContext context,
         TableIdent tableIdent, List<String> setIds, String curSetId, List<String> partitionNames, int maxParts) {
         throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getPartitionsByPartitionNamesWithColumnInfo");
@@ -389,7 +408,7 @@ public class TableDataStoreImpl implements TableDataStore {
     }
 
     @Override
-    public List<String> listTablePartitionNames(TransactionContext context, TableIdent tableIdent, Integer maxParts) {
+    public List<String> listTablePartitionNames(TransactionContext context, TableIdent tableIdent, PartitionFilterInput filterInput, List<String> partitionKeys) {
         return null;
     }
 
@@ -559,6 +578,58 @@ public class TableDataStoreImpl implements TableDataStore {
     @Override
     public boolean doesPartitionExists(TransactionContext context, TableIdent tableIdent, String partitionName) {
         return false;
+    }
+
+    @Override
+    public void createColumnStatisticsSubspace(TransactionContext context, String projectId) {
+
+    }
+
+    @Override
+    public List<ColumnStatisticsObject> getTableColumnStatistics(TransactionContext context, String projectId,
+            TableName tableName, List<String> colNames) {
+        return null;
+    }
+
+    @Override
+    public void updateTableColumnStatistics(TransactionContext context, String projectId,
+            List<ColumnStatisticsObject> columnStatisticsObjects) {
+
+    }
+
+    @Override
+    public void deleteTableColumnStatistics(TransactionContext context, TableName tableName, String colName) {
+
+    }
+
+    @Override
+    public List<ColumnStatisticsObject> getPartitionColumnStatistics(TransactionContext context,
+            TableName tableName, List<String> partNames, List<String> colNames) {
+        return null;
+    }
+
+    @Override
+    public void updatePartitionColumnStatistics(TransactionContext context, TableName tableName,
+            List<ColumnStatisticsObject> columnStatisticsObjects) {
+
+    }
+
+    @Override
+    public void deletePartitionColumnStatistics(TransactionContext context, TableName tableName,
+            String partName, String columnName) {
+
+    }
+
+    @Override
+    public long getFoundPartNums(TransactionContext context, TableName tableName, List<String> partNames,
+            List<String> colNames) {
+        return 0;
+    }
+
+    @Override
+    public List<ColumnStatisticsAggrObject> getAggrColStatsFor(TransactionContext context, TableName tableName,
+            List<String> partNames, List<String> colNames) {
+        return null;
     }
 
     private TableIndexesHistoryObject trans2TableIndexesHistoryObject(TableIndexesHistory tableIndexesHistory) {

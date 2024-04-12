@@ -36,7 +36,7 @@ public enum ErrorCode implements Serializable {
     DATABASE_ID_NOT_FOUND("Dash.00012", "Database id {} not found", HttpStatus.NOT_FOUND, 1),
     DATABASE_ALREADY_EXIST("Dash.00013", "Database {} already exists", HttpStatus.FORBIDDEN, 1),
     DATABASE_REQ_PARAM_ERROR("Dash.00014", "Wrong database request parameter: {}", HttpStatus.FORBIDDEN, 1),
-    DATABASE_TABLE_EXISTS("Dash.00015", "Database {} has existing table, can not drop database", HttpStatus.NOT_FOUND, 1),
+    DATABASE_TABLE_EXISTS("Dash.00015", "Database {} has existing table, can not drop database", HttpStatus.FORBIDDEN, 1),
     DATABASE_MULTIPLE_EXISTS("Dash.00016", "The database {} multiple exists", HttpStatus.FORBIDDEN, 1),
     DATABASE_HISTORY_NOT_FOUND("Dash.00017", "The database id {} history not found",  HttpStatus.NOT_FOUND, 1),
     TABLE_REFERENCE_NOT_FOUND("Dash.00018", "Table id {} reference not found",  HttpStatus.NOT_FOUND, 1),
@@ -57,6 +57,7 @@ public enum ErrorCode implements Serializable {
         1),
     COLUMN_ALREADY_EXISTS("Dash.00034", "Column {} is duplicated", HttpStatus.FORBIDDEN, 1),
     COLUMN_NOT_FOUND("Dash.00035", "Column {} not found", HttpStatus.NOT_FOUND, 1),
+    COLUMN_STATISTICS_INVALID("Dash.000351", "Invalid column stats object.", HttpStatus.FORBIDDEN, 0),
     OBJECT_NAME_MAP_NOT_FOUND("Dash.00036", "Object name map {} not found", HttpStatus.NOT_FOUND, 1),
     OBJECT_NAME_MAP_TYPE_ERROR("Dash.00037", "Object name map {} type error", HttpStatus.FORBIDDEN, 1),
     SHARE_NOT_FOUND("Dash.00040", "Share {} not found", HttpStatus.NOT_FOUND, 1),
@@ -91,7 +92,7 @@ public enum ErrorCode implements Serializable {
     PARTITION_VALUES_NOT_MATCH("Dash.00121", "Partition values {} exceed the number in the actual partition", HttpStatus.BAD_REQUEST, 1),
     PARTITION_NAME_NOT_FOUND("Dash.00122", "Partition name {} not found", HttpStatus.BAD_REQUEST, 1),
     PARTITION_KEYS_VALUES_NOT_MATCH("Dash.00123", "Incorrect number of partition values. numPartKeys size={}, part_val size={}", HttpStatus.BAD_REQUEST, 2),
-    PARTITION_FILTER_ILLEGAL("Dash.00124", "Partition filter illegal, {}", HttpStatus.FORBIDDEN, 1),
+    PARTITION_FILTER_ILLEGAL("Dash.00124", "Partition filter illegal, {}", HttpStatus.BAD_REQUEST, 1),
 
     DATA_LINEAGE_OUTPUT_ERROR("Dash.00130", "Data lineage record output error.", HttpStatus.FORBIDDEN, 0),
     DATA_LINEAGE_SOURCE_ERROR("Dash.00131", "Data lineage record source error {}.", HttpStatus.FORBIDDEN, 1),
@@ -102,7 +103,8 @@ public enum ErrorCode implements Serializable {
     FUNCTION_NOT_FOUND("Dash.00152", "Function {} not found", HttpStatus.NOT_FOUND, 1),
     TOKEN_GET_FAILED("Dash.00190", "TokenId {} token get failed.", HttpStatus.FORBIDDEN, 1),
     CONFIG_SECURITY_INVALID("Dash.00191", "Get config failed.", HttpStatus.FORBIDDEN, 0),
-    INVALID_OBJECT("Dash.00192", "Object {} is invalid.", HttpStatus.BAD_REQUEST, 1),
+    INVALID_OBJECT("Dash.00192", "Object {} is invalid or doesn't exists.", HttpStatus.BAD_REQUEST, 1),
+    INVALID_PARAMS_EXCEED_LIMIT("Dash.001921", "Param {} is exceed the limit: {}.", HttpStatus.BAD_REQUEST, 2),
     INVALID_OPERATION("Dash.00193", "Operation {} is invalid.", HttpStatus.BAD_REQUEST, 1),
     INVALID_PARTITION("Dash.00194", "Partition {} is invalid.", HttpStatus.BAD_REQUEST, 1),
     META_OPERATE_ERROR("Dash.00195", "RDBMS has internal error.", HttpStatus.INTERNAL_SERVER_ERROR, 0),
@@ -116,6 +118,8 @@ public enum ErrorCode implements Serializable {
     MV_NOT_FOUND("Dash.00220", "Materialized view {} not found", HttpStatus.NOT_FOUND, 1),
     POLICY_ID_NOT_FOUND("Dash.000301", "Policy id is invalid", HttpStatus.NOT_FOUND, 0),
     TENANT_PROJECT_ALREADY_EXIST("Dash.000302", "Tenant projectId {} already exists", HttpStatus.FORBIDDEN, 1),
+    TENANT_PROJECT_DOES_NOT_EXIST("Dash.000303", "Tenant projectId:{} doesn't exists", HttpStatus.FORBIDDEN, 1),
+    LINEAGE_REQ_PARAM_ERROR("Dash.000401", "Lineage info request: nodeMap or jobFact parameter not empty.", HttpStatus.FORBIDDEN, 0),
     ;
 
     private final String errorCode;

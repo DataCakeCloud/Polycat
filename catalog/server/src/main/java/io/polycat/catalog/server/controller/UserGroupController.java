@@ -17,7 +17,6 @@
  */
 package io.polycat.catalog.server.controller;
 
-import java.util.HashSet;
 import java.util.Map;
 import javax.ws.rs.QueryParam;
 
@@ -33,7 +32,6 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;

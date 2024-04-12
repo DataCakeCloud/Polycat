@@ -18,10 +18,10 @@
 package io.polycat.catalog.store.gaussdb;
 
 import io.polycat.catalog.common.model.BackendTaskObject;
-import io.polycat.catalog.common.model.TableIdent;
-import io.polycat.catalog.common.model.TableName;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.store.api.BackendTaskStore;
+import io.polycat.catalog.common.model.TableIdent;
+import io.polycat.catalog.common.model.TableName;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 

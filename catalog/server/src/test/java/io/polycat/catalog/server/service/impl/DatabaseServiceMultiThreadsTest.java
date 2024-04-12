@@ -55,7 +55,7 @@ public class DatabaseServiceMultiThreadsTest extends TestUtil {
     private void beforeClass() throws Exception {
 
         if (isFirstTest) {
-            TestUtil.clearFDB();
+            clearFDB();
             // create catalog
             CatalogName catalogName = new CatalogName(PROJECT_ID, CATALOG_NAME);
             CatalogInput catalogInput = getCatalogInput(catalogName.getCatalogName());

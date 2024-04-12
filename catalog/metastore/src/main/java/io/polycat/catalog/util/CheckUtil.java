@@ -17,7 +17,6 @@
  */
 package io.polycat.catalog.util;
 
-import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.ErrorCode;
 
@@ -27,9 +26,11 @@ import org.apache.commons.lang3.StringUtils;
 @SuppressWarnings("unchecked")
 public class CheckUtil {
 
-    private static final Logger log = Logger.getLogger(CheckUtil.class);
+    //private static final Logger log = Logger.getLogger(CheckUtil.class);
 
     private static final String namePattern = "[^0-9][\\w]*";
+
+    private static final String namePatternDashedLine = "[^0-9-][\\w-]*";
 
     /**
      * check params is illegal
@@ -63,6 +64,12 @@ public class CheckUtil {
      */
     public static void checkNameLegality(String key, String name) {
         if (name == null || !name.matches(namePattern)) {
+            throw new MetaStoreException(ErrorCode.ARGUMENT_ILLEGAL_2, key, name);
+        }
+    }
+
+    public static void checkNameLegalityDashedLine(String key, String name) {
+        if (name == null || !name.matches(namePatternDashedLine)) {
             throw new MetaStoreException(ErrorCode.ARGUMENT_ILLEGAL_2, key, name);
         }
     }

@@ -23,7 +23,6 @@ import io.polycat.catalog.store.api.RetriableException;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 @Configuration
 @ConditionalOnProperty(name = "database.type", havingValue = "gauss")

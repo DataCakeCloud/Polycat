@@ -15,16 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.subspace.Subspace;
-
 import io.polycat.catalog.client.PolyCatClient;
 import io.polycat.catalog.hms.hive2.HMSBridgeStore;
 import io.polycat.catalog.server.CatalogApplication;
 import io.polycat.catalog.store.api.StoreBase;
-import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 
 import io.polycat.catalog.store.fdb.record.impl.StoreImpl;
 import org.apache.commons.io.FileUtils;

@@ -24,7 +24,6 @@ import io.polycat.catalog.common.plugin.request.input.ViewInput;
 import io.polycat.catalog.common.model.ViewStatement;
 import io.polycat.catalog.store.common.StoreConvertor;
 import io.polycat.catalog.store.protos.*;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

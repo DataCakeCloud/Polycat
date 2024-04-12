@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 
 
 public class CatalogToken {
@@ -84,6 +85,25 @@ public class CatalogToken {
         }
     }
 
+    public static CatalogToken parseTokenOrCreate(String token, String checkSum,
+            String key, String readVersion, String defaultValue) {
+        if (StringUtils.isEmpty(token)) {
+            return buildCatalogToken(checkSum, key, defaultValue, readVersion);
+        }
+
+        try {
+            CatalogToken catalogToken = GsonUtil.fromJson(new String(CodecUtil.base642Bytes(token)), CatalogToken.class);
+            if (catalogToken.checkValid(checkSum)) {
+                return catalogToken;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new IllegalArgumentException("pageToke is a valid token that cannot be parsed.");
+        }
+        return buildCatalogToken(checkSum, key, defaultValue, readVersion);
+    }
+
+    @Override
     public String toString() {
         String code = GsonUtil.toJson(this);
         return CodecUtil.bytes2Base64(code.getBytes());

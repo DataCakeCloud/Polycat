@@ -20,12 +20,14 @@ package io.polycat.catalog.store.api;
 import java.util.List;
 
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.CatalogInnerObject;
+import io.polycat.catalog.common.model.PrivilegeRolesObject;
 import io.polycat.catalog.common.model.RoleObject;
 import io.polycat.catalog.common.model.RolePrivilegeObject;
 import io.polycat.catalog.common.model.RoleUserObject;
-
 import io.polycat.catalog.common.model.TransactionContext;
+import io.polycat.catalog.common.model.CatalogInnerObject;
+
+import io.polycat.catalog.common.plugin.request.input.ShowRolePrivilegesInput;
 
 public interface RoleStore {
 
@@ -87,9 +89,16 @@ public interface RoleStore {
     void removeAllPrivilegeOnObject(TransactionContext context, String projectId, String objectType, String rolePrivilegeObjectId)
         throws MetaStoreException;
 
-    List<RoleObject> getAllRoleObjects(TransactionContext context, String projectId, String userId, String namePattern);
+    List<RoleObject> getAllRoleObjects(TransactionContext context, String projectId, String userId, String namePattern, boolean containOwner);
 
     List<RoleObject> getAllRoleNames(TransactionContext context, String projectId, String keyword);
 
     List<RolePrivilegeObject> getRoleByIds(TransactionContext context, String projectId, String objectType, List<String> collect);
+
+    List<RolePrivilegeObject> showRolePrivileges(TransactionContext context, String projectId, List<String> roleIds,
+        ShowRolePrivilegesInput input, int batchNum, long batchOffset);
+
+    List<RoleObject> showRoleInfos(TransactionContext context, String projectId, ShowRolePrivilegesInput input);
+
+    List<PrivilegeRolesObject> showPrivilegeRoles(TransactionContext context, String projectId, List<String> collect, ShowRolePrivilegesInput input, int batchNum, long batchOffset);
 }

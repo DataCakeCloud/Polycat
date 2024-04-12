@@ -17,6 +17,7 @@
  */
 package io.polycat.common.expression.rule;
 
+import io.polycat.common.expression.bool.AndExpression;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -36,7 +37,6 @@ import io.polycat.common.expression.FieldExpression;
 import io.polycat.common.expression.LiteralExpression;
 import io.polycat.common.expression.comparison.EqualExpression;
 import io.polycat.common.util.CalciteUtil;
-import io.polycat.common.expression.bool.AndExpression;
 
 import java.util.stream.Collectors;
 

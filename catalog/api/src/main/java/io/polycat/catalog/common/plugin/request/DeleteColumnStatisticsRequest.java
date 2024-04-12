@@ -29,7 +29,9 @@ public class DeleteColumnStatisticsRequest extends TableRequestBase<Void> {
 
     public Map<String, String> getParams() {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.COLUMN_NAME, colName);
+        if (colName != null) {
+            params.put(Constants.COLUMN_NAME, colName);
+        }
         return params;
     }
 

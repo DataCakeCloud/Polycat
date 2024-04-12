@@ -20,7 +20,6 @@ package io.polycat.catalog.common.plugin.request.input;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.polycat.catalog.common.model.Constraint;
 import io.polycat.catalog.common.model.PrimaryKey;
 
 import lombok.AllArgsConstructor;

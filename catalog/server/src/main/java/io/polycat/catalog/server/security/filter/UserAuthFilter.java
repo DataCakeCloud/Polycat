@@ -25,10 +25,10 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.utils.GsonUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;

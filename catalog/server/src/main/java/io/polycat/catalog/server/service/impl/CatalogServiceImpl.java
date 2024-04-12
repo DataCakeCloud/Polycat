@@ -27,18 +27,19 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import io.polycat.catalog.server.util.TransactionFrameRunner;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.ObjectType;
+import io.polycat.catalog.common.model.CatalogCommit;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.plugin.request.input.CatalogInput;
 import io.polycat.catalog.common.plugin.request.input.MergeBranchInput;
 import io.polycat.catalog.common.utils.CatalogToken;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.server.util.TransactionFrameRunner;
 import io.polycat.catalog.service.api.CatalogService;
 import io.polycat.catalog.store.api.CatalogStore;
 import io.polycat.catalog.store.api.DatabaseStore;
@@ -583,14 +584,14 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
-    public TraverseCursorResult<List<io.polycat.catalog.common.model.CatalogCommit>> getCatalogCommits(
+    public TraverseCursorResult<List<CatalogCommit>> getCatalogCommits(
         CatalogName catalogName, Integer maxResults, String pageToken) {
         TraverseCursorResult<List<CatalogCommitObject>> catalogCommits = listCatalogCommits(catalogName,
             maxResults, pageToken);
-        List<io.polycat.catalog.common.model.CatalogCommit> result = new ArrayList<>(catalogCommits.getResult().size());
+        List<CatalogCommit> result = new ArrayList<>(catalogCommits.getResult().size());
 
         for (CatalogCommitObject commit : catalogCommits.getResult()) {
-            io.polycat.catalog.common.model.CatalogCommit catalogCommit = new io.polycat.catalog.common.model.CatalogCommit();
+            CatalogCommit catalogCommit = new CatalogCommit();
             catalogCommit.setProjectId(commit.getProjectId());
             catalogCommit.setCatalogId(commit.getCatalogId());
             catalogCommit.setCommitVersion(commit.getVersion());

@@ -19,12 +19,18 @@ package io.polycat.catalog.common.model.stats;
 
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @EqualsAndHashCode(callSuper = true)
 @ApiModel(description = "Decimal Column stats")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString(callSuper = true)
 public class DecimalColumnStatsData extends CommonColumnStatsData{
     @ApiModelProperty(value = "low Value")
     private Decimal lowValue;

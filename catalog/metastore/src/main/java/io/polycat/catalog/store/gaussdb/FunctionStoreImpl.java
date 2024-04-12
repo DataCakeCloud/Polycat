@@ -18,16 +18,17 @@
 package io.polycat.catalog.store.gaussdb;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import io.polycat.catalog.common.ErrorCode;
-import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.FunctionObject;
 import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.common.plugin.request.input.FunctionInput;
-import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
 import io.polycat.catalog.store.api.FunctionStore;
 import io.polycat.catalog.store.gaussdb.pojo.FunctionInfoRecord;
 import io.polycat.catalog.store.mapper.FunctionMapper;
+import io.polycat.catalog.common.ErrorCode;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.model.CatalogIdent;
+import io.polycat.catalog.common.model.DatabaseIdent;
+import io.polycat.catalog.common.plugin.request.input.FunctionInput;
+import io.polycat.catalog.common.plugin.request.input.FunctionResourceUri;
 import io.polycat.catalog.store.protos.ResourceUri;
 import io.polycat.catalog.store.protos.ResourceUris;
 import lombok.extern.slf4j.Slf4j;
@@ -105,6 +106,24 @@ public class FunctionStoreImpl implements FunctionStore {
     public List<String> listFunctions(TransactionContext context, DatabaseIdent databaseIdent, String pattern) {
         List<FunctionInfoRecord> functionInfoRecords = functionMapper.listFunction(databaseIdent.getProjectId(), databaseIdent.getCatalogId(), databaseIdent.getDatabaseId(), pattern);
         return functionInfoRecords.stream().map(FunctionInfoRecord::getFunctionName).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<FunctionObject> listAllFunctions(TransactionContext context, CatalogIdent catalogIdent) {
+        List<FunctionInfoRecord> functionInfoRecords = functionMapper.listAllFunctions(catalogIdent.getProjectId(), catalogIdent.getCatalogId());
+        return functionInfoRecords.stream().map(record -> {
+            ResourceUris resourceUris = null;
+            try {
+                resourceUris = ResourceUris.parseFrom(record.getResourceUris());
+            } catch (InvalidProtocolBufferException e) {
+                throw new MetaStoreException(ErrorCode.INNER_SERVER_ERROR);
+            }
+
+            return new FunctionObject(record.getFunctionName(), record.getDatabaseName(), record.getClassName(),
+                record.getOwnerName(), record.getOwnerType(), record.getFunctionType(), record.getCreateTime(),
+                resourceUris.getResourceList().stream().map(x -> new FunctionResourceUri(x.getType(), x.getUri())).collect(Collectors.toList()));
+
+        }).collect(Collectors.toList());
     }
 
     @Override

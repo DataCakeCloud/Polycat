@@ -24,13 +24,14 @@ else
   echo "must set version"
   exit 1
 fi
-obsutil cp -r -f obs://xxxx/hive-metastore-lib/hive-metastore-polycat/lib .
-obsutil cp -f obs://xxxx/hadoop3.1.1/hadoop-3.1.1.tar.gz .
-obsutil cp -f obs://xxxx/hms2.3.7/apache-hive-2.3.7-bin.tar.gz .
+obsutil cp -r -f obs://bdp-deploy-sg/BDP/BDP-hive-metastore-lib/hive-metastore-polycat/lib .
+obsutil cp -f obs://bdp-deploy-sg/BDP/BDP-hadoop3.1.1/hadoop-3.1.1.tar.gz .
+obsutil cp -f obs://bdp-deploy-sg/BDP/BDP-hms2.3.7/apache-hive-2.3.7-bin.tar.gz .
 
 cp ../../lib/hadoop-huaweicloud-3.1.1-hw-45.jar lib
 cp ../../catalog/hmsbridge-hive2/target/polycat-catalog-hmsbridge-hive2-0.1-SNAPSHOT.jar lib
 cp ../../catalog/api/target/polycat-catalog-api-0.1-SNAPSHOT.jar lib
 cp ../../catalog/authentication/target/polycat-catalog-authentication-0.1-SNAPSHOT.jar lib
 cp ../../catalog/client/target/polycat-catalog-client-0.1-SNAPSHOT.jar lib
+cp ../../polycat-hiveSDK/hive2/target/polycat-hiveSDK-hive2-0.1-SNAPSHOT.jar lib
 

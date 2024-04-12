@@ -18,12 +18,11 @@
 package io.polycat.catalog.store.api;
 
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.DatabaseIdent;
 import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.common.model.ViewIdent;
 import io.polycat.catalog.common.model.ViewNameObject;
+import io.polycat.catalog.common.model.DatabaseIdent;
+import io.polycat.catalog.common.model.ViewIdent;
 import io.polycat.catalog.common.model.ViewRecordObject;
-import io.polycat.catalog.store.protos.ViewObjectName;
 
 
 public interface ViewStore {

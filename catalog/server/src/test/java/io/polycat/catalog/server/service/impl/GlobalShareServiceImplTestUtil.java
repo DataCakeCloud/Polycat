@@ -20,7 +20,6 @@ package io.polycat.catalog.server.service.impl;
 import io.polycat.catalog.common.model.Share;
 import io.polycat.catalog.common.plugin.request.input.ShareInput;
 import io.polycat.catalog.service.api.GlobalShareService;
-import io.polycat.catalog.store.api.VersionManager;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

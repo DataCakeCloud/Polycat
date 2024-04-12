@@ -17,6 +17,7 @@
  */
 package io.polycat.catalog.common.serialization;
 
+import io.polycat.catalog.common.exception.CarbonSqlException;
 import io.polycat.catalog.common.exception.ErrorItem;
 import io.polycat.catalog.common.exception.ExceptionUtil;
 
@@ -28,8 +29,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.*;
-
-import io.polycat.catalog.common.exception.CarbonSqlException;
 
 /**
  * 序列化接口，避免使用Serializable导致低性能

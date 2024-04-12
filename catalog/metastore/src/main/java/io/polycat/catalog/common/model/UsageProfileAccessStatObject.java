@@ -34,6 +34,7 @@ public class UsageProfileAccessStatObject {
     private String tableId;
     private long createDayTime;
     private String opType;
+    private String originOpType;
     private long sumCount;
     private String userId;
     private long startTime;

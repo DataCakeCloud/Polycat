@@ -18,9 +18,9 @@
 package io.polycat.catalog.common.plugin.request;
 
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.plugin.CatalogContext;
 import io.polycat.catalog.common.plugin.request.base.ProjectRequestBase;
 import io.polycat.catalog.common.plugin.request.input.DelegateInput;
+import io.polycat.catalog.common.plugin.CatalogContext;
 
 import lombok.Data;
 

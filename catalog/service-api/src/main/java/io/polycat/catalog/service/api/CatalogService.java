@@ -22,7 +22,6 @@ import java.util.List;
 import io.polycat.catalog.common.model.Catalog;
 import io.polycat.catalog.common.model.CatalogCommit;
 import io.polycat.catalog.common.model.CatalogHistoryObject;
-import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.CatalogName;
 import io.polycat.catalog.common.model.TraverseCursorResult;
 import io.polycat.catalog.common.plugin.request.input.CatalogInput;

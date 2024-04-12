@@ -17,8 +17,6 @@
  */
 package io.polycat.catalog.common.model;
 
-import io.polycat.catalog.common.ObjectType;
-
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;

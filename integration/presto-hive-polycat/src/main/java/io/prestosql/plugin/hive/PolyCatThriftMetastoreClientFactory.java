@@ -35,9 +35,7 @@ import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClientFactory;
-import io.prestosql.plugin.hive.metastore.thrift.*;
 import io.prestosql.spi.NodeManager;
 import org.apache.thrift.transport.TTransportException;
 
@@ -66,7 +64,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
-import io.polycat.hivesdk.impl.PolyCatMetaStoreClient;
+import io.polycat.hivesdk.hive3.impl.PolyCatMetaStoreClient;
 
 public class PolyCatThriftMetastoreClientFactory
     extends ThriftMetastoreClientFactory {

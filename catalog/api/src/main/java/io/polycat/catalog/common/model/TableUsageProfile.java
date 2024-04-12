@@ -32,8 +32,11 @@ public class TableUsageProfile {
     @ApiModelProperty(value = "source table", required = true)
     private TableSource table;
 
-    @ApiModelProperty(value = "op types", required = true)
+    @ApiModelProperty(value = "op types", required = false)
     private List<String> opTypes;
+
+    @ApiModelProperty(value = "origin options ", required = false)
+    private List<String> originOpTypes;
 
     @ApiModelProperty(value = "create day timestamp", required = false)
     private long createDayTimestamp;
@@ -50,11 +53,17 @@ public class TableUsageProfile {
     @ApiModelProperty(value = "user id", required = true)
     private String userId;
 
+    @ApiModelProperty(value = "user group", required = false)
+    private String userGroup;
+
     @ApiModelProperty(value = "task id", required = false)
     private String taskId;
 
     @ApiModelProperty(value = "user tag", required = false)
     private String tag;
+
+    @ApiModelProperty(value = "exec statement", required = false)
+    private String statement;
 
     public TableUsageProfile() {
     }

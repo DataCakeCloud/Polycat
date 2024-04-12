@@ -29,17 +29,13 @@ import io.polycat.catalog.authentication.Authentication;
 import io.polycat.catalog.authentication.model.AuthenticationResult;
 import io.polycat.catalog.authentication.model.LocalIdentity;
 import io.polycat.catalog.common.exception.CatalogException;
-import io.polycat.catalog.common.model.PagedList;
 import io.polycat.catalog.common.model.Table;
-import io.polycat.catalog.common.model.TableCommit;
 import io.polycat.catalog.common.model.record.Record;
 import io.polycat.catalog.common.plugin.request.CreateBranchRequest;
 import io.polycat.catalog.common.plugin.request.CreateCatalogRequest;
 import io.polycat.catalog.common.plugin.request.CreateDatabaseRequest;
 import io.polycat.catalog.common.plugin.request.GetTableRequest;
 import io.polycat.catalog.common.plugin.request.ListFileRequest;
-import io.polycat.catalog.common.plugin.request.ListTableCommitsRequest;
-import io.polycat.catalog.common.plugin.request.RestoreTableRequest;
 import io.polycat.catalog.common.plugin.request.input.CatalogInput;
 import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
 import io.polycat.common.RowBatch;
@@ -676,7 +672,7 @@ public class SparkTest extends HMSBridgeTestEnv {
     }
 
     @Test
-    void migrateNoPartitionTableFromHiveMetaStoreToPolyCatMetaStore() {
+    void migrateNoPartitionTableFromHiveMetaStoreToLakeMetaStore() {
         String tableName = "Migrate";
 
         sparkSession.sql("create table " + tableName + " (c1 string, c2 int ) using orc").collect();
@@ -723,7 +719,7 @@ public class SparkTest extends HMSBridgeTestEnv {
     }
 
     @Test
-    void migratePartitionTableFromHiveMetaStoreToPolyCatMetaStore() {
+    void migratePartitionTableFromHiveMetaStoreToLakeMetaStore() {
         String tableName = "testmigrate2";
 
         sparkSession.sql("create table " + tableName + " (c1 string, c2 int , c3 string) using parquet " +

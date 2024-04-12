@@ -70,7 +70,7 @@ public interface TableService {
 
     ColumnStatisticsObj[] getTableColumnStatistics(TableName tableName, List<String> colNames);
 
-    void updateTableColumnStatistics(String projectId, ColumnStatistics stats);
+    boolean updateTableColumnStatistics(String projectId, ColumnStatistics stats);
 
     boolean deleteTableColumnStatistics(TableName tableName, String colName);
 

@@ -17,14 +17,8 @@
  */
 package io.polycat.catalog.common.plugin.request;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.plugin.request.base.ProjectRequestBase;
-import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
-import io.polycat.catalog.common.plugin.request.input.GetPartitionColumnStaticsInput;
 import io.polycat.catalog.common.plugin.request.input.PolicyInput;
 
 import lombok.Data;

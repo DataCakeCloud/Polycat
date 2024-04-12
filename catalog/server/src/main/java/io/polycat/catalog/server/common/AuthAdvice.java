@@ -35,7 +35,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuthAdvice {
 
     // 定义一个切面，括号内写入第1步中自定义注解的路径
-    @Pointcut("@annotation(io.polycat.catalog.server.common.TokenAnnotation)")
+    @Pointcut("@annotation(TokenAnnotation)")
     private void authCheck() {
     }
 

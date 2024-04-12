@@ -17,9 +17,8 @@
  */
 package io.polycat.catalog.store.mapper;
 
-import io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord;
-import io.polycat.catalog.store.gaussdb.pojo.DatabaseRecord;
-import io.polycat.catalog.store.gaussdb.pojo.DroppedDatabaseNameRecord;
+import io.polycat.catalog.common.model.PrivilegeRolesObject;
+import io.polycat.catalog.store.gaussdb.pojo.RoleObjectRecord;
 import io.polycat.catalog.store.gaussdb.pojo.RolePrivilegeRecord;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
@@ -57,5 +56,13 @@ public interface RolePrivilegeMapper {
 
     List<RolePrivilegeRecord> getRolePrivileges(@Param("projectId") String projectId, @Param("roleId") String roleId);
 
-    List<RolePrivilegeRecord> getRolePrivilegesByFilter(@Param("projectId") String projectId, @Param("filter") String filter);
+    List<RolePrivilegeRecord> getRolePrivilegesByFilter(@Param("projectId") String projectId, @Param("filter") String filter, @Param("limit") Integer limit, @Param("offset") Long offset);
+
+    List<PrivilegeRolesObject> getPrivilegeRolesByFilter(@Param("projectId") String projectId, @Param("filter") String filter, @Param("limit") Integer limit, @Param("offset") Long offset);
+
+    List<RoleObjectRecord> getRoleInfoByFilter(@Param("projectId") String projectId
+        , @Param("roleNameFilter") String roleNameFilter
+        , @Param("roleUserFilter") String roleUserFilter
+        , @Param("rolePrivilegeFilter") String rolePrivilegeFilter
+    );
 }

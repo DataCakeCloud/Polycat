@@ -32,5 +32,5 @@ public class CommonColumnStatsData {
     protected long numDVs;
 
     @ApiModelProperty(value = "bit Vector")
-    protected ByteBuffer bitVectors;
+    protected byte[] bitVectors;
 }

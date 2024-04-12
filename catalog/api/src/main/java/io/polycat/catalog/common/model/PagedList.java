@@ -18,6 +18,7 @@
 package io.polycat.catalog.common.model;
 
 
+import java.util.List;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +41,28 @@ public class PagedList<T> {
         pageInfo.nextMarker = nextMarker;
         pageInfo.previousMarker = previousMarker;
         pageInfo.currentCount = currentCount;
+    }
+
+    public void setObjects(T[] objects) {
+        this.objects = objects;
+        if (objects != null) {
+            setCurrentCount(objects.length);
+        }
+    }
+
+    public void setObjectList(List<T> objects) {
+        if (objects != null) {
+            setObjects((T[]) objects.toArray());
+        }
+    }
+
+    public PagedList<T> setResult(TraverseCursorResult<List<T>> cursorResult) {
+        setObjectList(cursorResult.getResult());
+        setPreviousMarker(cursorResult.getPreviousTokenString());
+        cursorResult.getContinuation().ifPresent(catalogToken -> {
+            setNextMarker(catalogToken.toString());
+        });
+        return this;
     }
 
     public void setNextMarker(String nextMarker) {

@@ -17,15 +17,11 @@
  */
 package io.polycat.catalog.common.plugin.request;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.stats.ColumnStatistics;
 import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
-import io.polycat.catalog.common.utils.GsonUtil;
 
 public class UpdateTableColumnStatisticRequest extends TableRequestBase<ColumnStatistics> {
 

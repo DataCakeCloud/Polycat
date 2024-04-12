@@ -21,6 +21,8 @@ import java.util.List;
 
 import io.polycat.catalog.audit.api.UserLog;
 import io.polycat.catalog.audit.impl.UserLogAop;
+import io.polycat.catalog.server.util.BaseResponseUtil;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Constants;
@@ -42,20 +44,9 @@ import io.polycat.catalog.common.model.TraverseCursorResult;
 import io.polycat.catalog.common.model.CatalogResponse;
 import io.polycat.catalog.common.model.stats.ColumnStatistics;
 import io.polycat.catalog.common.model.stats.ColumnStatisticsObj;
-import io.polycat.catalog.common.plugin.request.input.AddConstraintsInput;
-import io.polycat.catalog.common.plugin.request.input.AddForeignKeysInput;
-import io.polycat.catalog.common.plugin.request.input.AddPrimaryKeysInput;
-import io.polycat.catalog.common.plugin.request.input.AlterTableInput;
-import io.polycat.catalog.common.plugin.request.input.ColumnChangeInput;
-import io.polycat.catalog.common.plugin.request.input.FilterInput;
-import io.polycat.catalog.common.plugin.request.input.SetTablePropertyInput;
-import io.polycat.catalog.common.plugin.request.input.TableInput;
-import io.polycat.catalog.common.plugin.request.input.UnsetTablePropertyInput;
+import io.polycat.catalog.common.plugin.request.input.*;
 import io.polycat.catalog.common.utils.CatalogStringUtils;
 import io.polycat.catalog.common.utils.GsonUtil;
-import io.polycat.catalog.common.utils.ModelConvertor;
-import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.service.api.PartitionService;
 import io.polycat.catalog.service.api.TableService;
 import io.polycat.catalog.store.common.StoreConvertor;
@@ -114,7 +105,7 @@ public class TableController extends BaseController {
             CatalogStringUtils.databaseNameNormalize(database);
             CatalogStringUtils.tableInputNormalize(tableInput);
             tableService.createTable(database, tableInput);
-            Table tableResponse = ModelConvertor.toTableModel(catalogName, databaseName, tableInput.getTableName());
+            Table tableResponse = tableService.getTableByName(StoreConvertor.tableName(database, tableInput.getTableName()));
             //record auditlog
             //UserLogAop.setAuditLogObjectId(tableId);
             return ResponseUtil.responseSuccess(tableResponse, HttpStatus.CREATED);
@@ -252,6 +243,38 @@ public class TableController extends BaseController {
                 throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getTableObjectsByName");
             } else {
                 tableList = tableService.listTable(databaseFullName, includeDrop, maxResults, pageToken, filter);
+            }
+            PagedList<Table> result = new PagedList<>();
+            result.setObjects(tableList.getResult().toArray(new Table[0]));
+            tableList.getContinuation().ifPresent(catalogToken -> result.setNextMarker(catalogToken.toString()));
+            return ResponseUtil.responseSuccess(result);
+        });
+    }
+
+    @PostMapping(value = "/listTableObjects", produces = "application/json;charset=UTF-8")
+    @ApiOperation(value = "list tables")
+    public CatalogResponse<PagedList<Table>> listTableObjects(
+            @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
+            @ApiParam(value = "catalog name", required = true) @PathVariable("catalog-name") String catalogName,
+            @ApiParam(value = "database name", required = true) @PathVariable("database-name") String databaseName,
+            @ApiParam(value = "include dropped flag", required = false) @RequestParam(value = "includeDrop", required = false, defaultValue = "false") Boolean includeDrop,
+            @ApiParam(value = "max results", required = false) @RequestParam(value = "maxResults", required = false, defaultValue = "100") Integer maxResults,
+            @ApiParam(value = "page token", required = false) @RequestParam(value = "pageToken", required = false, defaultValue = "") String pageToken,
+            @ApiParam(value = "filter", required = false) @RequestBody(required = false) FilterListInput filter,
+            @ApiParam(value = "table names") @RequestParam(value = "tblNames", required = false) String tblNamesJson,
+            @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
+        return createResponse(token, () -> {
+            DatabaseName databaseFullName = StoreConvertor.databaseName(projectId, catalogName, databaseName);
+            TraverseCursorResult<List<Table>> tableList;
+            if (StringUtils.isNotBlank(tblNamesJson)) {
+                //tableList = new TraverseCursorResult<>(tableService.getTableObjectsByName(databaseFullName, GsonUtil.fromJson(tblNamesJson, List.class)), null);
+                throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getTableObjectsByName");
+            } else {
+                String filterString = null;
+                if (filter != null && !filter.getFilter().isEmpty()) {
+                    filterString = String.join("|", filter.getFilter());
+                }
+                tableList = tableService.listTable(databaseFullName, includeDrop, maxResults, pageToken, filterString);
             }
             PagedList<Table> result = new PagedList<>();
             result.setObjects(tableList.getResult().toArray(new Table[0]));
@@ -475,7 +498,7 @@ public class TableController extends BaseController {
         @ApiParam(value = "catalog name", required = true) @PathVariable("catalog-name") String catalogName,
         @ApiParam(value = "database name", required = true) @PathVariable("database-name") String databaseName,
         @ApiParam(value = "table name", required = true) @PathVariable("table-name") String tableName,
-        @ApiParam(value = "column name", required = true) @RequestParam("colName") String columnName,
+        @ApiParam(value = "column name", required = false) @RequestParam(name = "colName", required = false) String columnName,
         @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
         return createBaseResponse(token, () -> {
             TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
@@ -486,7 +509,7 @@ public class TableController extends BaseController {
 
     @GetMapping(value = "/{table-name}/columnStatistics", produces = "application/json;charset=UTF-8")
     @ApiOperation(value = "get table column statistics")
-    public CatalogResponse<PagedList<ColumnStatisticsObj>> getTableColumnStatistics(
+    public CatalogResponse<ColumnStatisticsObj[]> getTableColumnStatistics(
         @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
         @ApiParam(value = "catalog name", required = true) @PathVariable("catalog-name") String catalogName,
         @ApiParam(value = "database name", required = true) @PathVariable("database-name") String databaseName,
@@ -495,21 +518,18 @@ public class TableController extends BaseController {
         @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
         return createResponse(token, () -> {
             TableName tableNameParam = StoreConvertor.tableName(projectId, catalogName, databaseName, tableName);
-            PagedList<ColumnStatisticsObj> statsList = new PagedList<>();
-            statsList.setObjects(tableService.getTableColumnStatistics(tableNameParam, GsonUtil.fromJson(columnName, List.class)));
-            return ResponseUtil.responseSuccess(statsList);
+            return ResponseUtil.responseSuccess(tableService.getTableColumnStatistics(tableNameParam, GsonUtil.fromJson(columnName, List.class)));
         });
     }
 
     @PatchMapping(value = "/{table-name}/columnStatistics", produces = "application/json;charset=UTF-8")
     @ApiOperation(value = "update table column statistics")
-    public BaseResponse updateTableColumnStatistics(
+    public CatalogResponse<Boolean> updateTableColumnStatistics(
         @ApiParam(value = "project id", required = true) @PathVariable("project-id") String projectId,
-        @ApiParam(value = "new column statistics object", required = true) @RequestBody() ColumnStatistics newStatObj,
+        @ApiParam(value = "column statistics object", required = true) @RequestBody() ColumnStatistics statObj,
         @ApiParam(value = "authorization", required = true) @RequestHeader("Authorization") String token) {
-        return createBaseResponse(token, () -> {
-            tableService.updateTableColumnStatistics(projectId, newStatObj);
-            return BaseResponseUtil.responseSuccess();
+        return createResponse(token, () -> {
+            return ResponseUtil.responseSuccess(tableService.updateTableColumnStatistics(projectId, statObj));
         });
     }
 

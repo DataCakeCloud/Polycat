@@ -27,6 +27,7 @@ import io.polycat.catalog.common.plugin.request.input.PartitionFilterInput;
 
 public class ListTablePartitionsRequest extends TableRequestBase<PartitionFilterInput> {
 
+    private boolean escape = true;
     public ListTablePartitionsRequest() {
 
     }
@@ -40,6 +41,14 @@ public class ListTablePartitionsRequest extends TableRequestBase<PartitionFilter
         Map<String, String> params = new HashMap<>();
         params.put(Constants.OPERATE_TYPE, "listByValue");
         return params;
+    }
+
+    public boolean isEscape() {
+        return escape;
+    }
+
+    public void setEscape(boolean escape) {
+        this.escape = escape;
     }
 
     @Override

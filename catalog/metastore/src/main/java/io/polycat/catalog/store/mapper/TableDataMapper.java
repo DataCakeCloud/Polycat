@@ -21,13 +21,11 @@ import java.util.List;
 
 import io.polycat.catalog.common.model.PartitionColumnInfo;
 import io.polycat.catalog.common.model.PartitionInfo;
-import io.polycat.catalog.store.gaussdb.pojo.TableCommitRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableDataHistoryRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableDataPartitionSetRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableIndexHistoryRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableIndexPartitionSetRecord;
 import io.polycat.catalog.store.gaussdb.pojo.TableIndexRecord;
-import io.polycat.catalog.store.gaussdb.pojo.TableSchemaHistoryRecord;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -98,8 +96,8 @@ public interface TableDataMapper {
     List<PartitionInfo> listTablePartitionInfos(@Param("projectId") String projectId, @Param("tableId") String tableId,
         @Param("setId") String setId, @Param("maxParts") Integer maxParts);
 
-    @Select("SELECT partition_name FROM schema_${projectId}.table_partition_info_${tableId} LIMIT ${maxParts}")
-    List<String> listTablePartitionNames(@Param("projectId") String projectId, @Param("tableId") String tableId, @Param("maxParts") Integer maxParts);
+    @Select("SELECT partition_name FROM schema_${projectId}.table_partition_info_${tableId} WHERE ${filter} LIMIT ${maxParts}")
+    List<String> listTablePartitionNames(@Param("projectId") String projectId, @Param("tableId") String tableId, @Param("filter") String filter, @Param("maxParts") Integer maxParts);
 
     List<PartitionInfo> getTablePartitionInfoByName(@Param("projectId") String projectId, @Param("tableId") String tableId,
         @Param("setId") String setId, @Param("partitionNames") List<String> partitionNames, @Param("maxParts") int maxParts);
@@ -110,7 +108,7 @@ public interface TableDataMapper {
     List<PartitionInfo> getTablePartitionInfoByFilter(@Param("projectId") String projectId, @Param("tableId") String tableId,
                                                       @Param("setId") String setId, @Param("filter") String filter, @Param("maxParts")int maxParts);
 
-    List<PartitionInfo> getTablePartitionInfoBySqlFilter(@Param("projectId") String projectId, @Param("tableId") String tableId, @Param("filter") String filter, @Param("maxParts")int maxParts);
+    // List<PartitionInfo> getTablePartitionInfoBySqlFilter(@Param("projectId") String projectId, @Param("tableId") String tableId, @Param("filter") String filter, @Param("maxParts")int maxParts);
 
     void deletePartitionInfoByName(@Param("projectId") String projectId, @Param("tableId") String tableId,
         @Param("setId") String setId, @Param("partitionNames") List<String> partitionNames);
@@ -134,6 +132,10 @@ public interface TableDataMapper {
 
     TableIndexPartitionSetRecord getTableIndexPartitionSet(@Param("projectId") String projectId,
         @Param("tableId") String tableId, @Param("setId") String setId);
+
+    Integer getPartitionCountByFilter(@Param("projectId") String projectId, @Param("tableId") String tableId, @Param("filter") String filter);
+
+    String getLatestPartitionName(@Param("projectId") String projectId, @Param("tableId") String tableId);
 
 
     /**

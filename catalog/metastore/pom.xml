@@ -24,13 +24,13 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-      <groupId>io.polycat</groupId>
-      <artifactId>polycat-parent</artifactId>
-      <version>0.1-SNAPSHOT</version>
-      <relativePath>../../pom.xml</relativePath>
+    <groupId>io.polycat</groupId>
+    <artifactId>polycat-parent</artifactId>
+    <version>0.1-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
   </parent>
 
-    <artifactId>polycat-catalog-metastore</artifactId>
+  <artifactId>polycat-catalog-metastore</artifactId>
   <description> Catalog Storage of Metadata </description>
 
   <properties>
@@ -39,26 +39,26 @@
 
   <dependencies>
     <!-- self project module dependency start -->
-      <dependency>
-          <groupId>io.polycat</groupId>
-          <artifactId>polycat-catalog-api</artifactId>
-          <version>${project.version}</version>
-      </dependency>
-
-      <dependency>
-          <groupId>io.polycat</groupId>
-          <artifactId>polycat-metrics</artifactId>
-          <version>${project.version}</version>
-      </dependency>
-
-      <dependency>
-          <groupId>io.polycat</groupId>
-          <artifactId>polycat-common-expression</artifactId>
-          <version>${project.version}</version>
-      </dependency>
+    <dependency>
+      <groupId>io.polycat</groupId>
+      <artifactId>polycat-catalog-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
-        <groupId>io.polycat</groupId>
+      <groupId>io.polycat</groupId>
+      <artifactId>polycat-metrics</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.polycat</groupId>
+      <artifactId>polycat-common-expression</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.polycat</groupId>
       <artifactId>service-api</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -121,7 +121,7 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.polycat</groupId>
+      <groupId>io.polycat</groupId>
       <artifactId>service-api</artifactId>
       <version>${project.version}</version>
       <scope>compile</scope>
@@ -136,7 +136,7 @@
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <version>42.2.5</version>
-      <scope>runtime</scope>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 

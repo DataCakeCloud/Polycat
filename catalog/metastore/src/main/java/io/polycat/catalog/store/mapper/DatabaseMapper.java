@@ -20,7 +20,6 @@ package io.polycat.catalog.store.mapper;
 import java.util.List;
 
 import io.polycat.catalog.store.gaussdb.pojo.DatabaseHistoryRecord;
-import io.polycat.catalog.store.gaussdb.pojo.DatabaseNameRecord;
 import io.polycat.catalog.store.gaussdb.pojo.DatabaseRecord;
 import io.polycat.catalog.store.gaussdb.pojo.DroppedDatabaseNameRecord;
 import org.apache.ibatis.annotations.Delete;

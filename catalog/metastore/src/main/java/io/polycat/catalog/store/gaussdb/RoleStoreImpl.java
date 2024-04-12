@@ -17,12 +17,14 @@
  */
 package io.polycat.catalog.store.gaussdb;
 
+import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.*;
+import io.polycat.catalog.common.model.RoleObject.Fields;
+import io.polycat.catalog.common.plugin.request.input.ShowRolePrivilegesInput;
 import io.polycat.catalog.store.api.RoleStore;
 import io.polycat.catalog.store.common.StoreSqlConvertor;
-import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 import io.polycat.catalog.store.gaussdb.pojo.*;
 import io.polycat.catalog.store.mapper.RolePrivilegeMapper;
 import io.polycat.catalog.store.mapper.RoleObjectNameMapper;
@@ -217,16 +219,18 @@ public class RoleStoreImpl implements RoleStore {
     }
 
     @Override
-    public List<RoleObject> getAllRoleObjects(TransactionContext context, String projectId, String userId, String namePattern) {
-        //List<RoleObjectRecord> roleObjectRecords = rolePropertiesMapper.showRoleObjects(projectId, userId, namePattern);
-        String rolePropertiesFilterSql = StoreSqlConvertor.get()
-                .equals(RolePropertiesRecord.Fields.ownerId, userId).AND()
-                .likeRight(RolePropertiesRecord.Fields.name, namePattern).getFilterSql();
-        List<RolePropertiesRecord> rolePropertiesRecords = rolePropertiesMapper.getRolePropertiesList(projectId, rolePropertiesFilterSql);
+    public List<RoleObject> getAllRoleObjects(TransactionContext context, String projectId, String userId,
+                                              String namePattern, boolean containOwner) {
         String roleUserFilterSql = StoreSqlConvertor.get()
                 .equals(RoleUserRecord.Fields.userId, userId).getFilterSql();
         List<String> roleIds = roleUserMapper.getRoleIds(projectId, roleUserFilterSql);
-        roleIds.addAll(rolePropertiesRecords.stream().map(RolePropertiesRecord::getRoleId).collect(Collectors.toList()));
+        if (containOwner) {
+            String rolePropertiesFilterSql = StoreSqlConvertor.get()
+                    .equals(RolePropertiesRecord.Fields.ownerId, userId).AND()
+                    .likeRight(RolePropertiesRecord.Fields.name, namePattern).getFilterSql();
+            roleIds.addAll(rolePropertiesMapper.getRolePropertiesList(projectId, rolePropertiesFilterSql).stream().map(RolePropertiesRecord::getRoleId).collect(Collectors.toList()));
+        }
+
         List<RoleObject> roleObjects = new ArrayList<>();
         if ((!StringUtils.isEmpty(userId) || !StringUtils.isEmpty(namePattern)) && roleIds.isEmpty()) {
             return roleObjects;
@@ -234,15 +238,17 @@ public class RoleStoreImpl implements RoleStore {
         String filterSql = StoreSqlConvertor.get().in(RolePropertiesRecord.Fields.roleId, new HashSet<>(roleIds)).AND()
                 .likeRight(RolePropertiesRecord.Fields.name, namePattern).getFilterSql();
         List<RoleObjectRecord> roleObjectRecords = rolePropertiesMapper.showRoleObjectsByFilter(projectId, filterSql);
-        RoleObject roleObject;
-        for (RoleObjectRecord ror: roleObjectRecords) {
-            roleObject = new RoleObject(projectId, ror.getRoleName(), ror.getRoleId(), ror.getOwnerId(), ror.getCreateTime(), ror.getComment());
-            if (StringUtils.isNotBlank(ror.getUsers())) {
-                roleObject.setToUsers(Arrays.asList(ror.getUsers().split(",")));
-            }
-            roleObjects.add(roleObject);
-        }
+        roleObjectRecords.forEach(record -> roleObjects.add(convertRoleObject(projectId, record)));
         return roleObjects;
+    }
+
+    private RoleObject convertRoleObject(String projectId, RoleObjectRecord record) {
+        RoleObject roleObject = new RoleObject(projectId, record.getRoleName(), record.getRoleId(), record.getOwnerId(),
+            record.getCreateTime(), record.getComment());
+        if (StringUtils.isNotBlank(record.getUsers())) {
+            roleObject.setToUsers(Arrays.asList(record.getUsers().split(",")));
+        }
+        return roleObject;
     }
 
     @Override
@@ -261,8 +267,49 @@ public class RoleStoreImpl implements RoleStore {
         return getRolePrivilegesByFilter(context, projectId, sqlConvertor.getFilterSql());
     }
 
+    @Override
+    public List<RolePrivilegeObject> showRolePrivileges(TransactionContext context, String projectId, List<String> roleIds,
+        ShowRolePrivilegesInput input, int batchNum, long batchOffset) {
+        return getRolePrivilegesByFilter(context, projectId,
+            getRoleAndPrivilegeCommonSql(roleIds, input),
+            batchNum, batchOffset);
+    }
+
+    private String getRoleAndPrivilegeCommonSql(List<String> roleIds, ShowRolePrivilegesInput input) {
+        return StoreSqlConvertor.get()
+            .in(Fields.roleId, roleIds).AND()
+            .equals(RolePrivilegeObject.Fields.objectType, input.getObjectType()).AND()
+            .in(RolePrivilegeObject.Fields.objectId, input.getExactObjectNames()).AND()
+            .likeRight(RolePrivilegeObject.Fields.objectId, input.getObjectNamePrefix())
+            .getFilterSql();
+    }
+
+    @Override
+    public List<PrivilegeRolesObject> showPrivilegeRoles(TransactionContext context, String projectId,
+        List<String> roleIds, ShowRolePrivilegesInput input, int batchNum, long batchOffset) {
+        return rolePrivilegeMapper.getPrivilegeRolesByFilter(projectId, getRoleAndPrivilegeCommonSql(roleIds, input), batchNum, batchOffset);
+    }
+
+    @Override
+    public List<RoleObject> showRoleInfos(TransactionContext context, String projectId, ShowRolePrivilegesInput input) {
+        List<RoleObjectRecord> roleInfoByFilter = rolePrivilegeMapper.getRoleInfoByFilter(projectId,
+            StoreSqlConvertor.get().in(RolePropertiesRecord.Fields.name, input.getExactRoleNames()).AND()
+                .likeRight(RolePropertiesRecord.Fields.name, input.getExcludeRolePrefix(), true).AND()
+                .likeRight(RolePropertiesRecord.Fields.name, input.getIncludeRolePrefix()).getFilterSql(),
+            StoreSqlConvertor.get().equals(RoleUserRecord.Fields.userId, input.getUserId()).getFilterSql(),
+            StoreSqlConvertor.get().equals(RolePrivilegeObject.Fields.objectType, input.getObjectType()).AND()
+                .in(RolePrivilegeObject.Fields.objectId, input.getExactObjectNames()).AND()
+                .likeRight(RolePrivilegeObject.Fields.objectId, input.getObjectNamePrefix())
+                .getFilterSql());
+        return roleInfoByFilter.stream().map(record -> convertRoleObject(projectId, record)).collect(Collectors.toList());
+    }
+
     private List<RolePrivilegeObject> getRolePrivilegesByFilter(TransactionContext context, String projectId, String filterSql) {
-        List<RolePrivilegeRecord> privilegeRecords = rolePrivilegeMapper.getRolePrivilegesByFilter(projectId, filterSql);
+        return getRolePrivilegesByFilter(context, projectId, filterSql, Integer.MAX_VALUE, 0L);
+    }
+
+    private List<RolePrivilegeObject> getRolePrivilegesByFilter(TransactionContext context, String projectId, String filterSql, Integer limit, Long offset) {
+        List<RolePrivilegeRecord> privilegeRecords = rolePrivilegeMapper.getRolePrivilegesByFilter(projectId, filterSql, limit, offset);
         return privilegeRecords.stream().map(x -> new RolePrivilegeObject(x.getRoleId(), x.getObjectType(), x.getObjectId(), x.getPrivilege(), x.getCatalogId(), x.getDatabaseId())).collect(Collectors.toList());
     }
 

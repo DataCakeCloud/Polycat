@@ -17,6 +17,8 @@
  */
 package io.polycat.catalog.common.exception;
 
+import io.polycat.catalog.common.ErrorCode;
+
 /**
  * @singe 2020/12/25
  */
@@ -39,5 +41,44 @@ public class ExceptionUtil {
             message = message.substring(0, MAX_ERROR_MESSAGE_COUNT) + "...";
         }
         return message;
+    }
+
+    public static void throwInvalidOperationException(CatalogException e) throws InvalidOperationException {
+        if (e.getMessage() == null) {
+            return;
+        }
+        if (e.getMessage().contains(ErrorCode.DATABASE_TABLE_EXISTS.getErrorCode())) {
+            throw new InvalidOperationException(e);
+        }
+    }
+
+    public static void throwNoSuchObjectException(CatalogException e) throws NoSuchObjectException {
+        if (e.getMessage() == null) {
+            return;
+        }
+        if (e.getMessage().contains(ErrorCode.TABLE_NOT_FOUND.getErrorCode())) {
+            throw new NoSuchObjectException(e);
+        }
+        if (e.getMessage().contains(ErrorCode.DATABASE_NOT_FOUND.getErrorCode())) {
+            throw new NoSuchObjectException(e);
+        }
+        if (e.getMessage().contains(ErrorCode.CATALOG_NOT_FOUND.getErrorCode())) {
+            throw new NoSuchObjectException(e);
+        }
+    }
+
+    public static void throwAlreadyExistsException(CatalogException e) throws AlreadyExistsException {
+        if (e.getMessage() == null) {
+            return;
+        }
+        if (e.getMessage().contains(ErrorCode.TABLE_ALREADY_EXIST.getErrorCode())) {
+            throw new AlreadyExistsException(e);
+        }
+        if (e.getMessage().contains(ErrorCode.DATABASE_ALREADY_EXIST.getErrorCode())) {
+            throw new AlreadyExistsException(e);
+        }
+        if (e.getMessage().contains(ErrorCode.CATALOG_ALREADY_EXIST.getErrorCode())) {
+            throw new AlreadyExistsException(e);
+        }
     }
 }

@@ -18,7 +18,6 @@
 package io.polycat.catalog.authentication;
 
 import io.polycat.catalog.authentication.api.Authenticator;
-import io.polycat.catalog.authentication.impl.LocalAuthenticator;
 import io.polycat.catalog.common.GlobalConfig;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.exception.CatalogException;
@@ -31,7 +30,6 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 
 public class AuthenticatorFactory {
     /**

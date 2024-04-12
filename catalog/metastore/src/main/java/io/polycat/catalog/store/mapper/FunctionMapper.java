@@ -45,4 +45,6 @@ public interface FunctionMapper {
 
     boolean insertFunction(@Param("projectId") String projectId, @Param("record") FunctionInfoRecord record);
 
+    List<FunctionInfoRecord> listAllFunctions(@Param("projectId") String projectId, @Param("catalogId") String catalogId);
+
 }

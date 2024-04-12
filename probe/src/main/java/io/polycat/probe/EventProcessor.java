@@ -20,83 +20,51 @@ package io.polycat.probe;
 import io.polycat.catalog.client.PolyCatClient;
 import io.polycat.catalog.common.model.TableUsageProfile;
 import io.polycat.catalog.common.plugin.request.InsertUsageProfileRequest;
+import io.polycat.catalog.common.plugin.request.UpdateDataLineageRequest;
+import io.polycat.catalog.common.plugin.request.input.LineageInfoInput;
 import io.polycat.catalog.common.plugin.request.input.TableUsageProfileInput;
-import io.polycat.probe.model.TableMetaInfo;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.*;
 
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class EventProcessor implements Closeable {
+public class EventProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(EventProcessor.class);
-
-    private static final int MAX_POOL_SIZE = 4;
-    private static final String EVENT_PROCESS_POOL_NAME = "event-process-pool-%d";
-    private static final String EVENT_PROCESS_POOL_MAX_SIZE_CONFIG =
-            "polycat.event.process.maxPoolSize";
-
     private PolyCatClient polyCatClient;
-    private ExecutorService eventProcessorPool;
 
     public EventProcessor(Configuration conf) {
         polyCatClient = PolyCatClientUtil.buildPolyCatClientFromConfig(conf);
         LOG.info(String.format("polyCatClient context info:%s", polyCatClient.getContext()));
-
-        int maxPoolSize = conf.getInt(EVENT_PROCESS_POOL_MAX_SIZE_CONFIG, MAX_POOL_SIZE);
-        LOG.info(String.format("EventProcessor maxPoolSize: %s", maxPoolSize));
-        ThreadFactory namedThreadFactory =
-                new ThreadFactoryBuilder().setNameFormat(EVENT_PROCESS_POOL_NAME).build();
-
-        this.eventProcessorPool =
-                new ThreadPoolExecutor(
-                        0,
-                        maxPoolSize,
-                        5L,
-                        TimeUnit.SECONDS,
-                        new LinkedBlockingQueue<Runnable>(),
-                        namedThreadFactory);
     }
 
-    public void pushEvent(TableMetaInfo metaInfo) throws Exception {
-        List<TableUsageProfile> tableUsageProfiles = metaInfo.getTableUsageProfiles();
+    public void pushTableUsageProfile(List<TableUsageProfile> tableUsageProfiles) {
         if (Objects.isNull(tableUsageProfiles) || tableUsageProfiles.isEmpty()) {
             LOG.info("tableUsageProfiles list is empty!");
             return;
         }
-
-        for (TableUsageProfile tableUsageProfile : tableUsageProfiles) {
-            tableUsageProfile.getTable().setProjectId(polyCatClient.getProjectId());
-            tableUsageProfile.setUserId(polyCatClient.getUserName());
-            tableUsageProfile.setTaskId(metaInfo.getTaskId());
+        LOG.info(String.format("will push table usageProfiles info: %s", tableUsageProfiles));
+        try {
+            InsertUsageProfileRequest request =
+                    new InsertUsageProfileRequest(new TableUsageProfileInput(tableUsageProfiles));
+            request.setProjectId(polyCatClient.getProjectId());
+            polyCatClient.insertUsageProfile(request);
+        } catch (Exception e) {
+            LOG.error("insertUsageProfile error!", e);
         }
-
-        LOG.info(String.format("push table meta info: %s", metaInfo));
-        eventProcessorPool.execute(
-                () -> {
-                    try {
-                        InsertUsageProfileRequest request =
-                                new InsertUsageProfileRequest(
-                                        new TableUsageProfileInput(tableUsageProfiles));
-                        request.setProjectId(polyCatClient.getProjectId());
-                        polyCatClient.insertUsageProfile(request);
-                    } catch (Exception e) {
-                        LOG.error("", e);
-                    }
-                });
     }
 
-    @Override
-    public void close() throws IOException {
-        if (!Objects.isNull(eventProcessorPool)) {
-            eventProcessorPool.shutdown();
+    public void pushSqlLineage(LineageInfoInput lineageInfoInput) {
+        LOG.info("will push sql lineage:{}", lineageInfoInput.toString());
+        try {
+            UpdateDataLineageRequest updateDataLineageRequest =
+                    new UpdateDataLineageRequest(polyCatClient.getProjectId(), lineageInfoInput);
+            polyCatClient.updateDataLineage(updateDataLineageRequest);
+        } catch (Exception e) {
+            LOG.error("push sql lineage error!", e);
         }
     }
 }

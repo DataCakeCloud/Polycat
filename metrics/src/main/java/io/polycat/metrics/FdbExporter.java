@@ -27,14 +27,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.Logger;
 
 import com.alibaba.fastjson.JSONObject;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import io.polycat.catalog.common.PolyCatConf;
 import io.prometheus.client.Collector;
-import io.prometheus.client.CounterMetricFamily;
 import io.prometheus.client.GaugeMetricFamily;
 import io.prometheus.client.exporter.HTTPServer;
 

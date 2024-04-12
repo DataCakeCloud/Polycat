@@ -17,6 +17,7 @@
  */
 package io.polycat.catalog.server.service.impl;
 
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.model.Catalog;
 import io.polycat.catalog.common.model.CatalogId;
@@ -24,7 +25,6 @@ import io.polycat.catalog.common.model.CatalogIdent;
 import io.polycat.catalog.common.model.CatalogName;
 import io.polycat.catalog.common.model.CatalogObject;
 import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.store.api.CatalogStore;
 import io.polycat.catalog.store.common.StoreConvertor;
 import io.polycat.catalog.util.CheckUtil;

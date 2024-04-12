@@ -23,10 +23,10 @@ import java.util.Objects;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.model.DataLineageObject;
-import io.polycat.catalog.common.model.DataSourceType;
-import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.store.api.DataLineageStore;
+import io.polycat.catalog.common.lineage.ELineageDirection;
+import io.polycat.catalog.common.lineage.ELineageType;
+import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.store.common.StoreMetadata;
 import io.polycat.catalog.store.fdb.record.DirectoryStoreHelper;
 import io.polycat.catalog.store.fdb.record.TransactionContextUtil;
@@ -49,6 +49,10 @@ public class DataLineageStoreImpl implements DataLineageStore {
 
     private final long timeLimit = 40000;
     private final int maxBatchRowNum = 1024;
+    @Override
+    public void createSubspace(TransactionContext context, String projectId) {
+
+    }
 
     private static class DataLineageStoreImplHandler {
         private static final DataLineageStoreImpl INSTANCE = new DataLineageStoreImpl();
@@ -96,6 +100,36 @@ public class DataLineageStoreImpl implements DataLineageStore {
             .setAllowedIndex(StoreMetadata.DATA_LINEAGE_RECORD.getName() + "-secondary-index")
             .build();
         return listDataLineageRecords(ctx, projectId, query);
+    }
+
+    @Override
+    public List<Integer> upsertLineageVertexAndGet(TransactionContext context, String projectId, List<LineageVertex> vertex) {
+        return null;
+    }
+
+    @Override
+    public void insertLineageEdgeFact(TransactionContext context, String projectId, LineageEdgeFact edgeFact) {
+
+    }
+
+    @Override
+    public void upsertLineageEdge(TransactionContext context, String projectId, List<LineageEdge> list) {
+
+    }
+
+    @Override
+    public LineageEdgeFact getLineageEdgeFact(TransactionContext context, String projectId, String jobFactId) {
+        return null;
+    }
+
+    @Override
+    public LineageVertex getLineageVertex(TransactionContext context, String projectId, int dbType, int objectType, String qualifiedName) {
+        return null;
+    }
+
+    @Override
+    public List<LineageEdge> getLineageGraph(TransactionContext context, String projectId, Integer nodeId, int depth, ELineageDirection lineageDirection, ELineageType lineageType, Long startTime) {
+        return null;
     }
 
     private List<DataLineageObject> listDataLineageRecords(TransactionContext context, String projectId, RecordQuery query) {

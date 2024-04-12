@@ -36,4 +36,8 @@ public class DatabaseName {
         this.catalogName = src.getCatalogName();
         this.databaseName = src.getDatabaseName();
     }
+
+    public String getQualifiedName() {
+        return String.format("%s.%s", catalogName, databaseName);
+    }
 }

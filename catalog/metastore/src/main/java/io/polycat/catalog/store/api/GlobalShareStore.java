@@ -21,7 +21,6 @@ import java.util.List;
 
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.ShareConsumerObject;
-import io.polycat.catalog.common.model.ShareNameObject;
 import io.polycat.catalog.common.model.ShareObject;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.model.TransactionIsolationLevel;

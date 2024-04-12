@@ -17,21 +17,22 @@
  */
 package io.polycat.catalog.server.service.impl;
 
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
+import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.model.*;
 import io.polycat.catalog.common.plugin.request.input.TableUsageProfileInput;
 import io.polycat.catalog.common.plugin.request.input.TopTableUsageProfileInput;
 import io.polycat.catalog.common.utils.CatalogStringUtils;
 import io.polycat.catalog.common.utils.CatalogToken;
 import io.polycat.catalog.common.utils.CodecUtil;
+import io.polycat.catalog.common.utils.ScanCursorUtils;
 import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.server.config.AsyncStoreTPConfig;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.service.api.UsageProfileService;
 import io.polycat.catalog.store.api.Transaction;
 import io.polycat.catalog.store.api.UsageProfileStore;
-import io.polycat.catalog.util.CheckUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -69,12 +70,13 @@ public class UsageProfileServiceImpl implements UsageProfileService {
      */
     @Override
     public void recordTableUsageProfile(TableUsageProfileInput tableUsageProfileInput) {
+        List<TableUsageProfile> list = getDistinctTableUsageProfile(
+                tableUsageProfileInput.getTableUsageProfiles());
         TransactionRunnerUtil.transactionRunThrow(context -> {
-            for (TableUsageProfile value : tableUsageProfileInput.getTableUsageProfiles()) {
+            for (TableUsageProfile value : list) {
                 AsyncStoreTPConfig.MsgRunnable msgRunnable = new AsyncStoreTPConfig.MsgRunnable() {
                     @Override
                     public void run() {
-                        normalizeIdentifier(value.getTable());
                         setMsgObj(value);
                         recordUsageProfileInternal(context, value);
                     }
@@ -84,6 +86,26 @@ public class UsageProfileServiceImpl implements UsageProfileService {
             }
             return null;
         }).getResult();
+    }
+
+    private List<TableUsageProfile> getDistinctTableUsageProfile(List<TableUsageProfile> tableUsageProfiles) {
+        Map<String, TableUsageProfile> map = new LinkedHashMap<>();
+        if (CollectionUtils.isNotEmpty(tableUsageProfiles)) {
+            String tableInfo;
+            for (TableUsageProfile tup: tableUsageProfiles) {
+                normalizeIdentifier(tup.getTable());
+                tableInfo = String.format("%s.%s.%s.%d", tup.getTable().getCatalogName(),
+                        tup.getTable().getDatabaseName(),
+                        tup.getTable().getTableName(),
+                        getCreateDayTime(tup.getCreateTimestamp()));
+                if (map.containsKey(tableInfo)) {
+                    map.get(tableInfo).setSumCount(map.get(tableInfo).getSumCount().add(tup.getSumCount()));
+                } else {
+                    map.put(tableInfo, tup);
+                }
+            }
+        }
+        return new ArrayList<>(map.values());
     }
 
     private void normalizeIdentifier(TableSource tableSource) {
@@ -98,8 +120,8 @@ public class UsageProfileServiceImpl implements UsageProfileService {
 
     private void recordUsageProfileInternal(TransactionContext context, TableUsageProfile value) {
         try {
-            if (CollectionUtils.isEmpty(value.getOpTypes())) {
-                log.warn("UsageProfile record write opTypes not null");
+            if (CollectionUtils.isEmpty(value.getOpTypes()) && CollectionUtils.isEmpty(value.getOriginOpTypes())) {
+                log.warn("UsageProfile record write opTypes/originOpTypes not null");
                 return;
             }
             TableName tableName = buildTableName(value.getTable());
@@ -112,7 +134,7 @@ public class UsageProfileServiceImpl implements UsageProfileService {
             usageProfileStore.recordUsageProfile(context, usageProfileObject);
         } catch (Exception e) {
             e.printStackTrace();
-            log.error("Record table usage profile error: {}" + e.getMessage());
+            log.error("Record table usage profile error: {}", e.getMessage());
         }
     }
 
@@ -130,18 +152,26 @@ public class UsageProfileServiceImpl implements UsageProfileService {
         usageProfileObject.setDatabaseName(table.getDatabaseName());
         usageProfileObject.setTableName(table.getName());
         usageProfileObject.setTableId(table.getTableId());
-        // The service is centralized. The incoming createDayTime has different time zone differences in different regions.
-        // It is untrustworthy and needs to be calculated by yourself.
-        if (createTimestamp > DAY_OF_MILLIS) {
-            usageProfileObject.setCreateDayTime(createTimestamp - createTimestamp % DAY_OF_MILLIS);
-        }
+        usageProfileObject.setCreateDayTime(getCreateDayTime(createTimestamp));
         usageProfileObject.setCreateTime(createTimestamp);
-        usageProfileObject.setOpType(value.getOpTypes().get(0));
+        Optional.ofNullable(value.getOpTypes()).ifPresent(opTypes -> usageProfileObject.setOpType(value.getOpTypes().get(0)));
+        Optional.ofNullable(value.getOriginOpTypes()).ifPresent(originOpTypes -> usageProfileObject.setOriginOpType(originOpTypes.get(0)));
         usageProfileObject.setCount(value.getSumCount().longValue());
         usageProfileObject.setUserId(value.getUserId());
+        usageProfileObject.setUserGroup(value.getUserGroup());
         usageProfileObject.setTaskId(value.getTaskId());
         usageProfileObject.setTag(value.getTag());
+        usageProfileObject.setStatement(value.getStatement());
         return usageProfileObject;
+    }
+
+    // The service is centralized. The incoming createDayTime has different time zone differences in different regions.
+    // It is untrustworthy and needs to be calculated.
+    private long getCreateDayTime(long createTimestamp) {
+        if (createTimestamp >= DAY_OF_MILLIS) {
+            return createTimestamp - createTimestamp % DAY_OF_MILLIS;
+        }
+        throw new RuntimeException("The timestamp = " + createTimestamp + " passed in by the user is incorrect.");
     }
 
     private TraverseCursorResult<List<UsageProfileObject>> getTableUsageProfileRecords(
@@ -395,40 +425,28 @@ public class UsageProfileServiceImpl implements UsageProfileService {
     }
 
     @Override
-    public List<TableUsageProfile> getUsageProfileDetailsByCondition(TableSource tableSource, long startTime, long endTime, String userId, String taskId, int rowCount, String tag) {
-        return TransactionRunnerUtil.transactionRunThrow(context -> {
-            normalizeIdentifier(tableSource);
-            String projectId = tableSource.getProjectId();
-            UsageProfileObject upo = UsageProfileObject.builder()
-                    .catalogName(tableSource.getCatalogName())
-                    .databaseName(tableSource.getDatabaseName())
-                    .tableName(tableSource.getTableName())
-                    .userId(userId)
-                    .taskId(taskId)
-                    .tag(tag)
-                    .build();
-            List<UsageProfileObject> details = usageProfileStore.getUsageProfileDetailsByCondition(context, projectId, upo, startTime, endTime, rowCount);
-            return buildTableUsageProfile(projectId, details);
-        }).getResult();
-    }
-
-    private List<TableUsageProfile> buildTableUsageProfile(String projectId, List<UsageProfileObject> details) {
-        List<TableUsageProfile> list = new ArrayList<>();
-        if(CollectionUtils.isNotEmpty(details)) {
-            TableUsageProfile tup;
-            TableSource tableSource;
-            for (UsageProfileObject upo: details) {
-                tableSource = new TableSource(projectId, upo.getCatalogName(), upo.getDatabaseName(), upo.getTableName());
-                tup = new TableUsageProfile(tableSource, upo.getOpType(), upo.getCreateTime(), BigInteger.valueOf(upo.getCount()));
-                tup.setTag(upo.getTag());
-                tup.setUserId(upo.getUserId());
-                tup.setTaskId(upo.getTaskId());
-                tup.setCreateDayTimestamp(upo.getCreateDayTime());
-                tup.setCreateTimestamp(upo.getCreateTime());
-                list.add(tup);
-            }
-        }
-        return list;
+    public TraverseCursorResult<List<TableUsageProfile>> getUsageProfileDetailsByCondition(TableSource tableSource, long startTime, long endTime, List<String> operations,
+                                                                                           String userId, String taskId, String tag, int rowCount, String pageToken) {
+        checkPageLimitNumberic(rowCount);
+        refineOperations(operations);
+        return
+                ScanCursorUtils.scan("", usageProfileStoreCheckSum, pageToken, getCurrentMethodName(), rowCount, maxBatchRowNum,
+                        (batchNum, batchOffset) -> {
+                            return TransactionRunnerUtil.transactionRunThrow(context -> {
+                                normalizeIdentifier(tableSource);
+                                String projectId = tableSource.getProjectId();
+                                UsageProfileObject upo = UsageProfileObject.builder()
+                                        .catalogName(tableSource.getCatalogName())
+                                        .databaseName(tableSource.getDatabaseName())
+                                        .tableName(tableSource.getTableName())
+                                        .userId(userId)
+                                        .taskId(taskId)
+                                        .tag(tag)
+                                        .build();
+                                return usageProfileStore.getUsageProfileDetailsByCondition(context, projectId, upo, operations, startTime, endTime, batchNum, batchOffset);
+                            }).getResult();
+                        }
+                );
     }
 
     private static final String opTypesDelimiter = ";";
@@ -439,5 +457,23 @@ public class UsageProfileServiceImpl implements UsageProfileService {
             opTypesSet.addAll(Arrays.asList(opTypes.split(opTypesDelimiter)));
         }
         return opTypesSet;
+    }
+
+    private void checkPageLimitNumberic(Integer limit) {
+        if (limit < 0 && limit != -1) {
+            throw new CatalogServerException(ErrorCode.ARGUMENT_ILLEGAL, " limit=[" + limit + "]");
+        }
+    }
+
+
+    private String getCurrentMethodName() {
+        return Thread.currentThread().getStackTrace()[2].getMethodName();
+    }
+
+    private List<String> refineOperations(List<String> operations) {
+        if (operations.contains(Operation.ALTER_TABLE.name())) {
+            Operation.ALTER_TABLE_CHILD_OPERATIONS.stream().map(Operation::name).forEach(operations::add);
+        }
+        return operations;
     }
 }

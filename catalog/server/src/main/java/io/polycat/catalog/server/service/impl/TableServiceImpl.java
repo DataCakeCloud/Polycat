@@ -17,13 +17,23 @@
  */
 package io.polycat.catalog.server.service.impl;
 
+import io.polycat.catalog.common.CatalogServerException;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.server.util.OperatorNotLike;
+import io.polycat.catalog.server.util.TransactionRunner;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
+import io.polycat.catalog.common.Constants;
+import io.polycat.catalog.common.ErrorCode;
+import io.polycat.catalog.common.ObjectType;
+import io.polycat.catalog.common.Operation;
+import io.polycat.catalog.common.model.TableCommit;
+import io.polycat.catalog.common.model.stats.ColumnStatisticsDesc;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import io.polycat.catalog.common.*;
 import io.polycat.catalog.common.model.*;
 
 import io.polycat.catalog.common.model.stats.ColumnStatistics;
@@ -36,8 +46,6 @@ import io.polycat.catalog.common.types.DataTypes;
 import io.polycat.catalog.common.types.DecimalType;
 import io.polycat.catalog.common.utils.*;
 
-import io.polycat.catalog.server.util.TransactionRunner;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.service.api.ObjectNameMapService;
 import io.polycat.catalog.service.api.TableService;
 
@@ -48,9 +56,13 @@ import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 
 import io.polycat.catalog.util.CheckUtil;
 
+import com.ql.util.express.DefaultContext;
+import com.ql.util.express.ExpressRunner;
+import com.ql.util.express.instruction.op.OperatorEqualsLessMore;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hive.common.StatsSetupConst;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -217,7 +229,7 @@ public class TableServiceImpl implements TableService {
                 DatabaseIdent databaseIdent = StoreConvertor.databaseIdent(tableIdent);
                 DatabaseObject database = DatabaseObjectHelper.getDatabaseObject(context, databaseIdent);
                 String databaseLocation = database.getLocation();
-                return PathUtil.tablePath(databaseLocation, tableInput.getTableName(), tableIdent.getTableId());
+                return PathUtil.tablePath(databaseLocation, tableInput.getTableName());
             }
             return "";
         } else {
@@ -262,7 +274,7 @@ public class TableServiceImpl implements TableService {
         throwIfTableNameExist(context, databaseIdent, tableName.getTableName());
 
         //insert table map
-        checkTableParameters(tableInput.getParameters(), tableName);
+        // checkTableParameters(tableInput.getParameters(), tableName);
         //saveObjectNameMapIfNotExist(context, tableName, tableIdent, tableInput.getParameters());
 
         // create subspace
@@ -324,6 +336,8 @@ public class TableServiceImpl implements TableService {
             ObjectType.TABLE.name(),
             tableIdent.getTableId(), true, 0);
 
+        // insert discovery record
+        DiscoveryHelper.updateTableDiscoveryInfo(context, tableName, tableBaseObject, tableSchema, tableStorage);
         return tableIdent;
     }
 
@@ -373,6 +387,13 @@ public class TableServiceImpl implements TableService {
         }
     }
 
+    public Table getTableByName(TransactionContext context, TableName tableName) {
+        TableIdent tableIdent = TableObjectHelper.getTableIdent(context, tableName);
+        //TableObject tableObject = TableObjectHelper.getTableObject(context, tableIdent);
+        TableObject tableObject = tableMetaStore.getTable(context, tableIdent, tableName);
+        return TableObjectConvertHelper.toTableModel(tableObject);
+    }
+
     @Override
     public TraverseCursorResult<List<String>> getTableNames(DatabaseName databaseName, String tableType,
         Integer maxResults, String pageToken, String filter) {
@@ -384,10 +405,46 @@ public class TableServiceImpl implements TableService {
         throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getTableObjectsByName");
     }
 
+    private String resolveFilter(String filter) {
+        return filter.replaceAll("\\.\\*", "%")
+            .replaceAll("not like", "not_like")
+            .replaceAll("NOT LIKE", "not_like");
+    }
+
     @Override
     public TraverseCursorResult<List<String>> listTableNamesByFilter(DatabaseName databaseName, String filter,
         Integer maxNum, String pageToken) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "listTableNamesByFilter");
+        final String HIVE_FILTER_FIELD_OWNER = "hive_filter_field_owner__";
+        final String HIVE_FILTER_FIELD_PARAMS = "hive_filter_field_params__";
+        // final String HIVE_FILTER_FIELD_LAST_ACCESS = "hive_filter_field_last_access__";
+        final String realFilter = resolveFilter(filter);
+
+        ExpressRunner runner = new ExpressRunner();
+        try {
+            runner.replaceOperator("=", new OperatorEqualsLessMore("="));
+            runner.addOperatorWithAlias("LIKE", "like", null);
+            runner.addOperator("not_like", new OperatorNotLike("not_like"));
+        } catch (Exception e) {
+            throw new CatalogServerException(ErrorCode.INNER_SERVER_ERROR, e);
+        }
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            final DatabaseIdent databaseIdent = DatabaseObjectHelper.getDatabaseIdent(databaseName);
+            final List<TableObject> tables = TableObjectHelper.listTables(context, databaseIdent, false);
+            final List<String> tableNames = tables.stream().filter(tableObject -> {
+                DefaultContext<String, Object> defaultContext = new DefaultContext<>();
+                defaultContext.put(HIVE_FILTER_FIELD_OWNER, tableObject.getTableBaseObject().getOwner());
+                tableObject.getTableBaseObject().getParameters()
+                    .forEach((key, value) -> defaultContext.put(HIVE_FILTER_FIELD_PARAMS + key, value));
+                try {
+                    Boolean result = (Boolean)runner.execute(realFilter, defaultContext, null, true, false);
+                    return result;
+                } catch (Exception e) {
+                    return false;
+                }
+            }).map(TableObject::getName).collect(toList());
+            return new TraverseCursorResult<>(tableNames, null);
+        }).getResult();
+
     }
 
     private List<Map<DatabaseIdent, String>> getParentDatabaseIdent(TableIdent tableIdent) {
@@ -544,12 +601,12 @@ public class TableServiceImpl implements TableService {
     }
 
     @Override
-    public TraverseCursorResult<List<io.polycat.catalog.common.model.TableCommit>> listTableCommits(
+    public TraverseCursorResult<List<TableCommit>> listTableCommits(
         TableName tableName, int maxResults, String pageToken) {
         try {
             TraverseCursorResult<List<TableCommitObject>> tableCommitList = listTableCommitByName(tableName, maxResults,
                 pageToken);
-            List<io.polycat.catalog.common.model.TableCommit> result = new ArrayList<>(
+            List<TableCommit> result = new ArrayList<>(
                 tableCommitList.getResult().size());
 
             for (TableCommitObject commit : tableCommitList.getResult()) {
@@ -562,11 +619,11 @@ public class TableServiceImpl implements TableService {
         }
     }
 
-    private io.polycat.catalog.common.model.TableCommit convertTableCommit(TableCommitObject commit) {
+    private TableCommit convertTableCommit(TableCommitObject commit) {
         if (null == commit) {
             return null;
         }
-        io.polycat.catalog.common.model.TableCommit tableCommit = new io.polycat.catalog.common.model.TableCommit();
+        TableCommit tableCommit = new TableCommit();
         tableCommit.setCatalogId(commit.getCatalogId());
         tableCommit.setDatabaseId(commit.getDatabaseId());
         tableCommit.setTableId(commit.getTableId());
@@ -602,7 +659,7 @@ public class TableServiceImpl implements TableService {
     }
 
     @Override
-    public io.polycat.catalog.common.model.TableCommit getLatestTableCommit(TableName tableName) {
+    public TableCommit getLatestTableCommit(TableName tableName) {
         try {
             TableCommitObject tableCommit = getLatestTableCommitByName(tableName);
             return convertTableCommit(tableCommit);
@@ -1271,6 +1328,8 @@ public class TableServiceImpl implements TableService {
         // insert the drop table into CatalogCommit subspace
         catalogStore.insertCatalogCommit(context, tableIdent.getProjectId(),
             tableIdent.getCatalogId(), catalogCommitEventId, time, DROP_TABLE, tableOperateDetail(tableName));
+        tableDataStore.deleteTableColumnStatistics(context, tableName, null);
+        DiscoveryHelper.dropTableDiscoveryInfo(context, tableName);
     }
 
 
@@ -1955,7 +2014,7 @@ public class TableServiceImpl implements TableService {
 
                 tableMetaStore.deleteTableReference(context, tableIdent);
                 tableMetaStore.deleteTable(context, tableIdent, tableName.getTableName());
-
+                DiscoveryHelper.dropTableDiscoveryInfo(context, tableName);
             }
 
             TableBaseHistoryObject tableBaseHistoryObject = TableBaseHelper.getLatestTableBaseOrElseThrow(context, tableIdent,
@@ -1972,6 +2031,9 @@ public class TableServiceImpl implements TableService {
             tableMetaStore.upsertTableReference(context, tableIdent);
 
             tableMetaStore.upsertTable(context, tableIdent, tableNameNew, historySubspaceFlag,
+                tableBaseObject, tableSchemaObject, tableStorageObject);
+            DiscoveryHelper.updateTableDiscoveryInfo(context,
+                new TableName(tableName.getProjectId(), tableName.getCatalogName(), tableName.getDatabaseName(), tableNameNew),
                 tableBaseObject, tableSchemaObject, tableStorageObject);
         }
 
@@ -2546,7 +2608,7 @@ public class TableServiceImpl implements TableService {
 
     @Override
     public void alterColumn(TableName tableNameParam, ColumnChangeInput columnChangeInput) {
-        io.polycat.catalog.common.Operation type = columnChangeInput.getChangeType();
+        Operation type = columnChangeInput.getChangeType();
 
         try {
             switch (type) {
@@ -2799,6 +2861,7 @@ public class TableServiceImpl implements TableService {
         catalogStore.insertCatalogCommit(context, tableIdent.getProjectId(),
             tableIdent.getCatalogId(), catalogCommitEventId, time, PURGE_TABLE, tableOperateDetail(tableName));
         tableDataStore.dropTablePartitionInfo(context, tableIdent);
+        DiscoveryHelper.dropTableDiscoveryInfo(context, tableName);
     }
 
     private void dropTablePurgeByName(TableName tableName) throws MetaStoreException {
@@ -2917,7 +2980,7 @@ public class TableServiceImpl implements TableService {
             TableCommitHelper.buildNewTableCommit(tableCommit, latestVersion, commitTime, 0, operationType));
 
         // 5.
-        io.polycat.catalog.common.Operation op = changeType == ChangeType.SET_PROPERTIES ?
+        Operation op = changeType == ChangeType.SET_PROPERTIES ?
             SET_PROPERTIES : UNSET_PROPERTIES;
         catalogStore.insertCatalogCommit(context, tableIdent.getProjectId(), tableIdent.getCatalogId(),
             catalogCommitEventId, commitTime, op, tableOperateDetail(tableName));
@@ -2999,17 +3062,76 @@ public class TableServiceImpl implements TableService {
 
     @Override
     public ColumnStatisticsObj[] getTableColumnStatistics(TableName tableName, List<String> colNames) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getTableColumnStatistics");
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            //Table table = ensureGetTable(context, tableName);
+            //TableUtil.validateTableColumns(table, colNames);
+            return getTableColumnStatistics(context, tableName, colNames);
+        }).getResult();
+    }
+
+    private ColumnStatisticsObj[] getTableColumnStatistics(TransactionContext context, TableName tableName, List<String> colNames) {
+        List<ColumnStatisticsObject> list = tableDataStore.getTableColumnStatistics(context, tableName.getProjectId(), tableName, colNames);
+        return list.stream().map(TableObjectConvertHelper::toColumnStatisticsData)
+                .collect(toList()).toArray(new ColumnStatisticsObj[list.size()]);
+    }
+
+    private Table ensureGetTable(TransactionContext context, TableName tableName) {
+        Table table = getTableByName(context, tableName);
+        if(table == null) {
+            throw new MetaStoreException("Specified database/table does not exist : "
+                    + tableName.getDatabaseName() + "." + tableName.getTableName());
+        }
+        return table;
     }
 
     @Override
-    public void updateTableColumnStatistics(String projectId, ColumnStatistics stats) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "updateTableColumnStatistics");
+    public boolean updateTableColumnStatistics(String projectId, ColumnStatistics stats) {
+        ColumnStatisticsDesc statisticsDesc = stats.getColumnStatisticsDesc();
+        CatalogStringUtils.columnStatisticsDescNormalize(statisticsDesc);
+        List<ColumnStatisticsObj> statsObjs = stats.getColumnStatisticsObjs();
+        List<String> colNames = TableUtil.getColNamesFromColumnStatistics(statsObjs);
+        TableName tableName = new TableName(projectId, statisticsDesc.getCatName(),
+                statisticsDesc.getDbName(), statisticsDesc.getTableName());
+        Table table = ensureGetTable(null, tableName);
+        TableUtil.validateTableColumns(table, colNames);
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            return updateTableColumnStatisticsInternal(context, table, tableName, colNames, statsObjs, statisticsDesc.getLastAnalyzed());
+        }).getResult();
+    }
+
+    private boolean updateTableColumnStatisticsInternal(TransactionContext context, Table table,
+            TableName tableName, List<String> colNames,
+            List<ColumnStatisticsObj> statsObjs, long lastAnalyzed) {
+        List<ColumnStatisticsObject> columnStatisticsObjects = new ArrayList<>();
+        Map<String, ColumnStatisticsObj> tableColumnStatisticsMap = getTableColumnStatisticsMap(context, tableName, colNames);
+        for (ColumnStatisticsObj statsObj: statsObjs) {
+            if (tableColumnStatisticsMap.containsKey(statsObj.getColName())) {
+                statsObj = tableColumnStatisticsMap.get(statsObj.getColName());
+            }
+            columnStatisticsObjects.add(TableObjectConvertHelper.toTableColumnStatisticsObject(table, statsObj, lastAnalyzed));
+        }
+        if (CollectionUtils.isNotEmpty(columnStatisticsObjects)) {
+            tableDataStore.updateTableColumnStatistics(context, tableName.getProjectId(), columnStatisticsObjects);
+            // TODO Temporarily keep consistent with hive
+            StatsSetupConst.setColumnStatsState(table.getParameters(), colNames);
+            alterTableByName(tableName, TableObjectConvertHelper.toTableInput(table));
+        }
+        return true;
+    }
+
+    private Map<String, ColumnStatisticsObj> getTableColumnStatisticsMap(
+            TransactionContext context, TableName tableName, List<String> colNames) {
+        ColumnStatisticsObj[] tableColumnStatistics = getTableColumnStatistics(context, tableName, colNames);
+        return TableUtil.getColumnStatisticsMap(tableColumnStatistics);
     }
 
     @Override
     public boolean deleteTableColumnStatistics(TableName tableName, String colName) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "deleteTableColumnStatistics");
+        return TransactionRunnerUtil.transactionRunThrow(context -> {
+            //ensureGetTable(context, tableName);
+            tableDataStore.deleteTableColumnStatistics(context, tableName, colName);
+            return true;
+        }).getResult();
     }
 
     @Override

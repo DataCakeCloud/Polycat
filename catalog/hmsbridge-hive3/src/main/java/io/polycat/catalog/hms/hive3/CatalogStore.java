@@ -17,121 +17,81 @@
  */
 package io.polycat.catalog.hms.hive3;
 
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import io.polycat.catalog.client.PolyCatClient;
+import io.polycat.catalog.common.ErrorCode;
+import io.polycat.catalog.common.Operation;
+import io.polycat.catalog.common.exception.CatalogException;
+import io.polycat.catalog.common.model.Column;
+import io.polycat.catalog.common.model.Database;
+import io.polycat.catalog.common.model.PagedList;
+import io.polycat.catalog.common.model.PartitionAlterContext;
+import io.polycat.catalog.common.model.base.PartitionInput;
+import io.polycat.catalog.common.model.stats.PartitionStatisticData;
+import io.polycat.catalog.common.plugin.CatalogPlugin;
+import io.polycat.catalog.common.plugin.request.CreateCatalogRequest;
+import io.polycat.catalog.common.plugin.request.AlterCatalogRequest;
+import io.polycat.catalog.common.plugin.request.AlterDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.CreateDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.CreateTableRequest;
+import io.polycat.catalog.common.plugin.request.DeleteDatabaseRequest;
+import io.polycat.catalog.common.plugin.request.DeleteTableRequest;
+import io.polycat.catalog.common.plugin.request.DropCatalogRequest;
+import io.polycat.catalog.common.plugin.request.GetCatalogRequest;
+import io.polycat.catalog.common.plugin.request.GetTableRequest;
+import io.polycat.catalog.common.plugin.request.*;
+import io.polycat.catalog.common.plugin.request.input.*;
+import io.polycat.catalog.common.utils.ConfUtil;
+import io.polycat.catalog.common.utils.PartitionUtil;
+import io.polycat.hivesdk.hive3.tools.HiveDataAccessor;
+import io.polycat.hivesdk.hive3.tools.PolyCatDataAccessor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import io.polycat.catalog.common.plugin.request.ListDatabasesRequest;
+import io.polycat.catalog.common.plugin.request.ListTablesRequest;
+import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
+import io.polycat.catalog.common.plugin.request.input.TableInput;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.common.FileUtils;
+import org.apache.hadoop.hive.metastore.FileMetadataHandler;
+import org.apache.hadoop.hive.metastore.RawStore;
+import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.*;
+import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.ColStatsObjWithSourceInfo;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.FullTableName;
+import org.apache.hadoop.hive.ql.optimizer.ppr.PartitionExpressionForMetastore;
+import org.apache.thrift.TException;
+
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
+import java.util.*;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+import static io.polycat.hivesdk.hive3.tools.PolyCatDataAccessor.toDatabaseInput;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.getDefaultCatalog;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import io.polycat.catalog.client.PolyCatClient;
-import io.polycat.catalog.common.Logger;
-import io.polycat.catalog.common.exception.CatalogException;
-import io.polycat.catalog.common.model.Database;
-import io.polycat.catalog.common.model.PagedList;
-import io.polycat.catalog.common.model.StorageDescriptor;
-import io.polycat.catalog.common.plugin.CatalogPlugin;
-import io.polycat.catalog.common.plugin.request.AlterDatabaseRequest;
-import io.polycat.catalog.common.plugin.request.CreateCatalogRequest;
-import io.polycat.catalog.common.plugin.request.CreateDatabaseRequest;
-import io.polycat.catalog.common.plugin.request.CreateTableRequest;
-import io.polycat.catalog.common.plugin.request.DeleteDatabaseRequest;
-import io.polycat.catalog.common.plugin.request.DeleteTableRequest;
-import io.polycat.catalog.common.plugin.request.GetCatalogRequest;
-import io.polycat.catalog.common.plugin.request.GetDatabaseRequest;
-import io.polycat.catalog.common.plugin.request.GetTableRequest;
-import io.polycat.catalog.common.plugin.request.ListDatabasesRequest;
-import io.polycat.catalog.common.plugin.request.ListTablesRequest;
-import io.polycat.catalog.common.plugin.request.input.CatalogInput;
-import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
-import io.polycat.catalog.common.plugin.request.input.TableInput;
-import io.polycat.catalog.common.model.Column;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.metastore.FileMetadataHandler;
-import org.apache.hadoop.hive.metastore.RawStore;
-import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.AggrStats;
-import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
-import org.apache.hadoop.hive.metastore.api.Catalog;
-import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
-import org.apache.hadoop.hive.metastore.api.CreationMetadata;
-import org.apache.hadoop.hive.metastore.api.CurrentNotificationEventId;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.FileMetadataExprType;
-import org.apache.hadoop.hive.metastore.api.Function;
-import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
-import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
-import org.apache.hadoop.hive.metastore.api.ISchema;
-import org.apache.hadoop.hive.metastore.api.ISchemaName;
-import org.apache.hadoop.hive.metastore.api.InvalidInputException;
-import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
-import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
-import org.apache.hadoop.hive.metastore.api.InvalidPartitionException;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
-import org.apache.hadoop.hive.metastore.api.NotificationEvent;
-import org.apache.hadoop.hive.metastore.api.NotificationEventRequest;
-import org.apache.hadoop.hive.metastore.api.NotificationEventResponse;
-import org.apache.hadoop.hive.metastore.api.NotificationEventsCountRequest;
-import org.apache.hadoop.hive.metastore.api.NotificationEventsCountResponse;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.PartitionEventType;
-import org.apache.hadoop.hive.metastore.api.PartitionValuesResponse;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
-import org.apache.hadoop.hive.metastore.api.Role;
-import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
-import org.apache.hadoop.hive.metastore.api.RuntimeStat;
-import org.apache.hadoop.hive.metastore.api.SQLCheckConstraint;
-import org.apache.hadoop.hive.metastore.api.SQLDefaultConstraint;
-import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
-import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
-import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
-import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
-import org.apache.hadoop.hive.metastore.api.SchemaVersion;
-import org.apache.hadoop.hive.metastore.api.SchemaVersionDescriptor;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.metastore.api.TableMeta;
-import org.apache.hadoop.hive.metastore.api.Type;
-import org.apache.hadoop.hive.metastore.api.UnknownDBException;
-import org.apache.hadoop.hive.metastore.api.UnknownPartitionException;
-import org.apache.hadoop.hive.metastore.api.UnknownTableException;
-import org.apache.hadoop.hive.metastore.api.WMFullResourcePlan;
-import org.apache.hadoop.hive.metastore.api.WMMapping;
-import org.apache.hadoop.hive.metastore.api.WMNullablePool;
-import org.apache.hadoop.hive.metastore.api.WMNullableResourcePlan;
-import org.apache.hadoop.hive.metastore.api.WMPool;
-import org.apache.hadoop.hive.metastore.api.WMResourcePlan;
-import org.apache.hadoop.hive.metastore.api.WMTrigger;
-import org.apache.hadoop.hive.metastore.api.WMValidateResourcePlanResponse;
-import org.apache.hadoop.hive.metastore.conf.MetastoreConf;
-import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
-import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.ColStatsObjWithSourceInfo;
-import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.FullTableName;
-import org.apache.hadoop.hive.ql.io.StorageFormatDescriptor;
-import org.apache.hadoop.hive.ql.io.StorageFormatFactory;
-import org.apache.hadoop.hive.ql.io.TextFileStorageFormatDescriptor;
-import org.apache.thrift.TException;
-
+import static io.polycat.hivesdk.hive3.tools.HiveDataAccessor.*;
+import static io.polycat.hivesdk.hive3.tools.PolyCatDataAccessor.*;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.prependCatalogToDbName;
 import static org.apache.hadoop.hive.metastore.utils.StringUtils.normalizeIdentifier;
 
 /**
  * A RawStore implementation that uses PolyCatClient
  */
+@Slf4j
 public class CatalogStore implements RawStore {
 
-    private static final Logger LOG = Logger.getLogger(CatalogStore.class);
-    private PolyCatClient client;
-
-    // TODO 从配置文件获取catalog url，当前默认本地
-    private static final String CATALOG_URL = "http://127.0.0.1:8082/v1/projects/";
+    private CatalogPlugin client;
 
     private static HashMap<String,String> convertTypeMap = new HashMap() {
         {
@@ -146,17 +106,14 @@ public class CatalogStore implements RawStore {
         }
     };
 
-    private static HashMap<String,String> serializationLibToSourceNameMap = new HashMap() {
-        {
-            put("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe", "parquet");
-            put("org.apache.hadoop.hive.ql.io.orc.OrcSerde", "ORC");
-            put("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe", "textfile");
-        }
-    };
-
     private Configuration conf;
 
     public CatalogStore() {
+    }
+
+    public CatalogStore(Configuration conf) {
+        this.conf = conf;
+        initClientIfNeeded();
     }
 
     @Override
@@ -185,181 +142,180 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public void createCatalog(Catalog mCat) {
+    public void createCatalog(org.apache.hadoop.hive.metastore.api.Catalog mCat) {
         CreateCatalogRequest request = new CreateCatalogRequest();
-        CatalogInput catalogInput = new CatalogInput();
-        catalogInput.setCatalogName(mCat.getName());
-        catalogInput.setOwner(getUserId());
+        final CatalogInput catalogInput = toCatalogInput(mCat);
+        catalogInput.setCatalogName(getCatalogMappingName(mCat.getName()));
         request.setInput(catalogInput);
         request.setProjectId(getProjectId());
         client.createCatalog(request);
     }
 
     @Override
-    public void alterCatalog(String s, Catalog catalog) throws MetaException, InvalidOperationException {
-
-    }
-
-    private boolean isCatExist(String catalogName) {
-        Catalog mCat = null;
-        try {
-            mCat = getCatalog(catalogName);
-        } catch (NoSuchObjectException | MetaException e) {
-            LOG.info("Catalog {} is not existed", catalogName);
+    public void alterCatalog(String catName, Catalog cat) throws MetaException, InvalidOperationException {
+        if (!catName.equals(cat.getName()) && ConfUtil.hasMappingName(catName)) {
+            throw new InvalidOperationException("Alter mapping catalog name is not allowed! ");
         }
-        return StringUtils.isNotBlank(mCat.getName());
+        StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null);
+        wrapper.wrapper(() -> {
+            final AlterCatalogRequest alterCatalogRequest = new AlterCatalogRequest(getProjectId(), getCatalogMappingName(catName));
+            final CatalogInput catalogInput = toCatalogInput(cat);
+            catalogInput.setCatalogName(getCatalogMappingName(cat.getName()));
+            alterCatalogRequest.setInput(catalogInput);
+            client.alterCatalog(alterCatalogRequest);
+            return null;
+        });
+        wrapper.throwMetaException();
     }
 
     @Override
-    public Catalog getCatalog(String catalogName) throws NoSuchObjectException, MetaException {
-        try {
-            GetCatalogRequest request = new GetCatalogRequest(getProjectId(), catalogName);
+    public org.apache.hadoop.hive.metastore.api.Catalog getCatalog(String catalogName) throws NoSuchObjectException, MetaException {
+        StoreDataWrapper<org.apache.hadoop.hive.metastore.api.Catalog> wrapper = StoreDataWrapper.getInstance(null, ErrorCode.CATALOG_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            GetCatalogRequest request = new GetCatalogRequest(getProjectId(), getCatalogMappingName(catalogName));
             io.polycat.catalog.common.model.Catalog dCat = client.getCatalog(request);
-            return lmsCatTomCat(dCat);
-        } catch (CatalogException e) {
-            throw new NoSuchObjectException("No catalog " + catalogName);
-        }
-    }
-
-    // Convert lms catalog to HMS catalog
-    private Catalog lmsCatTomCat(io.polycat.catalog.common.model.Catalog dCat) {
-        Catalog mCat = new Catalog();
-        mCat.setName(normalizeIdentifier(dCat.getCatalogName()));
-        // hms中catalog需要字段locationUri，lms中需要适配
-        mCat.setLocationUri("");
-        return mCat;
+            dCat.setCatalogName(catalogName);
+            return toCatalog(dCat);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
     public List<String> getCatalogs() throws MetaException {
-        return new ArrayList<>();
+        /*StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(null);
+        wrapper.wrapper(() -> {
+            final ListCatalogsRequest listCatalogsRequest = new ListCatalogsRequest(getProjectId());
+            final PagedList<Catalog> catalogs = client.listCatalogs(listCatalogsRequest);
+            return Arrays.stream(catalogs.getObjects())
+                    .map(catalog -> catalog.getCatalogName())
+                    .collect(Collectors.toList());
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();*/
+        //由于catalog mapping的存在以及当前polycat中的某些catalog是作为数据源使用的，所以临时返回hive中的所有mapping的key。
+        return new ArrayList<>(ConfUtil.getMappingKeys());
     }
 
     @Override
-    public void dropCatalog(String s) throws NoSuchObjectException, MetaException {
-
+    public void dropCatalog(String catalogName) throws NoSuchObjectException, MetaException {
+        if (ConfUtil.hasMappingName(catalogName)) {
+            throw new MetaException("Drop mapping catalog is not allowed.");
+        }
+        StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null, ErrorCode.CATALOG_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            final DropCatalogRequest dropCatalogRequest = new DropCatalogRequest(getProjectId(), catalogName);
+            client.dropCatalog(dropCatalogRequest);
+            return null;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
     }
 
     @Override
     public void createDatabase(org.apache.hadoop.hive.metastore.api.Database hiveDatabase) {
-        LOG.info("createDatabase,db name is:" + hiveDatabase.getName());
-        String currentCatalog = getCurrentCatalog();
+        log.info("createDatabase,db name is:" + hiveDatabase.getName());
         CreateDatabaseRequest createDatabaseRequest = new CreateDatabaseRequest();
         createDatabaseRequest.setProjectId(getProjectId());
-        createDatabaseRequest.setCatalogName(currentCatalog);
-        DatabaseInput databaseInput = new DatabaseInput();
-        databaseInput.setDatabaseName(hiveDatabase.getName());
-        databaseInput.setDescription(hiveDatabase.getDescription());
-        databaseInput.setLocationUri(hiveDatabase.getLocationUri());
-        databaseInput.setOwner(getUserId());
+        createDatabaseRequest.setCatalogName(getCatalogMappingName(hiveDatabase.getCatalogName()));
+        final DatabaseInput databaseInput = toDatabaseInput(hiveDatabase, client.getContext().getTenantName(), client.getContext().getAuthSourceType());
+        databaseInput.setCreateTime(System.currentTimeMillis());
+        databaseInput.setCatalogName(getCatalogMappingName(hiveDatabase.getCatalogName()));
         createDatabaseRequest.setInput(databaseInput);
-        ListDatabasesRequest request = new ListDatabasesRequest();
-        request.setProjectId(getProjectId());
-        request.setCatalogName(currentCatalog);
         client.createDatabase(createDatabaseRequest);
+    }
+
+    private String getUserId() {
+        return PolyCatDataAccessor.getUserId(getDefaultUser());
     }
 
     @Override
     public org.apache.hadoop.hive.metastore.api.Database getDatabase(String catName, String dbname) throws NoSuchObjectException {
-        catName = normalizeIdentifier(getCurrentCatalog());
-        return dDbTomDb(getDDatabase(catName,dbname));
-    }
-
-    private org.apache.hadoop.hive.metastore.api.Database dDbTomDb(Database lmsDatabase) {
-        org.apache.hadoop.hive.metastore.api.Database mDb = new org.apache.hadoop.hive.metastore.api.Database();
-        mDb.setCatalogName(lmsDatabase.getCatalogName());
-        mDb.setDescription(lmsDatabase.getDescription());
-        mDb.setLocationUri(lmsDatabase.getLocationUri());
-        mDb.setName(lmsDatabase.getDatabaseName());
-        mDb.setParameters(lmsDatabase.getParameters());
-        mDb.setOwnerName(lmsDatabase.getOwner());
-        mDb.setOwnerType(PrincipalType.valueOf(lmsDatabase.getOwnerType()));
-        return mDb;
+        org.apache.hadoop.hive.metastore.api.Database result = null;
+        StoreDataWrapper<org.apache.hadoop.hive.metastore.api.Database> wrapper = StoreDataWrapper.getInstance(result, ErrorCode.DATABASE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            final Database polycatDatabase = getPolyCatDatabase(getCatalogMappingName(catName), dbname);
+            polycatDatabase.setCatalogName(catName);
+            return toDatabase(polycatDatabase);
+        });
+        wrapper.throwNoSuchObjectException();
+        return wrapper.getData();
     }
 
     @Override
-    public boolean dropDatabase(String catName, String dbname) throws NoSuchObjectException, MetaException {
-        boolean success = true;
-        LOG.info("Dropping database {}.{} along with all tables", catName, dbname);
-        dbname = normalizeIdentifier(dbname);
-        catName = normalizeIdentifier(getCurrentCatalog());
-        Database mDb = getDDatabase(catName, dbname);
-        if (mDb != null) {
+    public boolean dropDatabase(String catalogName, String dbname) throws NoSuchObjectException, MetaException {
+        boolean success = false;
+        StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(success, ErrorCode.DATABASE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
             DeleteDatabaseRequest deleteDatabaseRequest = new DeleteDatabaseRequest();
-            deleteDatabaseRequest.setCatalogName(catName);
+            deleteDatabaseRequest.setCatalogName(getCatalogMappingName(catalogName));
             deleteDatabaseRequest.setDatabaseName(dbname);
             deleteDatabaseRequest.setProjectId(getProjectId());
-            try {
-                client.deleteDatabase(deleteDatabaseRequest);
-            } catch (CatalogException e) {
-                success = false;
-            }
-        }
-        return success;
+            client.deleteDatabase(deleteDatabaseRequest);
+            return true;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
-    private Database getDDatabase(String catName, String dbname) throws NoSuchObjectException {
+    private Database getPolyCatDatabase(String catName, String dbname) {
         GetDatabaseRequest request = new GetDatabaseRequest();
         request.setCatalogName(catName);
         request.setDatabaseName(dbname);
         request.setProjectId(getProjectId());
-        Database dDb;
-        try {
-            dDb = client.getDatabase(request);
-        } catch (CatalogException e) {
-            LOG.warn("Failed to get database {}.{}, returning NoSuchObjectException",
-                    catName, dbname, e);
-            throw new NoSuchObjectException(dbname + ":" + e.getMessage());
-        }
-        return dDb;
+        return client.getDatabase(request);
     }
 
     @Override
     public boolean alterDatabase(String catName, String dbName, org.apache.hadoop.hive.metastore.api.Database mDb) throws NoSuchObjectException, MetaException {
-        boolean success = true;
-        catName = normalizeIdentifier(getCurrentCatalog());
-        getDDatabase(catName, dbName);
-        DatabaseInput databaseInput = new DatabaseInput();
-        databaseInput.setDescription(mDb.getDescription());
-        databaseInput.setLocationUri(mDb.getLocationUri());
-        databaseInput.setParameters(mDb.getParameters());
-        databaseInput.setCatalogName(mDb.getCatalogName());
-        databaseInput.setDatabaseName(mDb.getName());
-        databaseInput.setOwner(getUserId());
-
-        AlterDatabaseRequest alterDatabaseRequest = new AlterDatabaseRequest();
-        alterDatabaseRequest.setInput(databaseInput);
-        alterDatabaseRequest.setDatabaseName(mDb.getName());
-        alterDatabaseRequest.setProjectId(getProjectId());
-        alterDatabaseRequest.setCatalogName(catName);
-        try {
+        StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.DATABASE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            getPolyCatDatabase(getCatalogMappingName(catName), dbName);
+            DatabaseInput databaseInput = toDatabaseInput(mDb, client.getContext().getTenantName(), client.getContext().getAuthSourceType());
+            databaseInput.setCatalogName(getCatalogMappingName(catName));
+            AlterDatabaseRequest alterDatabaseRequest = new AlterDatabaseRequest();
+            alterDatabaseRequest.setInput(databaseInput);
+            alterDatabaseRequest.setDatabaseName(dbName);
+            alterDatabaseRequest.setProjectId(getProjectId());
+            alterDatabaseRequest.setCatalogName(getCatalogMappingName(normalizeIdentifier(catName)));
             client.alterDatabase(alterDatabaseRequest);
-        } catch (CatalogException e) {
-            LOG.error("Alter database {}.{} failed", catName, dbName, e);
-            success = false;
-        }
-        return success;
+            return true;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
     public List<String> getDatabases(String catName, String pattern) throws MetaException {
-        return getAllDatabases(catName);
+        StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() ->listDatabases(getCatalogMappingName(catName), pattern));
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    private List<String> listDatabases(String catName, String pattern) {
+        ListDatabasesRequest request = new ListDatabasesRequest();
+        request.setProjectId(getProjectId());
+        request.setCatalogName(catName);
+        request.setMaxResults(Integer.MAX_VALUE);
+        if (!StringUtils.isEmpty(pattern)) {
+            request.setFilter(pattern);
+        }
+        return Arrays.stream(client.listDatabases(request).getObjects())
+                .map(Database::getDatabaseName)
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<String> getAllDatabases(String catName) throws MetaException {
-        catName = normalizeIdentifier(getCurrentCatalog());
-        LOG.info("show databases,catalog is:" + catName);
-        List<String> list = new ArrayList<>();
-        ListDatabasesRequest request = new ListDatabasesRequest();
-        request.setProjectId(getProjectId());
-        request.setCatalogName(catName);
-        PagedList<Database> response = client.listDatabases(request);
-        Database[] databases = response.getObjects();
-        for (Database database : databases) {
-            list.add(database.getDatabaseName());
-        }
-        return list;
+        log.info("show databases,catalog is:" + catName);
+        StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() ->listDatabases(getCatalogMappingName(catName), null));
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
@@ -378,299 +334,694 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public void createTable(Table table) throws InvalidObjectException, MetaException {
-
-        TableInput tableInput = new TableInput();
-        org.apache.hadoop.hive.metastore.api.StorageDescriptor sd = table.getSd();
-        tableInput.setTableName(table.getTableName());
-        tableInput.setPartitionKeys(table.getPartitionKeys().stream()
-                .map(this::convertToTableInput).collect(Collectors.toList()));
-        tableInput.setTableType(table.getTableType());
-        tableInput.setParameters(table.getParameters());
-        tableInput.setRetention(table.getRetention());
-        tableInput.setOwner(getUserId());
-
-        StorageDescriptor storageInput = fillInStorageDescriptor(sd);
-        tableInput.setStorageDescriptor(storageInput);
-        tableInput.setOwner(getUserId());
-        CreateTableRequest createTableRequest = new CreateTableRequest();
-        createTableRequest.setInput(tableInput);
-        createTableRequest.setCatalogName(getCurrentCatalog());
-        createTableRequest.setDatabaseName(table.getDbName());
-        createTableRequest.setProjectId(getProjectId());
-        try {
+    public void createTable(org.apache.hadoop.hive.metastore.api.Table table) throws InvalidObjectException, MetaException {
+        StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null, ErrorCode.DATABASE_NOT_FOUND, InvalidObjectException.class);
+        wrapper.wrapper(() -> {
+            TableInput tableInput = PolyCatDataAccessor.toTableInput(table, getDefaultUser());
+            tableInput.setCatalogName(getCatalogMappingName(getCatalog(table)));
+            CreateTableRequest createTableRequest = new CreateTableRequest();
+            createTableRequest.setInput(tableInput);
+            createTableRequest.setCatalogName(getCatalogMappingName(getCatalog(table)));
+            createTableRequest.setDatabaseName(table.getDbName());
+            createTableRequest.setProjectId(getProjectId());
             client.createTable(createTableRequest);
-            LOG.info("create table {}.{},sourceShortName is {}", table.getDbName(), table.getTableName(),
-                storageInput.getSourceShortName());
-        } catch (CatalogException e) {
-            LOG.error("table:{} create failed",table.getTableName(),e);
-        }
-    }
-
-    private StorageDescriptor fillInStorageDescriptor(org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
-        if (sd == null) {
             return null;
-        }
-        StorageDescriptor storageInput = new StorageDescriptor();
-        io.polycat.catalog.common.model.SerDeInfo serDeInfo = fillInSerDeInfo(sd);
-        storageInput.setLocation(sd.getLocation());
-        storageInput.setCompressed(sd.isCompressed());
-        String serializationLib = sd.getSerdeInfo().getSerializationLib();
-        String sourceName = serializationLibToSourceNameMap.getOrDefault(serializationLib, serializationLib);
-        storageInput.setSourceShortName(sourceName);
-        storageInput.setInputFormat(sd.getInputFormat());
-        storageInput.setOutputFormat(sd.getOutputFormat());
-        storageInput.setSerdeInfo(serDeInfo);
-        storageInput.setNumberOfBuckets(sd.getNumBuckets());
-        storageInput.setColumns(sd.getCols().stream().map(this::convertToTableInput).collect(Collectors.toList()));
-        storageInput.setParameters(new HashMap<>());
-        return storageInput;
+        });
+        wrapper.throwInvalidObjectException();
+        wrapper.throwMetaException();
+        log.info("createTable success.");
     }
 
-    private io.polycat.catalog.common.model.SerDeInfo fillInSerDeInfo(
-        org.apache.hadoop.hive.metastore.api.StorageDescriptor sd) {
-        SerDeInfo hiveSerDe = sd.getSerdeInfo();
-        if (hiveSerDe != null) {
-            io.polycat.catalog.common.model.SerDeInfo serDeInfo = new io.polycat.catalog.common.model.SerDeInfo();
-            serDeInfo.setName(hiveSerDe.getName());
-            serDeInfo.setSerializationLibrary(hiveSerDe.getSerializationLib());
-            serDeInfo.setParameters(hiveSerDe.getParameters());
-            return serDeInfo;
-        }
-        return null;
-    }
-
-    private Column convertToTableInput(FieldSchema fieldSchema) {
-
-        Column columnInput = new Column();
-        columnInput.setColumnName(fieldSchema.getName());
-        columnInput.setColType(fieldSchema.getType());
-        return columnInput;
+    private String getCatalog(org.apache.hadoop.hive.metastore.api.Table table) {
+        return table.isSetCatName() ? table.getCatName() : getDefaultCatalog(conf);
     }
 
     @Override
     public boolean dropTable(String catName, String dbName, String tableName)
             throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
-        DeleteTableRequest deleteTableRequest = new DeleteTableRequest();
-        deleteTableRequest.setCatalogName(getCurrentCatalog());
-        deleteTableRequest.setDatabaseName(dbName);
-        deleteTableRequest.setTableName(tableName);
-        deleteTableRequest.setProjectId(getProjectId());
-        client.deleteTable(deleteTableRequest);
-        return true;
+        if (tableName == null) {
+            throw new InvalidInputException("Table name is null.");
+        }
+        StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            DeleteTableRequest deleteTableRequest = new DeleteTableRequest();
+            deleteTableRequest.setCatalogName(getCatalogMappingName(catName));
+            deleteTableRequest.setDatabaseName(dbName);
+            deleteTableRequest.setTableName(tableName);
+            deleteTableRequest.setProjectId(getProjectId());
+            deleteTableRequest.setPurgeFlag(false);
+            client.deleteTable(deleteTableRequest);
+            return true;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        log.info("dropTable success.");
+        return wrapper.getData();
     }
 
     @Override
-    public Table getTable(String catName, String dbName, String tableName) throws MetaException {
-        GetTableRequest getTableRequest = new GetTableRequest(getProjectId(),getCurrentCatalog(),dbName,tableName);
-        io.polycat.catalog.common.model.Table lmsTable = null;
-        try {
-            lmsTable = client.getTable(getTableRequest);
-        } catch (CatalogException e) {
-            LOG.info("table:{}.{}.{} doesn't exist,{}",getCurrentCatalog(),dbName,tableName,e.getMessage());
-        }
-
-        return mTblToLmsTbl(lmsTable);
-    }
-
-    public Table mTblToLmsTbl(io.polycat.catalog.common.model.Table lmsTable) throws MetaException {
-        return HiveDataAccessor.toTable(lmsTable);
-    }
-
-    private StorageFormatDescriptor getBySourceName(String name) {
-        StorageFormatFactory formatFactory = new StorageFormatFactory();
-        return formatFactory.get(lmsToHiveFileFormatMap.getOrDefault(name,name));
-    }
-
-    private String getSerde(String fileFormat) {
-        StorageFormatDescriptor formatDescriptor = getBySourceName(fileFormat);
-        if (fileFormat.equalsIgnoreCase("csv")) {
-            return "org.apache.hadoop.hive.serde2.OpenCSVSerde";
-        }
-        if (formatDescriptor instanceof TextFileStorageFormatDescriptor) {
-            return "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe";
-        } else {
-            return formatDescriptor.getSerde();
-        }
-
-    }
-
-    private FieldSchema lmsSchemaToMsFieldSchema(Column schemaField) {
-        FieldSchema fieldSchema = new FieldSchema();
-        fieldSchema.setComment(schemaField.getComment());
-        fieldSchema.setName(schemaField.getColumnName());
-        fieldSchema.setType(lmsDataTypeTohmsDataType(schemaField.getColType().toLowerCase()));
-        return fieldSchema;
-    }
-
-    private String lmsDataTypeTohmsDataType(String lmsDataType) {
-
-        return convertTypeMap.getOrDefault(lmsDataType, lmsDataType);
-
+    public org.apache.hadoop.hive.metastore.api.Table getTable(String catName, String dbName, String tableName) throws MetaException {
+        StoreDataWrapper<org.apache.hadoop.hive.metastore.api.Table> wrapper = StoreDataWrapper.getInstance(null);
+        wrapper.wrapper(() -> {
+            GetTableRequest getTableRequest = new GetTableRequest(getProjectId(), getCatalogMappingName(catName), dbName, tableName);
+            io.polycat.catalog.common.model.Table lmsTable = client.getTable(getTableRequest);
+            lmsTable.setCatalogName(getCatalogMappingName(catName));
+            return toTable(lmsTable);
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
     public boolean addPartition(Partition partition) throws InvalidObjectException, MetaException {
-        return false;
+        StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false);
+        wrapper.putCodeException(ErrorCode.DATABASE_NOT_FOUND, InvalidObjectException.class);
+        wrapper.putCodeException(ErrorCode.TABLE_NOT_FOUND, InvalidObjectException.class);
+        String catNameMapping = getCatalogMappingName(partition.getCatName());
+        Table table = getTable(partition.getCatName(), partition.getDbName(), partition.getTableName());
+        wrapper.wrapper(() -> {
+            PartitionInput partitionBase = toPartitionBaseInput(partition);
+            partitionBase.setCatalogName(catNameMapping);
+
+            table.setCatName(catNameMapping);
+            if (partitionBase.getStorageDescriptor().getLocation() == null && !isViewTableType(table)) {
+                partitionBase.getStorageDescriptor().setLocation(table.getSd().getLocation() + File.separator + makePartitionName(table, partition.getValues()));
+            }
+            AddPartitionInput partitionInput = new AddPartitionInput();
+            partitionInput.setPartitions(new PartitionInput[]{partitionBase});
+            AddPartitionRequest request = new AddPartitionRequest(getProjectId(), catNameMapping,
+                    table.getDbName(), table.getTableName(), partitionInput);
+            client.addPartition(request);
+            return true;
+        });
+        wrapper.throwInvalidObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    private boolean isViewTableType(Table table) {
+        return TableType.VIRTUAL_VIEW.name().equals(table.getTableType());
     }
 
     @Override
-    public boolean addPartitions(String s, String s1, String s2, List<Partition> list)
+    public boolean addPartitions(String catName, String dbName, String tblName, List<Partition> parts)
             throws InvalidObjectException, MetaException {
-        return false;
+        StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false);
+        wrapper.putCodeException(ErrorCode.DATABASE_NOT_FOUND, InvalidObjectException.class);
+        wrapper.putCodeException(ErrorCode.TABLE_NOT_FOUND, InvalidObjectException.class);
+        String catNameMapping = getCatalogMappingName(catName);
+        Table table = getTable(catName, dbName, tblName);
+        wrapper.wrapper(() -> {
+            List<PartitionInput> partitionBaseList = new ArrayList<>();
+            PartitionInput partitionBase;
+            for (org.apache.hadoop.hive.metastore.api.Partition part : parts) {
+                partitionBase = PolyCatDataAccessor.toPartitionBaseInput(part);
+                partitionBase.setCatalogName(catNameMapping);
+                if (partitionBase.getStorageDescriptor().getLocation() == null) {
+                    partitionBase.getStorageDescriptor().setLocation(table.getSd().getLocation() + File.separator + makePartitionName(table, part.getValues()));
+                }
+                partitionBaseList.add(partitionBase);
+            }
+            AddPartitionInput partitionInput = new AddPartitionInput();
+            partitionInput.setPartitions(partitionBaseList.toArray(new PartitionInput[0]));
+            AddPartitionRequest request = new AddPartitionRequest(getProjectId(), catNameMapping, dbName, tblName,
+                    partitionInput);
+            client.addPartition(request);
+            return true;
+        });
+        wrapper.throwInvalidObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public boolean addPartitions(String s, String s1, String s2, PartitionSpecProxy partitionSpecProxy, boolean b)
+    public boolean addPartitions(String catName, String dbName, String tblName,
+                                 PartitionSpecProxy partitionSpec, boolean ifNotExists)
             throws InvalidObjectException, MetaException {
-        return false;
+        List<Partition> partitions = new ArrayList<>();
+        partitionSpec.getPartitionIterator().forEachRemaining(partitions::add);
+        List<String> parts = partitions.stream().flatMap(partition -> partition.getValues().stream())
+                .collect(Collectors.toList());
+        org.apache.hadoop.hive.metastore.api.Partition partition = null;
+        try {
+            partition = getPartition(catName, dbName, tblName, parts);
+            throw new MetaException("Partition already exists: " + partition);
+        } catch (NoSuchObjectException e) {
+            if (ifNotExists) {
+                return true;
+            }
+        }
+        return addPartitions(catName, dbName, tblName, partitions);
     }
 
     @Override
-    public Partition getPartition(String s, String s1, String s2, List<String> list)
+    public Partition getPartition(String catName, String dbName, String tableName,
+                                  List<String> partVals)
             throws MetaException, NoSuchObjectException {
-        return new Partition();
+        String catNameMapping = getCatalogMappingName(catName);
+        Table table = getTable(catName, dbName, tableName);
+        table.setCatName(catName);
+        final StoreDataWrapper<Partition> wrapper = StoreDataWrapper.getInstance(null, ErrorCode.PARTITION_VALUES_NOT_MATCH, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            io.polycat.catalog.common.model.Partition lmsPartition = getLmPartition(catNameMapping, dbName, tableName, partVals, table);
+            if (lmsPartition == null) {
+                return null;
+            }
+            lmsPartition.setCatalogName(catName);
+            return HiveDataAccessor.toPartition(lmsPartition, table.getSd());
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        if (wrapper.getData() == null) {
+             throw new NoSuchObjectException("partition values="
+                     + partVals.toString());
+        }
+        return wrapper.getData();
+    }
+
+    private io.polycat.catalog.common.model.Partition getLmPartition(String catName, String dbName, String tableName, List<String> partVals,
+                                                                      Table table) {
+        String partitionName = makePartitionName(table, partVals);
+        String partitionNameWithoutEscape = makePartitionNameWithoutEscape(table, partVals);
+        GetPartitionRequest request = new GetPartitionRequest(getProjectId(), catName, dbName, tableName,
+                partitionName);
+        final io.polycat.catalog.common.model.Partition partition = client.getPartition(request);
+        if (partition == null && !partitionName.equals(partitionNameWithoutEscape)) {
+            log.info("Try to get partition: {} via without escapePath: {}", partitionName, partitionNameWithoutEscape);
+            request = new GetPartitionRequest(getProjectId(), catName, dbName, tableName,
+                    partitionNameWithoutEscape);
+            return client.getPartition(request);
+        }
+        return partition;
     }
 
     @Override
-    public boolean doesPartitionExist(String s, String s1, String s2, List<String> list)
-            throws MetaException, NoSuchObjectException {
-        return false;
+    public boolean doesPartitionExist(String catName, String dbName, String tableName,
+                                      List<String> partVals)
+            throws MetaException {
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false);
+        wrapper.wrapper(() -> {
+            final PartitionValuesInput partitionValuesInput = new PartitionValuesInput();
+            partitionValuesInput.setPartitionValues(partVals);
+            final DoesPartitionExistsRequest doesPartitionExistsRequest = new DoesPartitionExistsRequest(getProjectId(),
+                    getCatalogMappingName(catName), dbName, tableName, partitionValuesInput);
+            return client.doesPartitionExist(doesPartitionExistsRequest);
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public boolean dropPartition(String s, String s1, String s2, List<String> list)
+    public boolean dropPartition(String catName, String dbName, String tblName,
+                                 List<String> partVals)
             throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
+        Table table = getTable(catName, dbName, tblName);
+        if (table.getPartitionKeys().size() != partVals.size() || table.getPartitionKeys().size() == 0) {
+            throw new MetaException(
+                    "The number of input partition column values is not equal to the number of partition table columns");
+        }
+        if (tblName == null) {
+            throw new InvalidInputException("Table name is null.");
+        }
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false);
+        wrapper.wrapper(() -> {
+            List<String> partNames = new ArrayList<>();
+            List<String> partitionKeys = table.getPartitionKeys().stream()
+                    .map(FieldSchema::getName).collect(Collectors.toList());
+            partNames.add(PartitionUtil.makePartitionName(partitionKeys, partVals));
+            DropPartitionInput dropPartitionInput = new DropPartitionInput();
+            dropPartitionInput.setPartitionNames(partNames);
+            DropPartitionRequest request = new DropPartitionRequest(getProjectId(), getCatalogMappingName(catName),
+                    dbName, tblName, dropPartitionInput);
+            try {
+                client.dropPartition(request);
+            } catch (CatalogException e) {
+                log.warn(e.getMessage() + "\n try to delete partition names");
+                final List<String> deprecatedPartVals = partVals.stream()
+                        .map(p -> PartitionUtil.escapePathName(FileUtils.unescapePathName(p)))
+                        .collect(Collectors.toList());
+                final ArrayList<String> deprecatedPartNames = new ArrayList<>();
+                deprecatedPartNames.add(PartitionUtil.makePartitionName(partitionKeys, deprecatedPartVals));
+                dropPartitionInput.setPartitionNames(deprecatedPartNames);
+                client.dropPartition(request);
+            }
+            return true;
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    @Override
+    public List<Partition> getPartitions(String catName, String dbName, String tableName, int max)
+            throws MetaException, NoSuchObjectException {
+        Table table = getTable(catName, dbName, tableName);
+        if (table == null) {
+            throw new NoSuchObjectException(String.format("Table does not exist: %s.%s.%s", catName, dbName, tableName));
+        }
+        final StoreDataWrapper<List<Partition>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() -> {
+            ListFileRequest listFileRequest = new ListFileRequest(getProjectId(), getCatalogMappingName(catName), dbName, tableName,
+                    getFilterInput(max));
+            List<io.polycat.catalog.common.model.Partition> partitions = client.listPartitions(listFileRequest);
+            partitions.forEach(partition -> partition.setCatalogName(getCatalogMappingName(catName)));
+            return HiveDataAccessor.toPartitions(partitions, table.getSd());
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    private FilterInput getFilterInput(Integer max) {
+        FilterInput filterInput = new FilterInput();
+        if (max != null) {
+            filterInput.setLimit(max);
+        }
+        return filterInput;
+    }
+
+    @Override
+    public void alterTable(String catName, String dbName, String tblName, org.apache.hadoop.hive.metastore.api.Table newt) throws InvalidObjectException, MetaException {
+        if (newt == null) {
+            throw new InvalidObjectException("new table is invalid");
+        }
+        final StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null);
+        wrapper.putCodeException(ErrorCode.TABLE_NOT_FOUND, MetaException.class);
+        wrapper.putCodeException(ErrorCode.DATABASE_NOT_FOUND, InvalidObjectException.class);
+        AlterColumnContext context = new AlterColumnContext();
+        final String catNameMapping = getCatalogMappingName(catName);
+        final boolean alterTableColumn = isAlterTableColumn(catNameMapping, dbName, tblName, newt, context);
+        wrapper.wrapper(() -> {
+            if (alterTableColumn) {
+                alterTableColumn(catNameMapping, dbName, tblName, context);
+            }
+            final TableInput tableInput = toTableInput(newt);
+            tableInput.setCatalogName(catNameMapping);
+            AlterTableInput alterTableInput = new AlterTableInput(tableInput, null);
+            AlterTableRequest alterTableRequest = new AlterTableRequest();
+            alterTableRequest.setInput(alterTableInput);
+            alterTableRequest.setTableName(tblName);
+            alterTableRequest.setCatalogName(catNameMapping);
+            alterTableRequest.setDatabaseName(dbName);
+            alterTableRequest.setProjectId(getProjectId());
+            client.alterTable(alterTableRequest);
+            return null;
+        });
+        wrapper.throwInvalidObjectException();
+        wrapper.throwMetaException();
+    }
+
+    private void alterTableColumn(String caName, String dbName, String tblName, AlterColumnContext context) {
+        ColumnChangeInput colChangeIn = new ColumnChangeInput();
+        colChangeIn.setChangeType(context.getColumnOperation());
+        if (context.getColumnOperation() == Operation.ADD_COLUMN) {
+            List<Column> addColumnList = new ArrayList<>();
+            for (FieldSchema fieldSchema : context.getAddColumns()) {
+                addColumnList.add(PolyCatDataAccessor.convertToColumnInput(fieldSchema));
+            }
+            colChangeIn.setColumnList(addColumnList);
+        } else if (context.getColumnOperation() == Operation.CHANGE_COLUMN) {
+            Map<String, Column> changeColumnMap = new HashMap<>();
+            changeColumnMap.put(context.getModifyColumn().getName(), PolyCatDataAccessor.convertToColumnInput(context.getModifyColumn()));
+            colChangeIn.setChangeColumnMap(changeColumnMap);
+        } else if (context.getColumnOperation() == Operation.RENAME_COLUMN) {
+            Map<String, String> renameColumnMap = new HashMap<>();
+            renameColumnMap.put(context.getOriginalColumn().getName(), context.getModifyColumn().getName());
+            colChangeIn.setRenameColumnMap(renameColumnMap);
+        } else {
+            throw new CatalogException(String.format("Unsupported column operation(%s)",
+                    context.getColumnOperation().toString()));
+        }
+
+        AlterColumnRequest request = new AlterColumnRequest(getProjectId(), caName, dbName, tblName,
+                colChangeIn);
+        client.alterColumn(request);
+    }
+
+    private boolean isAlterTableColumn(String catName, String dbName, String tblName,
+                                       org.apache.hadoop.hive.metastore.api.Table newTable, AlterColumnContext context)
+            throws MetaException {
+        org.apache.hadoop.hive.metastore.api.Table oldTable = getTable(catName, dbName, tblName);
+        List<FieldSchema> oldColumns = buildColumnSchema(oldTable);
+        List<FieldSchema> newColumns = buildColumnSchema(newTable);
+        if (oldColumns.size() > newColumns.size()) {
+            throw new MetaException(String.format("The number(%s) of modified columns is less than " +
+                    "the number of the original table", newColumns.size()));
+        }
+
+        for (int i = 0; i < oldColumns.size(); i++) {
+            if (!newColumns.get(i).getName().equals(oldColumns.get(i).getName())) {
+                context.setColumnOperation(Operation.RENAME_COLUMN);
+                context.setModifyColumn(newColumns.get(i));
+                context.setOriginalColumn(oldColumns.get(i));
+                return true;
+            }
+
+            if (newColumns.get(i).getComment() != null &&
+                    !newColumns.get(i).getComment().equals(oldColumns.get(i).getComment()) ||
+                    !newColumns.get(i).getType().equals(oldColumns.get(i).getType())) {
+                context.setColumnOperation(Operation.CHANGE_COLUMN);
+                context.setModifyColumn(newColumns.get(i));
+                return true;
+            }
+        }
+
+        List<FieldSchema> addColumnList = new ArrayList<>();
+        for (int i = oldColumns.size(); i < newColumns.size(); i++) {
+            addColumnList.add(newColumns.get(i));
+        }
+
+        if (addColumnList.size() != 0) {
+            context.setAddColumns(addColumnList.toArray(new FieldSchema[0]));
+            context.setColumnOperation(Operation.ADD_COLUMN);
+            return true;
+        }
         return false;
     }
 
-    @Override
-    public List<Partition> getPartitions(String s, String s1, String s2, int i)
-            throws MetaException, NoSuchObjectException {
-        return new ArrayList<>();
+    private List<FieldSchema> buildColumnSchema(org.apache.hadoop.hive.metastore.api.Table table) {
+        if (table.getParameters().containsKey("spark.sql.sources.provider") &&
+                "csv".equalsIgnoreCase(table.getParameters().get("spark.sql.sources.provider"))) {
+            int partNum = Integer.parseInt(table.getParameters().get("spark.sql.sources.schema.numParts"));
+            List<FieldSchema> columnSchemas = new ArrayList<>();
+            for (int i = 0; i < partNum; i++) {
+                columnSchemas.addAll(getFieldSchemas(table, i));
+            }
+            return removePartitionSchemas(columnSchemas, table.getPartitionKeys());
+        } else {
+            return table.getSd().getCols();
+        }
+    }
+
+    private List<FieldSchema> removePartitionSchemas(List<FieldSchema> columnSchemas,
+                                                     List<FieldSchema> partitionSchemas) {
+        Set<String> names = partitionSchemas.stream().map(FieldSchema::getName).collect(Collectors.toSet());
+        return columnSchemas.stream().filter(x -> !names.contains(x.getName())).collect(Collectors.toList());
+    }
+
+    private FieldSchema convertToFieldSchema(io.polycat.catalog.hms.hive3.Schema schema) {
+        String comment = ((JSONObject) schema.getMetadata()).getString("comment");
+        return new FieldSchema(schema.getName(), schema.getType(), comment);
+    }
+
+    private List<FieldSchema> getFieldSchemas(org.apache.hadoop.hive.metastore.api.Table table, int idx) {
+        String struct = table.getParameters().get("spark.sql.sources.schema.part." + idx);
+        JSONObject structJson = JSONObject.parseObject(struct);
+        JSONArray schemas = structJson.getJSONArray("fields");
+        io.polycat.catalog.hms.hive3.Schema[] fieldSchemas = schemas.toJavaObject(Schema[].class);
+        return Arrays.stream(fieldSchemas).map(this::convertToFieldSchema).collect(Collectors.toList());
     }
 
     @Override
-    public void alterTable(String s, String s1, String s2, Table table) throws InvalidObjectException, MetaException {
-
-    }
-
-    @Override
-    public void updateCreationMetadata(String s, String s1, String s2, CreationMetadata creationMetadata)
+    public void updateCreationMetadata(String catName, String dbName, String tableName, CreationMetadata cm)
             throws MetaException {
 
     }
 
     @Override
     public List<String> getTables(String catName, String dbName, String pattern) throws MetaException {
-        return getTables(catName, dbName, pattern, null);
+        List<String> res = new ArrayList<>();
+        final StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() -> {
+            ListTablesRequest request = new ListTablesRequest();
+            request.setCatalogName(getCatalogMappingName(catName));
+            request.setDatabaseName(dbName);
+            request.setProjectId(getProjectId());
+            request.setExpression(pattern);
+            String[] tableList;
+            String pageToken;
+            do {
+                PagedList<String> tablePagedList = client.listTableNames(request);
+                tableList = tablePagedList.getObjects();
+                pageToken = tablePagedList.getNextMarker();
+                request.setNextToken(pageToken);
+                assert tableList != null;
+                res.addAll(Arrays.asList(tableList));
+            } while (StringUtils.isNotEmpty(pageToken));
+            return res;
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
     public List<String> getTables(String catName, String dbName, String pattern, TableType tableType) throws MetaException {
-        catName = normalizeIdentifier(getCurrentCatalog());
-        ListTablesRequest listTablesRequest = new ListTablesRequest();
-        listTablesRequest.setCatalogName(catName);
-        listTablesRequest.setDatabaseName(dbName);
-        listTablesRequest.setProjectId(getProjectId());
-        listTablesRequest.setExpression(pattern);
-        PagedList<io.polycat.catalog.common.model.Table> lmsTbls = null;
-        try {
-            lmsTbls = client.listTables(listTablesRequest);
-        } catch (CatalogException e) {
-            LOG.warn("getTables failed,catalog:{}.{}",catName,dbName,e);
+        List<String> res = new ArrayList<>();
+        StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(res);
+        wrapper.wrapper(() -> {
+            ListTablesRequest request = new ListTablesRequest();
+            request.setCatalogName(getCatalogMappingName(catName));
+            request.setDatabaseName(dbName);
+            request.setProjectId(getProjectId());
+            request.setExpression(pattern);
+            io.polycat.catalog.common.model.Table[] tablePagedList = client.listTables(request).getObjects();
+            for (io.polycat.catalog.common.model.Table table : tablePagedList) {
+                if (table.getTableType().equalsIgnoreCase(tableType.toString())) {
+                    res.add(table.getTableName());
+                }
+            }
+            return res;
+        });
+        return wrapper.getData();
+    }
+
+    @Override
+    public List<String> getMaterializedViewsForRewriting(String catName, String dbName)
+            throws MetaException, NoSuchObjectException {
+        return getTables(catName, dbName, ".*", TableType.MATERIALIZED_VIEW);
+    }
+
+    @Override
+    public List<TableMeta> getTableMeta(String catName, String dbNames, String tableNames,
+                                        List<String> tableTypes) throws MetaException {
+        return new ArrayList<>();
+    }
+
+    @Override
+    public List<org.apache.hadoop.hive.metastore.api.Table> getTableObjectsByName(String catName, String dbName, List<String> tableNames)
+            throws MetaException, UnknownDBException {
+        List<org.apache.hadoop.hive.metastore.api.Table> tables = listTableObjects(getCatalogMappingName(catName), dbName, tableNames);
+        Set<String> set = new HashSet<>(tableNames);
+        return tables.stream().filter(t -> set.contains(t.getTableName())).peek(table -> table.setCatName(catName)).collect(Collectors.toList());
+    }
+
+    private List<org.apache.hadoop.hive.metastore.api.Table> listTableObjects(String catalogName, String dbname, List<String> tableNames) throws MetaException, UnknownDBException {
+        List<org.apache.hadoop.hive.metastore.api.Table> tables = new ArrayList<>();
+        StoreDataWrapper<List<Table>> wrapStoreData = StoreDataWrapper.getInstance(tables, ErrorCode.DATABASE_NOT_FOUND, UnknownDBException.class);
+        wrapStoreData.wrapper(() -> {
+            FilterListInput filterListInput = new FilterListInput();
+            if (tableNames != null && !tableNames.isEmpty()) {
+                filterListInput.setFilter(tableNames);
+            }
+            filterListInput.setFilter(tableNames);
+            ListTableObjectsRequest request = new ListTableObjectsRequest(getProjectId(), catalogName, dbname, filterListInput);
+            io.polycat.catalog.common.model.Table[] tableList;
+            String pageToken;
+            do {
+                PagedList<io.polycat.catalog.common.model.Table> tablePagedList = client.listTables(request);
+                tableList = tablePagedList.getObjects();
+                pageToken = tablePagedList.getNextMarker();
+                request.setNextToken(pageToken);
+                for (io.polycat.catalog.common.model.Table table : tableList) {
+                    tables.add(toTable(table));
+                }
+            } while (StringUtils.isNotEmpty(pageToken));
+            return tables;
+        });
+        wrapStoreData.throwUnknownDBException();
+        wrapStoreData.throwMetaException();
+        return wrapStoreData.getData();
+    }
+
+    @Override
+    public List<String> getAllTables(String catName, String dbName) throws MetaException {
+        return getTables(catName, dbName, "*");
+    }
+
+    @Override
+    public List<String> listTableNamesByFilter(String catName, String dbName, String filter, short maxTables)
+            throws MetaException {
+        final StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() -> {
+            GetTableNamesRequest getTableNamesRequest = new GetTableNamesRequest();
+            getTableNamesRequest.setFilter(filter);
+            getTableNamesRequest.setProjectId(getProjectId());
+            getTableNamesRequest.setCatalogName(getCatalogMappingName(catName));
+            getTableNamesRequest.setDatabaseName(dbName);
+            getTableNamesRequest.setMaxResults(String.valueOf(maxTables));
+            return Arrays.asList(client.getTableNames(getTableNamesRequest).getObjects());
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    @Override
+    public List<String> listPartitionNames(String catName, String dbName,
+                                           String tblName, short maxParts) throws MetaException {
+        final StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() -> {
+            PartitionFilterInput filterInput = new PartitionFilterInput();
+            filterInput.setMaxParts(maxParts);
+            ListTablePartitionsRequest request = new ListTablePartitionsRequest(getProjectId(), getCatalogMappingName(catName), dbName, tblName,
+                    filterInput);
+            return client.listPartitionNames(request);
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    @Override
+    public PartitionValuesResponse listPartitionValues(String catName, String dbName, String tblName,
+                                                       List<FieldSchema> cols, boolean applyDistinct, String filter, boolean ascending,
+                                                       List<FieldSchema> order, long maxParts) throws MetaException {
+        //return new PartitionValuesResponse();
+        return null;
+    }
+
+    @Override
+    public void alterPartition(String catName, String dbName, String tblName, List<String> partVals,
+                               Partition newPart)
+            throws InvalidObjectException, MetaException {
+        final StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null);
+        wrapper.wrapper(() -> {
+            AlterPartitionInput input = new AlterPartitionInput();
+            List<PartitionAlterContext> partitionContexts = new ArrayList<>();
+            PartitionAlterContext context = convertToContext(newPart, partVals);
+            partitionContexts.add(context);
+            input.setPartitionContexts(partitionContexts.toArray(new PartitionAlterContext[0]));
+            AlterPartitionRequest request = new AlterPartitionRequest(getProjectId(), getCatalogMappingName(catName), dbName, tblName,
+                    input);
+            client.alterPartitions(request);
+            return null;
+        });
+        wrapper.throwMetaException();
+    }
+
+    @Override
+    public void alterPartitions(String catName, String dbName, String tblName,
+                                List<List<String>> partValsList, List<Partition> newParts)
+            throws InvalidObjectException, MetaException {
+        final StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null);
+        wrapper.wrapper(() -> {
+            AlterPartitionInput input = new AlterPartitionInput();
+            List<PartitionAlterContext> partitionContexts = new ArrayList<>(newParts.size());
+            Iterator<List<String>> partValItr = partValsList.iterator();
+            for (org.apache.hadoop.hive.metastore.api.Partition partition : newParts) {
+                PartitionAlterContext context = convertToContext(partition, partValItr.next());
+                partitionContexts.add(context);
+            }
+            input.setPartitionContexts(partitionContexts.toArray(new PartitionAlterContext[0]));
+            AlterPartitionRequest request = new AlterPartitionRequest(getProjectId(), getCatalogMappingName(catName), dbName, tblName,
+                    input);
+            client.alterPartitions(request);
+            return null;
+        });
+        wrapper.throwMetaException();
+    }
+
+    private PartitionAlterContext convertToContext(org.apache.hadoop.hive.metastore.api.Partition partition,
+                                                   List<String> oldValues) {
+        PartitionAlterContext context = new PartitionAlterContext();
+        context.setOldValues(oldValues);
+        context.setNewValues(partition.getValues());
+        context.setParameters(partition.getParameters());
+        context.setInputFormat(partition.getSd().getInputFormat());
+        context.setOutputFormat(partition.getSd().getOutputFormat());
+        context.setLocation(partition.getSd().getLocation());
+        return context;
+    }
+
+    @Override
+    public List<Partition> getPartitionsByFilter(String catName, String dbName, String tblName, String filter, short maxParts)
+            throws MetaException, NoSuchObjectException {
+        Table table = getTable(catName, dbName, tblName);
+        if (table == null) {
+            throw new NoSuchObjectException(String.format("Table does not exist: %s.%s.%s", catName, dbName, tblName));
         }
-        return Arrays.stream(lmsTbls.getObjects())
-                .map(io.polycat.catalog.common.model.Table::getTableName).collect(Collectors.toList());
+        final StoreDataWrapper<List<Partition>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>());
+        wrapper.wrapper(() -> {
+            PartitionFilterInput filterInput = new PartitionFilterInput();
+            filterInput.setFilter(filter);
+            filterInput.setMaxParts(maxParts);
+            ListPartitionByFilterRequest request = new ListPartitionByFilterRequest(getProjectId(),
+                    getCatalogMappingName(catName), dbName, tblName, filterInput);
+            List<io.polycat.catalog.common.model.Partition> tablePartitions = client.getPartitionsByFilter(request);
+            tablePartitions.forEach(partition -> partition.setCatalogName(catName));
+            return HiveDataAccessor.toPartitions(tablePartitions, table.getSd());
+        });
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
 
+
+
+    @Override
+    public boolean getPartitionsByExpr(String catName, String dbName, String tblName,
+                                       byte[] expr, String defaultPartitionName, short maxParts, List<Partition> result) throws TException {
+        String exprToFilter = new PartitionExpressionForMetastore().convertExprToFilter(expr);
+        log.info("getPartitionsByExpr: {}, expr bytes: {}", exprToFilter, expr);
+        Table table = getTable(catName, dbName, tblName);
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false);
+        wrapper.wrapper(() -> {
+            final GetPartitionsByExprInput getPartitionsByExprInput = new GetPartitionsByExprInput(defaultPartitionName,
+                    expr, maxParts);
+            final ListPartitionsByExprRequest listPartitionsByExprRequest = new ListPartitionsByExprRequest(getProjectId(),
+                    getCatalogMappingName(catName), dbName, tblName, getPartitionsByExprInput);
+            final List<io.polycat.catalog.common.model.Partition> partitions = client.listPartitionsByExpr(listPartitionsByExprRequest);
+            partitions.forEach(partition -> result.add(HiveDataAccessor.toPartition(partition, table.getSd())));
+            return false;
+        });
+
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public List<String> getMaterializedViewsForRewriting(String s, String s1)
+    public int getNumPartitionsByFilter(String catName, String dbName, String tblName, String filter)
             throws MetaException, NoSuchObjectException {
-        return new ArrayList<>();
+        final StoreDataWrapper<Integer> wrapper = StoreDataWrapper.getInstance(0, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            GetPartitionCountRequest request = new GetPartitionCountRequest();
+            request.setProjectId(getProjectId());
+            request.setCatalogName(getCatalogMappingName(catName));
+            request.setDatabaseName(dbName);
+            request.setTableName(tblName);
+            return client.getPartitionCount(request);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public List<TableMeta> getTableMeta(String s, String s1, String s2, List<String> list) throws MetaException {
-        return new ArrayList<>();
-    }
-
-    @Override
-    public List<Table> getTableObjectsByName(String s, String s1, List<String> list)
-            throws MetaException, UnknownDBException {
-        return new ArrayList<>();
-    }
-
-    @Override
-    public List<String> getAllTables(String s, String s1) throws MetaException {
-        return new ArrayList<>();
-    }
-
-    @Override
-    public List<String> listTableNamesByFilter(String s, String s1, String s2, short i)
-            throws MetaException, UnknownDBException {
-        return new ArrayList<>();
-    }
-
-    @Override
-    public List<String> listPartitionNames(String s, String s1, String s2, short i) throws MetaException {
-        return new ArrayList<>();
-    }
-
-    @Override
-    public PartitionValuesResponse listPartitionValues(String s, String s1, String s2, List<FieldSchema> list,
-            boolean b, String s3, boolean b1, List<FieldSchema> list1, long l) throws MetaException {
-        return new PartitionValuesResponse();
-    }
-
-    @Override
-    public void alterPartition(String s, String s1, String s2, List<String> list, Partition partition)
-            throws InvalidObjectException, MetaException {
-
-    }
-
-    @Override
-    public void alterPartitions(String s, String s1, String s2, List<List<String>> list, List<Partition> list1)
-            throws InvalidObjectException, MetaException {
-
-    }
-
-    @Override
-    public List<Partition> getPartitionsByFilter(String s, String s1, String s2, String s3, short i)
+    public int getNumPartitionsByExpr(String catName, String dbName, String tableName, byte[] expr)
             throws MetaException, NoSuchObjectException {
-        return new ArrayList<>();
+        return getNumPartitionsByFilter(catName, dbName, tableName, null);
     }
 
     @Override
-    public boolean getPartitionsByExpr(String s, String s1, String s2, byte[] bytes, String s3, short i,
-            List<Partition> list) throws TException {
-        return false;
-    }
-
-    @Override
-    public int getNumPartitionsByFilter(String s, String s1, String s2, String s3)
+    public List<Partition> getPartitionsByNames(String catName, String dbName, String tblName,
+                                                List<String> partNames)
             throws MetaException, NoSuchObjectException {
-        return 0;
+        Table table = getTable(catName, dbName, tblName);
+        final StoreDataWrapper<List<Partition>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>(), ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            PartitionFilterInput filterInput = new PartitionFilterInput();
+            filterInput.setPartNames(partNames.toArray(new String[0]));
+            GetTablePartitionsByNamesRequest request = new GetTablePartitionsByNamesRequest(getProjectId(),
+                    getCatalogMappingName(catName), dbName, tblName, filterInput);
+            List<io.polycat.catalog.common.model.Partition> partitions = client.getPartitionsByNames(request);
+            partitions.forEach(partition -> partition.setCatalogName(catName));
+            return HiveDataAccessor.toPartitions(partitions, table.getSd());
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public int getNumPartitionsByExpr(String s, String s1, String s2, byte[] bytes)
-            throws MetaException, NoSuchObjectException {
-        return 0;
-    }
-
-    @Override
-    public List<Partition> getPartitionsByNames(String s, String s1, String s2, List<String> list)
-            throws MetaException, NoSuchObjectException {
-        return new ArrayList<>();
-    }
-
-    @Override
-    public Table markPartitionForEvent(String s, String s1, String s2, Map<String, String> map,
+    public org.apache.hadoop.hive.metastore.api.Table markPartitionForEvent(String s, String s1, String s2, Map<String, String> map,
             PartitionEventType partitionEventType)
             throws MetaException, UnknownTableException, InvalidPartitionException, UnknownPartitionException {
-        return new Table();
+        return new org.apache.hadoop.hive.metastore.api.Table();
     }
 
     @Override
@@ -811,63 +1162,188 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public Partition getPartitionWithAuth(String s, String s1, String s2, List<String> list, String s3,
-            List<String> list1) throws MetaException, NoSuchObjectException, InvalidObjectException {
-        return new Partition();
+    public Partition getPartitionWithAuth(String catName, String dbName, String tblName, List<String> partVals, String userName,
+            List<String> groupNames) throws MetaException, NoSuchObjectException, InvalidObjectException {
+        return getPartition(catName, dbName, tblName, partVals);
     }
 
     @Override
-    public List<Partition> getPartitionsWithAuth(String s, String s1, String s2, short i, String s3, List<String> list)
+    public List<Partition> getPartitionsWithAuth(String catName, String dbName, String tblName, short maxParts, String userName, List<String> groupNames)
             throws MetaException, NoSuchObjectException, InvalidObjectException {
-        return new ArrayList<>();
+        return getPartitions(catName, dbName, tblName, maxParts);
     }
 
     @Override
-    public List<String> listPartitionNamesPs(String s, String s1, String s2, List<String> list, short i)
+    public List<String> listPartitionNamesPs(String catName, String dbName, String tblName, List<String> partVals, short maxParts)
             throws MetaException, NoSuchObjectException {
-        return new ArrayList<>();
+        final StoreDataWrapper<List<String>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>(), ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            PartitionFilterInput filterInput = new PartitionFilterInput();
+            filterInput.setMaxParts(maxParts);
+            filterInput.setValues(partVals.toArray(new String[]{}));
+            ListTablePartitionsRequest request = new ListTablePartitionsRequest(getProjectId(), getCatalogMappingName(catName), dbName, tblName,
+                    filterInput);
+            return client.listPartitionNames(request);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public List<Partition> listPartitionsPsWithAuth(String s, String s1, String s2, List<String> list, short i,
-            String s3, List<String> list1) throws MetaException, InvalidObjectException, NoSuchObjectException {
-        return new ArrayList<>();
+    public List<Partition> listPartitionsPsWithAuth(String catName, String dbName, String tblName, List<String> partVals, short maxParts,
+            String userName, List<String> groupNames) throws MetaException, InvalidObjectException, NoSuchObjectException {
+        Table table = getTable(catName, dbName, tblName);
+        final StoreDataWrapper<List<Partition>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>(), ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            final GetPartitionsWithAuthInput getPartitionsWithAuthInput = new GetPartitionsWithAuthInput(maxParts, userName, groupNames, partVals);
+            final ListPartitionsWithAuthRequest listPartitionsWithAuthRequest = new ListPartitionsWithAuthRequest(getProjectId(), getCatalogMappingName(catName), dbName, tblName, getPartitionsWithAuthInput);
+            final List<io.polycat.catalog.common.model.Partition> partitions = client.listPartitionsPsWithAuth(listPartitionsWithAuthRequest);
+            partitions.forEach(partition -> partition.setCatalogName(catName));
+            return HiveDataAccessor.toPartitions(partitions, table.getSd());
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public boolean updateTableColumnStatistics(ColumnStatistics columnStatistics)
+    public boolean updateTableColumnStatistics(ColumnStatistics colStats)
             throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return false;
+        ColumnStatisticsDesc statsDesc = colStats.getStatsDesc();
+        if (statsDesc == null) {
+            throw new InvalidObjectException("Invalid column stats object");
+        }
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            UpdateTableColumnStatisticRequest request = null;
+            try {
+                request = new UpdateTableColumnStatisticRequest(getProjectId(),
+                        getCatalogMappingName(colStats.getStatsDesc().getCatName()), statsDesc.getDbName(), statsDesc.getTableName(),
+                        PolyCatDataAccessor.toColumnStatistics(colStats));
+            } catch (TException e) {
+                throw new CatalogException(e);
+            }
+            return client.updateTableColumnStatistics(request);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public boolean updatePartitionColumnStatistics(ColumnStatistics columnStatistics, List<String> list)
+    public boolean updatePartitionColumnStatistics(ColumnStatistics statsObj, List<String> partVals)
             throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return false;
+        ColumnStatisticsDesc statsDesc = statsObj.getStatsDesc();
+        if (statsDesc == null) {
+            throw new InvalidObjectException("Invalid column stats object");
+        }
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            UpdatePartitionColumnStatisticRequest request = null;
+            try {
+                request = new UpdatePartitionColumnStatisticRequest(getProjectId(),
+                        getCatalogMappingName(statsDesc.getCatName()), statsDesc.getDbName(), statsDesc.getTableName(),
+                        new ColumnStatisticsInput(PolyCatDataAccessor.toColumnStatistics(statsObj), partVals));
+            } catch (TException e) {
+                throw new CatalogException(e);
+            }
+            return client.updatePartitionColumnStatistics(request);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public ColumnStatistics getTableColumnStatistics(String s, String s1, String s2, List<String> list)
+    public ColumnStatistics getTableColumnStatistics(String catName, String dbName, String tableName, List<String> colNames)
             throws MetaException, NoSuchObjectException {
-        return new ColumnStatistics();
+        final StoreDataWrapper<ColumnStatistics> wrapper = StoreDataWrapper.getInstance(null, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            GetTableColumnStatisticRequest request = new GetTableColumnStatisticRequest(getProjectId(), getCatalogMappingName(catName),
+                    dbName, tableName, colNames);
+            io.polycat.catalog.common.model.stats.ColumnStatisticsObj[] columnStatisticsObjs = client.getTableColumnsStatistics(request);
+            List<ColumnStatisticsObj> statisticsObjs = Arrays.stream(columnStatisticsObjs)
+                    .map(HiveDataAccessor::convertToHiveStatsObj).collect(Collectors.toList());
+            return new ColumnStatistics(new ColumnStatisticsDesc(true, dbName, tableName), statisticsObjs);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public List<ColumnStatistics> getPartitionColumnStatistics(String s, String s1, String s2, List<String> list,
-            List<String> list1) throws MetaException, NoSuchObjectException {
-        return new ArrayList<>();
+    public List<ColumnStatistics> getPartitionColumnStatistics(String catName, String dbName, String tblName,
+                                                               List<String> partNames, List<String> colNames) throws MetaException, NoSuchObjectException {
+        final StoreDataWrapper<List<ColumnStatistics>> wrapper = StoreDataWrapper.getInstance(new ArrayList<>(), ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            GetPartitionColumnStatisticsRequest request = new GetPartitionColumnStatisticsRequest(getProjectId(),
+                    getCatalogMappingName(catName), dbName, tblName, new GetPartitionColumnStaticsInput(partNames, colNames));
+            PartitionStatisticData result = client.getPartitionColumnStatistics(request);
+            return HiveDataAccessor.toColumnStatisticsList(result, catName, dbName, tblName);
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
-    public boolean deletePartitionColumnStatistics(String s, String s1, String s2, String s3, List<String> list,
-            String s4) throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return false;
+    public boolean deletePartitionColumnStatistics(String catName, String dbName, String tableName,
+                                                   String partName, List<String> partVals, String colName) throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        final String partitionName = makePartitionName(getTable(catName, dbName, tableName), partVals);
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            DeletePartitionColumnStatisticsRequest request = new DeletePartitionColumnStatisticsRequest(getProjectId(),
+                    getCatalogMappingName(catName), dbName, tableName, partitionName, colName);
+            client.deletePartitionColumnStatistics(request);
+            return true;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
+    }
+
+    private String makePartitionName(Table table, List<String> partValues) {
+        List<String> partitionNames = table.getPartitionKeys().stream().map(FieldSchema::getName)
+                .collect(Collectors.toList());
+
+        StringBuilder partitionFolder = new StringBuilder();
+        for (int i = 0; i < partitionNames.size(); i++) {
+            partitionFolder.append(partitionNames.get(i))
+                    .append("=")
+                    .append(FileUtils.escapePathName(partValues.get(i)))
+                    .append("/");
+        }
+        return partitionFolder.substring(0, partitionFolder.length() - 1);
+    }
+
+    private String makePartitionNameWithoutEscape(Table table, List<String> partValues) {
+        List<String> partitionNames = table.getPartitionKeys().stream().map(FieldSchema::getName)
+                .collect(Collectors.toList());
+
+        StringBuilder partitionFolder = new StringBuilder();
+        for (int i = 0; i < partitionNames.size(); i++) {
+            partitionFolder.append(partitionNames.get(i))
+                    .append("=")
+                    .append(partValues.get(i))
+                    .append("/");
+        }
+        return partitionFolder.substring(0, partitionFolder.length() - 1);
     }
 
     @Override
-    public boolean deleteTableColumnStatistics(String s, String s1, String s2, String s3)
+    public boolean deleteTableColumnStatistics(String catName, String dbName, String tableName, String colName)
             throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return false;
+        final StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            DeleteColumnStatisticsRequest request = new DeleteColumnStatisticsRequest(getProjectId(), getCatalogMappingName(catName),
+                    dbName, tableName, colName);
+            client.deleteTableColumnStatistics(request);
+            return true;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
+        return wrapper.getData();
     }
 
     @Override
@@ -931,9 +1407,35 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public void dropPartitions(String s, String s1, String s2, List<String> list)
+    public void dropPartitions(String catName, String dbName, String tblName, List<String> partNames)
             throws MetaException, NoSuchObjectException {
-
+        final StoreDataWrapper<Void> wrapper = StoreDataWrapper.getInstance(null, ErrorCode.TABLE_NOT_FOUND, NoSuchObjectException.class);
+        wrapper.wrapper(() -> {
+            DropPartitionInput dropPartitionInput = new DropPartitionInput();
+            dropPartitionInput.setPartitionNames(partNames);
+            DropPartitionRequest request = new DropPartitionRequest(getProjectId(), getCatalogMappingName(catName),
+                    dbName, tblName, dropPartitionInput);
+            try {
+                client.dropPartition(request);
+            } catch (CatalogException e) {
+                log.warn(e.getMessage() + "\n try to make deprecated partition names");
+                final List<String> deprecatedPartNames = partNames.stream().map(partName -> {
+                    final List<String> partKeys = new ArrayList<>();
+                    final List<String> partVals = new ArrayList<>();
+                    Arrays.stream(partName.split("/")).forEach(part -> {
+                        final String[] parts = part.split("=");
+                        partKeys.add(parts[0]);
+                        partVals.add(PartitionUtil.escapePathName(FileUtils.unescapePathName(parts[1])));
+                    });
+                    return PartitionUtil.makePartitionName(partKeys, partVals);
+                }).collect(Collectors.toList());
+                dropPartitionInput.setPartitionNames(deprecatedPartNames);
+                client.dropPartition(request);
+            }
+            return null;
+        });
+        wrapper.throwNoSuchObjectException();
+        wrapper.throwMetaException();
     }
 
     @Override
@@ -994,7 +1496,15 @@ public class CatalogStore implements RawStore {
 
     @Override
     public void createFunction(Function function) throws InvalidObjectException, MetaException {
-
+        StoreDataWrapper<Boolean> wrapper = StoreDataWrapper.getInstance(false, ErrorCode.DATABASE_NOT_FOUND, InvalidObjectException.class);
+        wrapper.wrapper(() -> {
+            FunctionInput functionInput = PolyCatDataAccessor.toFunctionInput(function);
+            CreateFunctionRequest req = new CreateFunctionRequest(getProjectId(), getCatalogMappingName(function.getCatName()), functionInput);
+            client.createFunction(req);
+            return true;
+        });
+        wrapper.throwInvalidObjectException();
+        wrapper.throwMetaException();
     }
 
     @Override
@@ -1004,30 +1514,55 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public void dropFunction(String s, String s1, String s2)
+    public void dropFunction(String catName, String dbName, String funcName)
             throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
-
+        FunctionRequestBase req = new FunctionRequestBase(getProjectId(), getCatalogMappingName(catName), dbName, funcName);
+        client.dropFunction(req);
     }
 
     @Override
-    public Function getFunction(String s, String s1, String s2) throws MetaException {
-        return new Function();
+    public Function getFunction(String catName, String dbName, String funcName) throws MetaException {
+        GetFunctionRequest req = new GetFunctionRequest(getProjectId(), getCatalogMappingName(catName), dbName, funcName);
+        FunctionInput funcInput = null;
+        try {
+            funcInput = client.getFunction(req);
+            return HiveDataAccessor.toFunction(funcInput);
+        } catch (CatalogException ignore) {
+
+        }
+        return null;
     }
 
     @Override
-    public List<Function> getAllFunctions(String s) throws MetaException {
-        return new ArrayList<>();
+    public List<Function> getAllFunctions(String catName) throws MetaException {
+        final GetAllFunctionRequest getAllFunctionRequest = new GetAllFunctionRequest(getProjectId(), getCatalogMappingName(catName));
+        final FunctionInput[] functionInputs = client.getAllFunctions(getAllFunctionRequest).getObjects();
+        return Arrays.stream(functionInputs).map(HiveDataAccessor::toFunction)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public List<String> getFunctions(String s, String s1, String s2) throws MetaException {
-        return new ArrayList<>();
+    public List<String> getFunctions(String catName, String dbName, String pattern) throws MetaException {
+        ListFunctionRequest req = new ListFunctionRequest(getProjectId(), getCatalogMappingName(catName), dbName, resolveSyntaxSugar(pattern));
+        String[] functionsPagedList = client.listFunctions(req).getObjects();
+        return Arrays.stream(functionsPagedList).collect(Collectors.toList());
+    }
+
+    private String resolveSyntaxSugar(String pattern) {
+        // todo more wildcard character to be resolved
+        if ("*".equals(pattern)) {
+            return "";
+        }
+        return pattern.replaceAll("\\*", "%");
     }
 
     @Override
-    public AggrStats get_aggr_stats_for(String s, String s1, String s2, List<String> list, List<String> list1)
+    public AggrStats get_aggr_stats_for(String catName, String dbName, String tblName,
+                                        List<String> partNames, List<String> colNames)
             throws MetaException, NoSuchObjectException {
-        return new AggrStats();
+        GetAggregateColumnStatisticsRequest request = new GetAggregateColumnStatisticsRequest(getProjectId(),
+                getCatalogMappingName(catName), dbName, tblName, new GetPartitionColumnStaticsInput(partNames, colNames));
+        return HiveDataAccessor.toAggrStats(client.getAggrColStats(request));
     }
 
     @Override
@@ -1151,7 +1686,7 @@ public class CatalogStore implements RawStore {
     }
 
     @Override
-    public List<String> createTableWithConstraints(Table table, List<SQLPrimaryKey> list, List<SQLForeignKey> list1,
+    public List<String> createTableWithConstraints(org.apache.hadoop.hive.metastore.api.Table table, List<SQLPrimaryKey> list, List<SQLForeignKey> list1,
             List<SQLUniqueConstraint> list2, List<SQLNotNullConstraint> list3, List<SQLDefaultConstraint> list4,
             List<SQLCheckConstraint> list5) throws InvalidObjectException, MetaException {
         return new ArrayList<>();
@@ -1406,6 +1941,7 @@ public class CatalogStore implements RawStore {
     @Override
     public void setConf(Configuration configuration) {
         this.conf = configuration;
+        log.info("configuration: {}", this.conf);
         initClientIfNeeded();
     }
 
@@ -1421,22 +1957,39 @@ public class CatalogStore implements RawStore {
 
     @Override
     public Configuration getConf() {
-        return new Configuration();
+        return this.conf;
     }
 
-    private String getCurrentCatalog() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.CATALOG_DEFAULT);
+    protected String getProjectId() {
+        return PolyCatDataAccessor.getProjectId(getDefaultProjectId());
     }
 
-    private String getProjectId() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.valueOf(ConfVars.PROJECT_ID.name()));
+    protected String getDefaultProjectId() {
+        return client.getContext().getProjectId();
     }
 
-    private String getUserId() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.valueOf(ConfVars.USER_ID.name()));
+    protected String getDefaultUser() {
+        return client.getContext().getUserName();
+    }
+
+    private String getTenantName() {
+        return client.getContext().getTenantName();
     }
 
     public CatalogPlugin getCatalogPlugin() {
         return client;
+    }
+
+    public String getCatalogMappingName(String hiveCatalogName) {
+        return ConfUtil.getCatalogMappingName(hiveCatalogName);
+    }
+
+    public static <T> T wrapStoreData(T defaultValue, Supplier<T> supplier) {
+        try {
+            return supplier.get();
+        } catch (Exception e) {
+            log.warn("From catalog store get data error, {}", e.getMessage());
+            return defaultValue;
+        }
     }
 }

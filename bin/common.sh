@@ -105,10 +105,79 @@ function start_catalog() {
     cd -
 }
 
+function start_gateway() {
+    echo "---------------start gateway server---------------"
+    if [ -d $POLYCAT_GATEWAY_SERVER ]; then
+      echo "rm -rf $POLYCAT_GATEWAY_SERVER"
+      rm -rf $POLYCAT_GATEWAY_SERVER
+    fi
+    tar -zxf polycat-gateway-server-0.1-SNAPSHOT.tar.gz
+    cd $POLYCAT_GATEWAY_SERVER
+    nohup ./bin/gateway.sh &
+
+    get_process "GatewayServer"
+    if [ $? -ne 0 ]; then
+      exit 1
+    fi
+
+    cd -
+}
+
+function start_mv_rewrite() {
+    echo "---------------start MV rewrite service---------------"
+    if [ -d $POLYCAT_MV_REWRITE ]; then
+      echo "rm -rf $POLYCAT_MV_REWRITE"
+      rm -rf $POLYCAT_MV_REWRITE
+    fi
+
+    tar -zxf polycat-mv-rewrite-0.1-SNAPSHOT.tar.gz
+    cd $POLYCAT_MV_REWRITE
+    nohup ./bin/mv_rewrite.sh &
+
+    get_process "polycat-mv-server"
+    if [ $? -ne 0 ]; then
+          exit 1
+    fi
+
+    cd -
+}
+
+function start_gateway_cli() {
+    echo "---------------start gateway cli---------------"
+    if [ -d $POLYCAT_GATEWAY_CLIENT ]; then
+      echo "rm -rf $POLYCAT_GATEWAY_CLIENT"
+      rm -rf POLYCAT_GATEWAY_CLIENT
+    fi
+
+    tar -zxf polycat-gateway-client-0.1-SNAPSHOT.tar.gz
+    cd $POLYCAT_GATEWAY_CLIENT
+    ./bin/cli.sh
+}
+
+function start_server() {
+    start_catalog
+    if [ $? -ne 0 ]; then
+      echo "start catalog server failed"
+      exit 1
+    fi
+
+    start_gateway
+    if [ $? -ne 0 ]; then
+      echo "start gateway server failed"
+      exit 1
+    fi
+
+    start_mv_rewrite
+    if [ $? -ne 0 ]; then
+      echo "start mv rewrite server failed"
+      exit 1
+    fi
+}
+
 function clean_environment() {
     if [[ ${OS} == "Linux" || ${OS} == "Darwin" ]];then
       echo "---------------Linux clean environment---------------"
-      process_name_array=("polycat-catalog-server")
+      process_name_array=("gateway" "polycat-catalog-server" "SqlCli" "polycat-mv-server")
       for element in ${process_name_array[*]}
       do
         kill_process $element

@@ -24,7 +24,6 @@ import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.ObjectNameMap;
 import io.polycat.catalog.common.model.TransactionContext;
-import org.apache.ibatis.annotations.Param;
 
 public interface ObjectNameMapStore {
     void createObjectNameMapSubspace(TransactionContext context, String projectId);

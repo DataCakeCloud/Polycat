@@ -37,6 +37,7 @@
         <module>api</module>
         <module>metastore</module>
         <module>service-api</module>
+        <module>hiveservice</module>
         <module>server</module>
         <module>client</module>
         <module>hmsbridge-hive2</module>

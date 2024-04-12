@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.plugin.request.input.TableInput;
 import io.polycat.catalog.store.protos.common.TableBaseInfo;
 
@@ -111,4 +112,22 @@ public class TableBaseObject {
         this.lmsMvcc = tableBaseInfo.getLmsMvcc();
     }
 
+    public String getProperty(String name) {
+        if (this.parameters != null) {
+            return this.getParameters().get(name);
+        }
+        return null;
+    }
+
+    public String getDescription() {
+        // Compatible with hive comment
+        if (description == null || "".equals(description)) {
+            String property = getProperty(Constants.COMMENT);
+            if (property == null) {
+                return "";
+            }
+            return property;
+        }
+        return description;
+    }
 }

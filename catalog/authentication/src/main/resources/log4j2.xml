@@ -68,7 +68,7 @@
       <AppenderRef ref="RollingFile"/>
     </Root>
 
-    <Logger name="io.polycat.catalog.audit.impl.AuditLogStoreFileImpl" level="info" additivity="false">
+    <Logger name="AuditLogStoreFileImpl" level="info" additivity="false">
       <AppenderRef ref="AuditLogRollingFile"/>
     </Logger>
   </Loggers>

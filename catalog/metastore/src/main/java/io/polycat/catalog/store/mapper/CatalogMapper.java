@@ -124,4 +124,6 @@ public interface CatalogMapper {
 
     List<BranchRecord> listBranch(@Param("projectId") String projectId, @Param("catalogId") String catalogId, @Param("count") long count);
 
+    @Select("SELECT schema_name FROM information_schema.schemata WHERE schema_name not in ('pg_catalog', 'public', 'information_schema') and schema_name like 'schema_%' ")
+    List<String> listProjects();
 }

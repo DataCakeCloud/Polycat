@@ -37,7 +37,6 @@ import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
 import io.polycat.catalog.store.fdb.record.TransactionContextUtil;
 
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.google.protobuf.Message;
@@ -45,7 +44,6 @@ import io.polycat.catalog.store.protos.View;
 import io.polycat.catalog.store.protos.ViewFilter;
 import io.polycat.catalog.store.protos.ViewObjectName;
 import io.polycat.catalog.store.protos.ViewPolicy;
-import io.polycat.catalog.store.protos.ViewRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;

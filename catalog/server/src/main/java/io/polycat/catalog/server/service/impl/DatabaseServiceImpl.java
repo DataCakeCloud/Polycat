@@ -21,6 +21,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.apple.foundationdb.tuple.Tuple;
+import io.polycat.catalog.server.util.TransactionFrameRunner;
+import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
@@ -47,8 +49,6 @@ import io.polycat.catalog.common.plugin.request.input.DatabaseInput;
 import io.polycat.catalog.common.utils.CatalogToken;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.server.util.TransactionFrameRunner;
-import io.polycat.catalog.server.util.TransactionRunnerUtil;
 import io.polycat.catalog.service.api.DatabaseService;
 import io.polycat.catalog.store.api.CatalogStore;
 import io.polycat.catalog.store.api.DatabaseStore;
@@ -67,7 +67,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 
 import static io.polycat.catalog.common.Operation.ALTER_DATABASE;
-import static io.polycat.catalog.common.Operation.CREATE_DATABASE;
 import static io.polycat.catalog.common.Operation.DROP_DATABASE;
 import static io.polycat.catalog.common.Operation.UNDROP_DATABASE;
 import static io.polycat.catalog.server.service.impl.ObjectNameMapHelper.LMS_KEY;
@@ -148,6 +147,8 @@ public class DatabaseServiceImpl implements DatabaseService {
         DatabaseObjectHelper.throwIfDatabaseNameExist(ctx, databaseName, databaseIdent);
 
         DatabaseObjectHelper.insertDatabaseObject(ctx, databaseIdent, databaseObject, databaseName, userPrivilegeStore, catalogCommitEventId);
+
+        DiscoveryHelper.updateDatabaseDiscoveryInfo(ctx, databaseName, databaseObject);
 
         return databaseIdent;
     }
@@ -277,6 +278,8 @@ public class DatabaseServiceImpl implements DatabaseService {
 
         userPrivilegeStore.deleteUserPrivilege(context, databaseIdent.getProjectId(),
             databaseHistoryNew.getUserId(), ObjectType.DATABASE.name(), databaseIdent.getDatabaseId());
+
+        DiscoveryHelper.dropDatabaseDiscoveryInfo(context, databaseName);
 
         return databaseIdent;
     }
@@ -661,6 +664,9 @@ public class DatabaseServiceImpl implements DatabaseService {
         if (dataBaseInput.getOwnerType() != null) {
             newDB.setOwnerType(dataBaseInput.getOwnerType());
         }
+        if (dataBaseInput.getDescription() != null) {
+            newDB.setDescription(dataBaseInput.getDescription());
+        }
 
         String locationUri = dataBaseInput.getLocationUri();
         if (locationUri != null && !locationUri.isEmpty()) {
@@ -692,6 +698,7 @@ public class DatabaseServiceImpl implements DatabaseService {
             newDatabaseHistory.setName(newDB.getName());
             newDatabaseHistory.setUserId(newDB.getUserId());
             newDatabaseHistory.setLocation(newDB.getLocation());
+            newDatabaseHistory.setDescription(newDB.getDescription());
             newDatabaseHistory.getProperties().putAll(newDB.getProperties());
             String version = VersionManagerHelper.getNextVersion(ctx, databaseIdent.getProjectId(), databaseIdent.getRootCatalogId());
             databaseStore.insertDatabaseHistory(ctx, newDatabaseHistory, databaseIdent, false, version);
@@ -704,7 +711,7 @@ public class DatabaseServiceImpl implements DatabaseService {
             databaseIdent.getCatalogId(), catalogCommitEventId, commitTime, ALTER_DATABASE, DatabaseObjectHelper.commonCommitDetail(newDB)
         );
 
-
+        DiscoveryHelper.updateDatabaseDiscoveryInfo(ctx, currentDBFullName, newDB);
         return databaseIdent;
     }
 
@@ -783,6 +790,9 @@ public class DatabaseServiceImpl implements DatabaseService {
         catalogStore.insertCatalogCommit(ctx, databaseIdent.getProjectId(),
             databaseIdent.getCatalogId(), catalogCommitEventId, commitTime, ALTER_DATABASE, DatabaseObjectHelper.commonCommitDetail(databaseName)
         );
+
+        DiscoveryHelper.dropDatabaseDiscoveryInfo(ctx, currentDBFullName);
+        DiscoveryHelper.updateDatabaseDiscoveryInfo(ctx, databaseNameNew, newDB);
 
         return databaseIdent;
     }
@@ -1175,8 +1185,8 @@ public class DatabaseServiceImpl implements DatabaseService {
     public TraverseCursorResult<List<Database>> listDatabases(CatalogName catalogName,
         boolean includeDrop, Integer maximumToScan, String pageToken, String filter) {
         // check and convert parameters
-        int scanNum = checkNumericFormat(maximumToScan);
-        Tuple pattern = Tuple.from(includeDrop, scanNum, pageToken, filter);
+        //int scanNum = checkNumericFormat(maximumToScan);
+        Tuple pattern = Tuple.from(includeDrop, maximumToScan, pageToken, filter);
 
         StoreValidator.requireCatalogNameNotNull(catalogName);
 

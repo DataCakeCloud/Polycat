@@ -17,6 +17,7 @@
  */
 package io.polycat.catalog.common.utils;
 
+import com.google.common.collect.Maps;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.exception.CarbonSqlException;
 import io.polycat.catalog.common.exception.CatalogException;
@@ -32,6 +33,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -42,8 +45,6 @@ import org.apache.hadoop.util.Shell;
 public class PartitionUtil {
 
     public static final String DEFAULT_PARTITION_NAME = "__HIVE_DEFAULT_PARTITION__";
-
-    public static final Character[] ESCAPE_SKIP_CHAR_PARTITION_NAME_FILE = new Character[]{'=', '/'};
 
     private static final Logger LOG = Logger.getLogger(PartitionUtil.class);
 
@@ -78,7 +79,7 @@ public class PartitionUtil {
     }
 
     public static Map<String, String> convertNameToKvMap(String partitionName) {
-        final Map<String, String> partitionKV = new HashMap<>();
+        final Map<String, String> partitionKV = Maps.newLinkedHashMap();
         Arrays.stream(partitionName.split("/")).forEach(x -> {
             final String[] split = x.split("=");
             partitionKV.put(split[0], split[1]);
@@ -87,7 +88,21 @@ public class PartitionUtil {
     }
 
     public static String escapePartitionName(String partitionName) {
-        return escapePathName(partitionName, ESCAPE_SKIP_CHAR_PARTITION_NAME_FILE);
+        if (StringUtils.isEmpty(partitionName)) {
+            return partitionName;
+        }
+        Map<String, String> kvMap = convertNameToKvMap(partitionName);
+        if (MapUtils.isNotEmpty(kvMap)) {
+            StringBuilder stringBuilder = new StringBuilder();
+            kvMap.forEach((k, v)-> {
+                stringBuilder.append(k)
+                        .append("=")
+                        .append(FileUtils.escapePathName(v))
+                        .append("/");
+            });
+            return stringBuilder.substring(0, stringBuilder.length() - 1);
+        }
+        return partitionName;
     }
 
     public static String unescapePartitionName(String partitionName) {
@@ -208,23 +223,6 @@ public class PartitionUtil {
         return c >= 0 && c < charToEscape.size() && charToEscape.get(c);
     }
 
-    public static String escapePathName(String path, Character[] skipChars) {
-        StringBuilder builder = new StringBuilder();
-        Set<Character> skipCharSet = new HashSet<>();
-        if (skipChars != null && skipChars.length > 0) {
-            skipCharSet.addAll(Arrays.asList(skipChars));
-        }
-        for (char c : path.toCharArray()) {
-            if (!skipCharSet.contains(c) && needsEscaping(c)) {
-                builder.append('%');
-                builder.append(String.format("%1$02X", (int) c));
-            } else {
-                builder.append(c);
-            }
-        }
-        return builder.toString();
-    }
-
     public static String escapePathName(String path) {
         StringBuilder builder = new StringBuilder();
         for (char c : path.toCharArray()) {
@@ -270,10 +268,17 @@ public class PartitionUtil {
         return builder.toString();
     }
 
-    public static List<String> getPartitionKeysFromTable(io.polycat.catalog.common.model.Table table){
+    public static List<String> getPartitionKeysFromTable(Table table){
         return table.getPartitionKeys().stream()
             .map(Column::getColumnName)
             .collect(Collectors.toList());
     }
 
+    public static List<String> convertEscapePartNameToVals(String partName) {
+        if (partName != null) {
+            List<String> escapeValues = convertNameToVals(partName);
+            return escapeValues.stream().map(PartitionUtil::unescapePartitionName).collect(Collectors.toList());
+        }
+        return new ArrayList<>();
+    }
 }

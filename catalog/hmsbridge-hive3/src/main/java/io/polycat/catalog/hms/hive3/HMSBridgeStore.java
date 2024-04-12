@@ -17,22 +17,13 @@
  */
 package io.polycat.catalog.hms.hive3;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import io.polycat.catalog.common.model.base.PartitionInput;
-import io.polycat.catalog.common.plugin.request.AddPartitionRequest;
-import io.polycat.catalog.common.plugin.request.input.AddPartitionInput;
-import io.polycat.catalog.common.model.Column;
-
-import lombok.SneakyThrows;
+import io.polycat.catalog.common.exception.CatalogException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.FileMetadataHandler;
 import org.apache.hadoop.hive.metastore.ObjectStore;
 import org.apache.hadoop.hive.metastore.RawStore;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.AggrStats;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Catalog;
@@ -76,7 +67,6 @@ import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.SchemaVersion;
 import org.apache.hadoop.hive.metastore.api.SchemaVersionDescriptor;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableMeta;
 import org.apache.hadoop.hive.metastore.api.Type;
@@ -97,107 +87,108 @@ import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.ColStatsObjWithSour
 import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.FullTableName;
 import org.apache.thrift.TException;
 
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
+
 public class HMSBridgeStore implements RawStore {
-
-    private static final String metaLocation = "meta_location";
-
-    private static final String pcMetaStore = "pc_meta_store";
-
-    private static final String hiveMetaStore = "hive_meta_store";
-
-    private static final String isMigrating = "is_migrating";
-
-    private static final String migrateFlag = "migrate_flag";
 
     private final ObjectStore objectStore;
 
-    private final CatalogStore dashRawStore;
+    private final CatalogStore catalogStore;
+
+    private boolean doesDefaultCatalogExist;
 
     private Configuration conf;
 
     public HMSBridgeStore() {
         objectStore = new ObjectStore();
-        dashRawStore = new CatalogStore();
+        catalogStore = new CatalogStore();
+    }
+
+    public HMSBridgeStore(Configuration configuration) {
+        this.objectStore = new ObjectStore();
+        this.catalogStore = new CatalogStore(configuration);
     }
 
     @Override
     public void shutdown() {
-
+        objectStore.shutdown();
     }
 
     @Override
     public boolean openTransaction() {
-        return false;
+        return objectStore.openTransaction();
     }
 
     @Override
     public boolean commitTransaction() {
-        return false;
+        return objectStore.commitTransaction();
     }
 
     @Override
     public boolean isActiveTransaction() {
-        return false;
+        return objectStore.isActiveTransaction();
     }
 
     @Override
     public void rollbackTransaction() {
-
+        objectStore.rollbackTransaction();
     }
 
     @Override
     public void createCatalog(Catalog catalog) throws MetaException {
-
+        catalogStore.createCatalog(catalog);
     }
 
     @Override
     public void alterCatalog(String s, Catalog catalog) throws MetaException, InvalidOperationException {
-
+        catalogStore.alterCatalog(s, catalog);
     }
 
     @Override
     public Catalog getCatalog(String s) throws NoSuchObjectException, MetaException {
-        return null;
+        return catalogStore.getCatalog(s);
     }
 
     @Override
     public List<String> getCatalogs() throws MetaException {
-        return null;
+        return catalogStore.getCatalogs();
     }
 
     @Override
     public void dropCatalog(String s) throws NoSuchObjectException, MetaException {
-
+        catalogStore.dropCatalog(s);
     }
 
     @Override
     public void createDatabase(Database database) throws InvalidObjectException, MetaException {
-        objectStore.createDatabase(database);
+        catalogStore.createDatabase(database);
     }
 
     @Override
-    public Database getDatabase(String s, String s1) throws NoSuchObjectException {
-        return objectStore.getDatabase(s, s1);
+    public Database getDatabase(String catalogName, String name) throws NoSuchObjectException {
+        return catalogStore.getDatabase(catalogName, name);
     }
 
     @Override
-    public boolean dropDatabase(String s, String s1) throws NoSuchObjectException, MetaException {
-        return objectStore.dropDatabase(s, s1);
+    public boolean dropDatabase(String catalogName, String dbname) throws NoSuchObjectException, MetaException {
+        return catalogStore.dropDatabase(catalogName, dbname);
     }
 
     @Override
     public boolean alterDatabase(String s, String s1, Database database) throws NoSuchObjectException, MetaException {
-        return objectStore.alterDatabase(s, s1, database);
+        return catalogStore.alterDatabase(s, s1, database);
     }
 
     @Override
     public List<String> getDatabases(String s, String s1) throws MetaException {
-        return objectStore.getDatabases(s, s1);
+        return catalogStore.getDatabases(s, s1);
     }
 
     @Override
-    public List<String> getAllDatabases(String s) throws MetaException {
-        return objectStore.getAllDatabases(s);
+    public List<String> getAllDatabases(String catalogName) throws MetaException {
+        return catalogStore.getAllDatabases(catalogName);
     }
 
     @Override
@@ -217,223 +208,172 @@ public class HMSBridgeStore implements RawStore {
 
     @Override
     public void createTable(Table table) throws InvalidObjectException, MetaException {
-        objectStore.createTable(table);
+        catalogStore.createTable(table);
     }
 
     @Override
-    public boolean dropTable(String s, String s1, String s2)
+    public boolean dropTable(String catalogName, String dbName, String tableName)
         throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
-        return objectStore.dropTable(s, s1, s2);
-    }
-
-    private boolean isLms(String s, String s1, String s2) throws MetaException {
-        Table table = objectStore.getTable(s, s1, s2);
-        String value = table.getParameters().get(metaLocation);
-        if (value != null && value.equals(pcMetaStore)) {
-            return true;
-        }
-        return false;
+        return catalogStore.dropTable(catalogName, dbName, tableName);
     }
 
     @Override
-    public Table getTable(String s, String s1, String s2) throws MetaException {
-        if (isLms(s, s1, s2)) {
-            return dashRawStore.getTable(s, s1, s2);
-        }
-        return objectStore.getTable(s, s1, s2);
+    public Table getTable(String catalogName, String dbName, String tableName) throws MetaException {
+        return catalogStore.getTable(catalogName, dbName, tableName);
     }
 
     @Override
     public boolean addPartition(Partition partition) throws InvalidObjectException, MetaException {
-        return objectStore.addPartition(partition);
+        return catalogStore.addPartition(partition);
     }
 
     @Override
-    public boolean addPartitions(String s, String s1, String s2, List<Partition> list)
+    public boolean addPartitions(String catName, String dbName, String tblName, List<Partition> parts)
         throws InvalidObjectException, MetaException {
-        return objectStore.addPartitions(s, s1, s2, list);
+        return catalogStore.addPartitions(catName, dbName, tblName, parts);
     }
 
     @Override
-    public boolean addPartitions(String s, String s1, String s2, PartitionSpecProxy partitionSpecProxy, boolean b)
+    public boolean addPartitions(String catName, String dbName, String tblName,
+                                 PartitionSpecProxy partitionSpec, boolean ifNotExists)
         throws InvalidObjectException, MetaException {
-        return objectStore.addPartitions(s, s1, s2, partitionSpecProxy, b);
+        return catalogStore.addPartitions(catName, dbName, tblName, partitionSpec, ifNotExists);
     }
 
     @Override
-    public Partition getPartition(String s, String s1, String s2, List<String> list)
+    public Partition getPartition(String catName, String dbName, String tableName,
+                                  List<String> partVals)
         throws MetaException, NoSuchObjectException {
-        // TODO:need catch
-        return null;
+        return catalogStore.getPartition(catName, dbName, tableName, partVals);
     }
 
     @Override
-    public boolean doesPartitionExist(String s, String s1, String s2, List<String> list)
+    public boolean doesPartitionExist(String catName, String dbName, String tableName,
+                                      List<String> partVals)
         throws MetaException, NoSuchObjectException {
-        return objectStore.doesPartitionExist(s, s1, s2, list);
+        return catalogStore.doesPartitionExist(catName, dbName, tableName, partVals);
     }
 
     @Override
-    public boolean dropPartition(String s, String s1, String s2, List<String> list)
+    public boolean dropPartition(String catName, String dbName, String tableName,
+                                 List<String> partVals)
         throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
-        return objectStore.dropPartition(s, s1, s2, list);
+        return catalogStore.dropPartition(catName, dbName, tableName, partVals);
     }
 
     @Override
-    public List<Partition> getPartitions(String s, String s1, String s2, int i)
+    public List<Partition> getPartitions(String catName, String dbName, String tableName, int max)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getPartitions(s, s1, s2, i);
-    }
-
-    private AddPartitionInput buildPartition(Table table) {
-        AddPartitionInput partitionInput = new AddPartitionInput();
-        StorageDescriptor sd = table.getSd();
-        PartitionInput[] partitionBases = new PartitionInput[]{new PartitionInput()};
-        List<Column> columnInputs = new ArrayList();
-        for (FieldSchema fieldSchema : sd.getCols()) {
-            Column columnInput = new Column();
-            columnInput.setColumnName(fieldSchema.getName());
-            columnInput.setComment(fieldSchema.getComment());
-            columnInput.setColType(fieldSchema.getType());
-            columnInputs.add(columnInput);
-        }
-        partitionBases[0].setFileIndexUrl(sd.getLocation());
-        io.polycat.catalog.common.model.StorageDescriptor lmsSd = new io.polycat.catalog.common.model.StorageDescriptor();
-        lmsSd.setColumns(columnInputs);
-        lmsSd.setLocation(sd.getLocation());
-        partitionBases[0].setStorageDescriptor(lmsSd);
-        partitionInput.setPartitions(partitionBases);
-        return partitionInput;
-    }
-
-    @SneakyThrows
-    @Override
-    public void alterTable(String s, String s1, String s2, Table table) throws InvalidObjectException, MetaException {
-        // if exist migrate flag, set table properties, start migrate.
-        String startFlag = table.getParameters().get(migrateFlag);
-        String migrating = table.getParameters().get(isMigrating);
-        if (startFlag != null && startFlag.equals("true") &&  migrating == null) {
-            table.getParameters().put(metaLocation, hiveMetaStore);
-            table.getParameters().put(isMigrating, "true");
-            objectStore.alterTable(s, s1, s2, table);
-            Database database = objectStore.getDatabase(table.getCatName(), table.getDbName());
-            Catalog catalog = new Catalog();
-            catalog.setName(getMigratingCatalog());
-            catalog.setLocationUriIsSet(false);
-            dashRawStore.createCatalog(catalog);
-            dashRawStore.createDatabase(database);
-            dashRawStore.createTable(table);
-            AddPartitionInput addPartitionInput = buildPartition(table);
-            AddPartitionRequest request = new AddPartitionRequest(getProjectId(), getMigratingCatalog(),
-                table.getDbName(), table.getTableName(), addPartitionInput);
-            dashRawStore.getCatalogPlugin().addPartition(request);
-            table.getParameters().replace(metaLocation, pcMetaStore);
-            objectStore.alterTable(s, s1, s2, table);
-            return;
-        } else if (migrating != null && migrating.equals("true")) {
-            return;
-        } else if (isLms(s, s1, s2)) {
-            dashRawStore.alterTable(s, s1, s2, table);
-        } else {
-            objectStore.alterTable(s, s1, s2, table);
-        }
+        return catalogStore.getPartitions(catName, dbName, tableName, max);
     }
 
     @Override
-    public void updateCreationMetadata(String s, String s1, String s2, CreationMetadata creationMetadata)
+    public void alterTable(String catName, String dbName, String tblName, Table newTable) throws InvalidObjectException, MetaException {
+        catalogStore.alterTable(catName, dbName, tblName, newTable);
+    }
+
+    @Override
+    public void updateCreationMetadata(String catName, String dbName, String tableName, CreationMetadata cm)
         throws MetaException {
-        objectStore.updateCreationMetadata(s, s1, s2, creationMetadata);
+        objectStore.updateCreationMetadata(catName, dbName, tableName, cm);
     }
 
     @Override
-    public List<String> getTables(String s, String s1, String s2) throws MetaException {
-        return objectStore.getTables(s, s1, s2);
+    public List<String> getTables(String catName, String dbName, String pattern) throws MetaException {
+        return catalogStore.getTables(catName, dbName, pattern);
     }
 
     @Override
-    public List<String> getTables(String s, String s1, String s2, TableType tableType) throws MetaException {
-        return objectStore.getTables(s, s1, s2, tableType);
+    public List<String> getTables(String catName, String dbName, String pattern, TableType tableType) throws MetaException {
+        return catalogStore.getTables(catName, dbName, pattern, tableType);
     }
 
     @Override
-    public List<String> getMaterializedViewsForRewriting(String s, String s1)
+    public List<String> getMaterializedViewsForRewriting(String catName, String dbName)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getMaterializedViewsForRewriting(s, s1);
+        return catalogStore.getMaterializedViewsForRewriting(catName, dbName);
     }
 
     @Override
-    public List<TableMeta> getTableMeta(String s, String s1, String s2, List<String> list) throws MetaException {
-        return objectStore.getTableMeta(s, s1, s2, list);
+    public List<TableMeta> getTableMeta(String catName, String dbNames, String tableNames,
+                                        List<String> tableTypes) throws MetaException {
+        return objectStore.getTableMeta(catName, dbNames, tableNames, tableTypes);
     }
 
     @Override
-    public List<Table> getTableObjectsByName(String s, String s1, List<String> list)
+    public List<Table> getTableObjectsByName(String catName, String dbName, List<String> tableNames)
         throws MetaException, UnknownDBException {
-        return objectStore.getTableObjectsByName(s, s1, list);
+        return catalogStore.getTableObjectsByName(catName, dbName, tableNames);
     }
 
     @Override
-    public List<String> getAllTables(String s, String s1) throws MetaException {
-        return objectStore.getAllTables(s, s1);
+    public List<String> getAllTables(String catName, String dbName) throws MetaException {
+        return catalogStore.getAllTables(catName, dbName);
     }
 
     @Override
-    public List<String> listTableNamesByFilter(String s, String s1, String s2, short i)
+    public List<String> listTableNamesByFilter(String catName, String dbName, String filter,
+                                               short maxTables)
         throws MetaException, UnknownDBException {
-        return objectStore.listTableNamesByFilter(s, s1, s2, i);
+        return catalogStore.listTableNamesByFilter(catName, dbName, filter, maxTables);
     }
 
     @Override
-    public List<String> listPartitionNames(String s, String s1, String s2, short i) throws MetaException {
-        return objectStore.listPartitionNames(s, s1, s2, i);
+    public List<String> listPartitionNames(String catName, String dbName,
+                                           String tblName, short maxParts) throws MetaException {
+        return catalogStore.listPartitionNames(catName, dbName, tblName, maxParts);
     }
 
     @Override
-    public PartitionValuesResponse listPartitionValues(String s, String s1, String s2, List<FieldSchema> list,
-        boolean b, String s3, boolean b1, List<FieldSchema> list1, long l) throws MetaException {
-        return objectStore.listPartitionValues(s, s1, s2, list, b, s3, b1, list1, l);
+    public PartitionValuesResponse listPartitionValues(String catName, String dbName, String tblName,
+                                                       List<FieldSchema> cols, boolean applyDistinct, String filter, boolean ascending,
+                                                       List<FieldSchema> order, long maxParts) throws MetaException {
+         return catalogStore.listPartitionValues(catName, dbName, tblName, cols, applyDistinct, filter, ascending, order, maxParts);
     }
 
     @Override
-    public void alterPartition(String s, String s1, String s2, List<String> list, Partition partition)
+    public void alterPartition(String catName, String dbName, String tblName, List<String> partVals,
+                               Partition newPart)
         throws InvalidObjectException, MetaException {
-        objectStore.alterPartition(s, s1, s2, list, partition);
+        catalogStore.alterPartition(catName, dbName, tblName, partVals, newPart);
     }
 
     @Override
-    public void alterPartitions(String s, String s1, String s2, List<List<String>> list, List<Partition> list1)
+    public void alterPartitions(String catName, String dbName, String tblName,
+                                List<List<String>> partValsList, List<Partition> newParts)
         throws InvalidObjectException, MetaException {
-        objectStore.alterPartitions(s, s1, s2, list, list1);
+        catalogStore.alterPartitions(catName, dbName, tblName, partValsList, newParts);
     }
 
     @Override
-    public List<Partition> getPartitionsByFilter(String s, String s1, String s2, String s3, short i)
+    public List<Partition> getPartitionsByFilter(String catName, String dbName, String tblName, String filter, short maxParts)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getPartitionsByFilter(s, s1, s2, s3, i);
+        return catalogStore.getPartitionsByFilter(catName, dbName, tblName, filter, maxParts);
     }
 
     @Override
-    public boolean getPartitionsByExpr(String s, String s1, String s2, byte[] bytes, String s3, short i,
-        List<Partition> list) throws TException {
-        return objectStore.getPartitionsByExpr(s, s1, s2, bytes, s3, i, list);
+    public boolean getPartitionsByExpr(String catName, String dbName, String tblName,
+                                       byte[] expr, String defaultPartitionName, short maxParts, List<Partition> result) throws TException {
+        return catalogStore.getPartitionsByExpr(catName, dbName, tblName, expr, defaultPartitionName, maxParts, result);
     }
 
     @Override
-    public int getNumPartitionsByFilter(String s, String s1, String s2, String s3)
+    public int getNumPartitionsByFilter(String catName, String dbName, String tblName, String filter)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getNumPartitionsByFilter(s, s1, s2, s3);
+        return catalogStore.getNumPartitionsByFilter(catName, dbName, tblName, filter);
     }
 
     @Override
-    public int getNumPartitionsByExpr(String s, String s1, String s2, byte[] bytes)
+    public int getNumPartitionsByExpr(String catName, String dbName, String tblName, byte[] expr)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getNumPartitionsByExpr(s, s1, s2, bytes);
+        return catalogStore.getNumPartitionsByExpr(catName, dbName, tblName, expr);
     }
 
     @Override
-    public List<Partition> getPartitionsByNames(String s, String s1, String s2, List<String> list)
+    public List<Partition> getPartitionsByNames(String catName, String dbName, String tblName,
+                                                List<String> partNames)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getPartitionsByNames(s, s1, s2, list);
+        return catalogStore.getPartitionsByNames(catName, dbName, tblName, partNames);
     }
 
     @Override
@@ -581,63 +521,62 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public Partition getPartitionWithAuth(String s, String s1, String s2, List<String> list, String s3,
-        List<String> list1) throws MetaException, NoSuchObjectException, InvalidObjectException {
-        return objectStore.getPartitionWithAuth(s, s1, s2, list, s3, list1);
+    public Partition getPartitionWithAuth(String catName, String dbName, String tblName, List<String> partVals, String userName,
+                                          List<String> groupNames) throws MetaException, NoSuchObjectException, InvalidObjectException {
+        return catalogStore.getPartitionWithAuth(catName, dbName, tblName, partVals, userName, groupNames);
     }
 
     @Override
-    public List<Partition> getPartitionsWithAuth(String s, String s1, String s2, short i, String s3, List<String> list)
+    public List<Partition> getPartitionsWithAuth(String catName, String dbName, String tblName, short maxParts, String userName, List<String> groupNames)
         throws MetaException, NoSuchObjectException, InvalidObjectException {
-        return objectStore.getPartitionsWithAuth(s, s1, s2, i, s3, list);
+        return catalogStore.getPartitionsWithAuth(catName, dbName, tblName, maxParts, userName, groupNames);
     }
 
     @Override
-    public List<String> listPartitionNamesPs(String s, String s1, String s2, List<String> list, short i)
+    public List<String> listPartitionNamesPs(String catName, String dbName, String tblName, List<String> partVals, short maxParts)
         throws MetaException, NoSuchObjectException {
-        return objectStore.listPartitionNamesPs(s, s1, s2, list, i);
+        return catalogStore.listPartitionNamesPs(catName, dbName, tblName, partVals, maxParts);
     }
 
     @Override
-    public List<Partition> listPartitionsPsWithAuth(String s, String s1, String s2, List<String> list, short i,
-        String s3, List<String> list1) throws MetaException, InvalidObjectException, NoSuchObjectException {
-        return objectStore.listPartitionsPsWithAuth(s, s1, s2, list, i, s3, list1);
+    public List<Partition> listPartitionsPsWithAuth(String catName, String dbName, String tblName, List<String> partVals, short maxParts,
+                                                    String userName, List<String> groupNames) throws MetaException, InvalidObjectException, NoSuchObjectException {
+        return catalogStore.listPartitionsPsWithAuth(catName, dbName, tblName, partVals, maxParts, userName, groupNames);
     }
 
     @Override
     public boolean updateTableColumnStatistics(ColumnStatistics columnStatistics)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return objectStore.updateTableColumnStatistics(columnStatistics);
+        return catalogStore.updateTableColumnStatistics(columnStatistics);
     }
 
     @Override
-    public boolean updatePartitionColumnStatistics(ColumnStatistics columnStatistics, List<String> list)
+    public boolean updatePartitionColumnStatistics(ColumnStatistics statsObj, List<String> partVals)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return objectStore.updatePartitionColumnStatistics(columnStatistics, list);
+        return catalogStore.updatePartitionColumnStatistics(statsObj, partVals);
     }
 
     @Override
-    public ColumnStatistics getTableColumnStatistics(String s, String s1, String s2, List<String> list)
+    public ColumnStatistics getTableColumnStatistics(String catName, String dbName, String tableName, List<String> colNames)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getTableColumnStatistics(s, s1, s2, list);
+        return catalogStore.getTableColumnStatistics(catName, dbName, tableName, colNames);
     }
 
     @Override
-    public List<ColumnStatistics> getPartitionColumnStatistics(String s, String s1, String s2, List<String> list,
-        List<String> list1) throws MetaException, NoSuchObjectException {
-        return objectStore.getPartitionColumnStatistics(s, s1, s2, list, list1);
+    public List<ColumnStatistics> getPartitionColumnStatistics(String catName, String dbName, String tblName, List<String> partNames, List<String> colNames) throws MetaException, NoSuchObjectException {
+        return catalogStore.getPartitionColumnStatistics(catName, dbName, tblName, partNames, colNames);
     }
 
     @Override
-    public boolean deletePartitionColumnStatistics(String s, String s1, String s2, String s3, List<String> list,
-        String s4) throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return objectStore.deletePartitionColumnStatistics(s, s1, s2, s3, list, s4);
+    public boolean deletePartitionColumnStatistics(String catName, String dbName, String tableName,
+                                                   String partName, List<String> partVals, String colName) throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        return catalogStore.deletePartitionColumnStatistics(catName, dbName, tableName, partName, partVals, colName);
     }
 
     @Override
-    public boolean deleteTableColumnStatistics(String s, String s1, String s2, String s3)
+    public boolean deleteTableColumnStatistics(String catName, String dbName, String tableName, String colName)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
-        return objectStore.deleteTableColumnStatistics(s, s1, s2, s3);
+        return catalogStore.deleteTableColumnStatistics(catName, dbName, tableName, colName);
     }
 
     @Override
@@ -696,14 +635,14 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public void setMetaStoreSchemaVersion(String s, String s1) throws MetaException {
-        objectStore.setMetaStoreSchemaVersion(s, s1);
+    public void setMetaStoreSchemaVersion(String version, String comment) throws MetaException {
+        objectStore.setMetaStoreSchemaVersion(version, comment);
     }
 
     @Override
-    public void dropPartitions(String s, String s1, String s2, List<String> list)
+    public void dropPartitions(String catName, String dbName, String tblName, List<String> partNames)
         throws MetaException, NoSuchObjectException {
-        objectStore.dropPartitions(s, s1, s2, list);
+        catalogStore.dropPartitions(catName, dbName, tblName, partNames);
     }
 
     @Override
@@ -764,46 +703,59 @@ public class HMSBridgeStore implements RawStore {
 
     @Override
     public void createFunction(Function function) throws InvalidObjectException, MetaException {
-        objectStore.createFunction(function);
+        catalogStore.createFunction(function);
     }
 
     @Override
-    public void alterFunction(String s, String s1, String s2, Function function)
+    public void alterFunction(String catName, String dbName, String funcName, Function newFunction)
         throws InvalidObjectException, MetaException {
-        objectStore.alterFunction(s, s1, s2, function);
+        throw new UnsupportedOperationException();
+        // objectStore.alterFunction(catName, dbName, funcName, newFunction);
     }
 
     @Override
-    public void dropFunction(String s, String s1, String s2)
+    public void dropFunction(String catName, String dbName, String funcName)
         throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException {
-        objectStore.dropFunction(s, s1, s2);
+        Function function = catalogStore.getFunction(catName, dbName, funcName);
+        if (function != null) {
+            catalogStore.dropFunction(catName, dbName, funcName);
+        } else {
+            objectStore.dropFunction(catName, dbName, funcName);
+        }
     }
 
     @Override
-    public Function getFunction(String s, String s1, String s2) throws MetaException {
-        return objectStore.getFunction(s, s1, s2);
+    public Function getFunction(String catName, String dbName, String funcName) throws MetaException {
+        Function function = catalogStore.getFunction(catName, dbName, funcName);
+        if (function == null) {
+            return objectStore.getFunction(catName, dbName, funcName);
+        }
+        return function;
     }
 
     @Override
-    public List<Function> getAllFunctions(String s) throws MetaException {
-        return objectStore.getAllFunctions(s);
+    public List<Function> getAllFunctions(String catName) throws MetaException {
+        List<Function> functions = catalogStore.getAllFunctions(catName);
+        functions.addAll(objectStore.getAllFunctions(catName));
+        return functions;
     }
 
     @Override
-    public List<String> getFunctions(String s, String s1, String s2) throws MetaException {
-        return objectStore.getFunctions(s, s1, s2);
+    public List<String> getFunctions(String catName, String dbName, String pattern) throws MetaException {
+        return catalogStore.getFunctions(catName, dbName, pattern);
     }
 
     @Override
-    public AggrStats get_aggr_stats_for(String s, String s1, String s2, List<String> list, List<String> list1)
+    public AggrStats get_aggr_stats_for(String catName, String dbName, String tblName,
+                                        List<String> partNames, List<String> colNames)
         throws MetaException, NoSuchObjectException {
-        return objectStore.get_aggr_stats_for(s, s1, s2, list, list1);
+        return catalogStore.get_aggr_stats_for(catName, dbName, tblName, partNames, colNames);
     }
 
     @Override
-    public List<ColStatsObjWithSourceInfo> getPartitionColStatsForDatabase(String s, String s1)
+    public List<ColStatsObjWithSourceInfo> getPartitionColStatsForDatabase(String catName, String dbName)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getPartitionColStatsForDatabase(s, s1);
+        return objectStore.getPartitionColStatsForDatabase(catName, dbName);
     }
 
     @Override
@@ -891,23 +843,27 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public List<SQLUniqueConstraint> getUniqueConstraints(String s, String s1, String s2) throws MetaException {
-        return objectStore.getUniqueConstraints(s, s1, s2);
+    public List<SQLUniqueConstraint> getUniqueConstraints(String catName, String dbName,
+                                                          String tblName) throws MetaException {
+        return objectStore.getUniqueConstraints(catName, dbName, tblName);
     }
 
     @Override
-    public List<SQLNotNullConstraint> getNotNullConstraints(String s, String s1, String s2) throws MetaException {
-        return objectStore.getNotNullConstraints(s, s1, s2);
+    public List<SQLNotNullConstraint> getNotNullConstraints(String catName, String dbName,
+                                                            String tblName) throws MetaException {
+        return objectStore.getNotNullConstraints(catName, dbName, tblName);
     }
 
     @Override
-    public List<SQLDefaultConstraint> getDefaultConstraints(String s, String s1, String s2) throws MetaException {
-        return objectStore.getDefaultConstraints(s, s1, s2);
+    public List<SQLDefaultConstraint> getDefaultConstraints(String catName, String dbName,
+                                                            String tblName) throws MetaException {
+        return objectStore.getDefaultConstraints(catName, dbName, tblName);
     }
 
     @Override
-    public List<SQLCheckConstraint> getCheckConstraints(String s, String s1, String s2) throws MetaException {
-        return objectStore.getCheckConstraints(s, s1, s2);
+    public List<SQLCheckConstraint> getCheckConstraints(String catName, String dbName,
+                                                        String tblName) throws MetaException {
+        return objectStore.getCheckConstraints(catName, dbName, tblName);
     }
 
     @Override
@@ -918,8 +874,9 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public void dropConstraint(String s, String s1, String s2, String s3, boolean b) throws NoSuchObjectException {
-        objectStore.dropConstraint(s, s1, s2, s3, b);
+    public void dropConstraint(String catName, String dbName, String tableName, String constraintName,
+                               boolean missingOk) throws NoSuchObjectException {
+        objectStore.dropConstraint(catName, dbName, tableName, constraintName, missingOk);
     }
 
     @Override
@@ -1112,8 +1069,8 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public List<SchemaVersion> getSchemaVersionsByColumns(String s, String s1, String s2) throws MetaException {
-        return objectStore.getSchemaVersionsByColumns(s, s1, s2);
+    public List<SchemaVersion> getSchemaVersionsByColumns(String colName, String colNamespace, String type) throws MetaException {
+        return objectStore.getSchemaVersionsByColumns(colName, colNamespace, type);
     }
 
     @Override
@@ -1123,8 +1080,8 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public SerDeInfo getSerDeInfo(String s) throws NoSuchObjectException, MetaException {
-        return objectStore.getSerDeInfo(s);
+    public SerDeInfo getSerDeInfo(String serDeName) throws NoSuchObjectException, MetaException {
+        return objectStore.getSerDeInfo(serDeName);
     }
 
     @Override
@@ -1138,8 +1095,8 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public List<RuntimeStat> getRuntimeStats(int i, int i1) throws MetaException {
-        return objectStore.getRuntimeStats(i, i1);
+    public List<RuntimeStat> getRuntimeStats(int maxEntries, int maxCreateTime) throws MetaException {
+        return objectStore.getRuntimeStats(maxEntries, maxCreateTime);
     }
 
     @Override
@@ -1158,37 +1115,42 @@ public class HMSBridgeStore implements RawStore {
     }
 
     @Override
-    public Map<String, List<String>> getPartitionColsWithStats(String s, String s1, String s2)
+    public Map<String, List<String>> getPartitionColsWithStats(String catName, String dbName,
+                                                               String tableName)
         throws MetaException, NoSuchObjectException {
-        return objectStore.getPartitionColsWithStats(s, s1, s2);
+        return objectStore.getPartitionColsWithStats(catName, dbName, tableName);
     }
 
     @Override
     public void setConf(Configuration configuration) {
         this.conf = configuration;
-        if (dashRawStore != null) {
-            dashRawStore.setConf(configuration);
+        catalogStore.setConf(this.conf);
+        objectStore.setConf(this.conf);
+        if (!doesDefaultCatalogExist) {
+            String catName = MetastoreConf.getVar(this.conf, MetastoreConf.ConfVars.CATALOG_DEFAULT);
+            if (catName == null || catName.isEmpty()) {
+                catName = Warehouse.DEFAULT_CATALOG_NAME;
+            }
+            try {
+                if (catName.equals(Warehouse.DEFAULT_CATALOG_NAME)) {
+                    return;
+                }
+                catalogStore.getCatalog(catName);
+            } catch (NoSuchObjectException e ) {
+                final String location = MetastoreConf.getVar(this.conf, MetastoreConf.ConfVars.WAREHOUSE);
+                final Catalog catalog = new Catalog(catName, location);
+                catalog.setDescription(Warehouse.DEFAULT_CATALOG_COMMENT);
+                catalogStore.createCatalog(catalog);
+                doesDefaultCatalogExist = true;
+            } catch (MetaException e) {
+                throw new CatalogException(e);
+            }
         }
     }
 
     @Override
     public Configuration getConf() {
-        return null;
+        return catalogStore.getConf();
     }
 
-    private String getCurrentCatalog() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.CATALOG_DEFAULT);
-    }
-
-    private String getMigratingCatalog() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.valueOf(ConfVars.MIGRATION_CATALOG.name()));
-    }
-
-    private String getProjectId() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.valueOf(ConfVars.PROJECT_ID.name()));
-    }
-
-    private String getUserId() {
-        return MetastoreConf.getVar(conf, MetastoreConf.ConfVars.valueOf(ConfVars.USER_ID.name()));
-    }
 }

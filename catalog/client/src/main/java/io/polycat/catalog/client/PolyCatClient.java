@@ -30,7 +30,17 @@ import io.polycat.catalog.client.util.RequestChecker;
 import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.exception.CatalogException;
 import io.polycat.catalog.common.http.CatalogClientHelper;
+import io.polycat.catalog.common.lineage.*;
 import io.polycat.catalog.common.model.*;
+import io.polycat.catalog.common.model.discovery.CatalogTableCount;
+import io.polycat.catalog.common.model.discovery.DatabaseSearch;
+import io.polycat.catalog.common.model.discovery.DiscoverySearchBase;
+import io.polycat.catalog.common.model.discovery.ObjectCount;
+import io.polycat.catalog.common.model.discovery.TableCategories;
+import io.polycat.catalog.common.model.discovery.TableSearch;
+import io.polycat.catalog.common.model.glossary.Category;
+import io.polycat.catalog.common.model.glossary.Glossary;
+import io.polycat.catalog.common.model.lock.LockInfo;
 import io.polycat.catalog.common.model.stats.AggrStatisticData;
 import io.polycat.catalog.common.model.stats.ColumnStatisticsObj;
 import io.polycat.catalog.common.model.stats.PartitionStatisticData;
@@ -54,6 +64,7 @@ import static io.polycat.catalog.common.http.CatalogClientHelper.putWithHeader;
 import static io.polycat.catalog.common.http.CatalogClientHelper.withCatalogException;
 import static java.util.stream.Collectors.toList;
 
+@Deprecated
 public class PolyCatClient implements CatalogPlugin {
     private final String catalogServerUrlPrefix;
 
@@ -67,11 +78,16 @@ public class PolyCatClient implements CatalogPlugin {
         catalogServerUrlPrefix = "http://" + catalogHost + ":" + catalogPort + "/v1/";
     }
 
+    public String getCatalogServerUrlPrefix() {
+        return this.catalogServerUrlPrefix;
+    }
+
     public static PolyCatClient getInstance(Configuration conf) {
         return getInstance(conf, true);
     }
 
     public static PolyCatClient getInstance(Configuration conf, boolean initContext) {
+
         // default values
         String catalogHost = conf.get(PolyCatConf.CATALOG_HOST, "127.0.0.1");
         int catalogPort = Integer.parseInt(conf.get(PolyCatConf.CATALOG_PORT, "8082"));
@@ -320,7 +336,7 @@ public class PolyCatClient implements CatalogPlugin {
     @Override
     public PagedList<Policy> showPoliciesOfPrincipal(ShowPoliciesOfPrincipalRequest request) throws CatalogException {
         String urlPrefix = Constants.getPolicyUrlPrefix(catalogServerUrlPrefix, request)
-            + Constants.SHOW_PRIVILEGE;
+            + Constants.SHOW_PRIVILEGES;
         Map<String, String> params = new HashMap<>();
         params.put(Constants.REQ_PARAM_PRINCIPAL_TYPE, request.getPrincipalType());
         params.put(Constants.REQ_PARAM_PRINCIPAL_SOURCE, request.getPrincipalSource());
@@ -413,15 +429,9 @@ public class PolyCatClient implements CatalogPlugin {
         StringBuilder sb = new StringBuilder(Constants.getRoleUrlPrefix(catalogServerUrlPrefix, request))
             .append(Constants.SHOW_ROLES);
         sb.append(Constants.QUESTION);
-        if (StringUtils.isNotEmpty(request.getUserId())) {
-            sb.append(Constants.REQ_PARAM_USER_ID)
-                    .append(Constants.EQUAL)
-                    .append(request.getUserId());
-        }
-        if (StringUtils.isNotEmpty(request.getPattern())) {
-            appendPattern(sb, request.getPattern());
-        }
-
+        appendUrlParam(sb, request.getUserId(), Constants.REQ_PARAM_USER_ID);
+        appendUrlParam(sb, request.getContainOwner(), Constants.REQ_PARAM_CONTAIN_OWNER);
+        appendUrlParam(sb, request.getPattern(), Constants.REQ_PARAM_PATTERN);
         return CatalogClientHelper.listWithCatalogException(
                 () -> getWithHeader(sb.toString(), request.getHeader(getToken())),
                 Role.class);
@@ -438,11 +448,18 @@ public class PolyCatClient implements CatalogPlugin {
                 Role.class);
     }
 
-    private void appendUrlParam(StringBuilder sb, String keyword, String reqParamKey) {
-        if (StringUtils.isNotEmpty(keyword)) {
-            sb.append(reqParamKey)
+    private void appendUrlParam(StringBuilder sb, Object value, String reqParamKey) {
+        appendUrlParam(sb, reqParamKey, value, false);
+    }
+
+    private void appendUrlParam(StringBuilder sb, String paramKey, Object value, boolean nonNull) {
+        if (nonNull && value == null) {
+            throw new NullPointerException("Request param: " + paramKey + " is null.");
+        }
+        if (value != null) {
+            sb.append(paramKey)
                     .append(Constants.EQUAL)
-                    .append(urlParamEncode(keyword))
+                    .append(urlParamEncode(String.valueOf(value)))
                     .append(Constants.AND);
         }
     }
@@ -461,6 +478,27 @@ public class PolyCatClient implements CatalogPlugin {
     }
 
     @Override
+    public PagedList<Role> showRolePrivileges(ShowRolePrivilegesRequest request) throws CatalogException {
+        return showRoleAndPrivilegeCommon(request, Constants.SHOW_ROLE_PRIVILEGES, Role.class);
+    }
+
+    private <T> PagedList<T> showRoleAndPrivilegeCommon(ShowRolePrivilegesRequest request, String interfaceFlag, Class<T> tClass) throws CatalogException {
+        StringBuilder sb = new StringBuilder(Constants.getRoleUrlPrefix(catalogServerUrlPrefix, request))
+            .append(interfaceFlag);
+        sb.append(Constants.QUESTION);
+        appendUrlParam(sb, request.getMaxResults(), Constants.REQ_PARAM_MAX_RESULTS);
+        appendUrlParam(sb, request.getPageToken(), Constants.REQ_PARAM_PAGE_TOKEN);
+        return CatalogClientHelper.listWithCatalogException(
+            () -> postWithHeader(sb.toString(), request.getInput(), request.getHeader(getToken())),
+            tClass);
+    }
+
+    @Override
+    public PagedList<PrivilegeRoles> showPrivilegeRoles(ShowRolePrivilegesRequest request) throws CatalogException {
+        return showRoleAndPrivilegeCommon(request, Constants.SHOW_PRIVILEGE_ROLES, PrivilegeRoles.class);
+    }
+
+    @Override
     public Role showGrantsToRole(ShowGrantsToRoleRequest request) throws CatalogException {
         String url = Constants.getRoleUrlPrefix(catalogServerUrlPrefix, request)
                 + Constants.QUESTION + Constants.REQ_PARAM_ROLE_NAME + Constants.EQUAL + request.getRoleName();
@@ -469,6 +507,9 @@ public class PolyCatClient implements CatalogPlugin {
 
     @Override
     public AuthorizationResponse authenticate(AuthenticationRequest request) throws CatalogException {
+        if (request.getProjectId() == null) {
+            throw new NullPointerException("Request param: projectId is null.");
+        }
         String url = catalogServerUrlPrefix + request.getProjectId() + Constants.AUTHENTICATION
             + Constants.QUESTION + Constants.REQ_PARAM_IGNORE_UNKNOWN_OBJ + Constants.EQUAL +
             request.getIgnoreUnknownObj();
@@ -501,7 +542,7 @@ public class PolyCatClient implements CatalogPlugin {
     @Override
     public Catalog getCatalog(GetCatalogRequest request) throws CatalogException {
         RequestChecker.check(request);
-        String url = catalogServerUrlPrefix + request.getProjectId() + Constants.CATALOGS
+        String url = catalogServerUrlPrefix + Constants.getProjectId(request) + Constants.CATALOGS
             + Constants.SLASH + request.getCatalogName();
         return withCatalogException(() -> getWithHeader(url, request.getHeader(getToken())), Catalog.class);
     }
@@ -535,7 +576,7 @@ public class PolyCatClient implements CatalogPlugin {
 
     @Override
     public Catalog createBranch(CreateBranchRequest request) {
-        Catalog catalog = getCatalog(new GetCatalogRequest(request.getProjectId(), request.getCatalogName()));
+        Catalog catalog = getCatalog(new GetCatalogRequest(Constants.getProjectId(request), request.getCatalogName()));
         CreateCatalogRequest createCatalogRequest = new CreateCatalogRequest();
         CatalogInput catalogInput = new CatalogInput();
         catalogInput.setCatalogName(request.getBranchName());
@@ -544,7 +585,7 @@ public class PolyCatClient implements CatalogPlugin {
         if (null != (request.getVersion())) {
             catalogInput.setParentVersion(request.getVersion());
         }
-        createCatalogRequest.setProjectId(request.getProjectId());
+        createCatalogRequest.setProjectId(Constants.getProjectId(request));
         createCatalogRequest.setInput(catalogInput);
         return createCatalog(createCatalogRequest);
     }
@@ -714,14 +755,14 @@ public class PolyCatClient implements CatalogPlugin {
     public void createTableWithLocation(CreateTableWithInsertRequest insertSegmentRequest) throws CatalogException {
         CreateTableRequest createTableRequest = new CreateTableRequest();
         createTableRequest.setDatabaseName(insertSegmentRequest.getDatabaseName());
-        createTableRequest.setProjectId(insertSegmentRequest.getProjectId());
+        createTableRequest.setProjectId(Constants.getProjectId(insertSegmentRequest));
         createTableRequest.setCatalogName(insertSegmentRequest.getCatalogName());
         createTableRequest.setInput(insertSegmentRequest.getInput().getTableInput());
         createTable(createTableRequest);
         AddPartitionRequest insertSegmentRequest1 = new AddPartitionRequest();
         insertSegmentRequest1.setInput(insertSegmentRequest.getInput().getPartitionInput());
         insertSegmentRequest1.setDatabaseName(insertSegmentRequest.getDatabaseName());
-        insertSegmentRequest1.setProjectId(insertSegmentRequest.getProjectId());
+        insertSegmentRequest1.setProjectId(Constants.getProjectId(insertSegmentRequest));
         insertSegmentRequest1.setCatalogName(insertSegmentRequest.getCatalogName());
         addPartition(insertSegmentRequest1);
     }
@@ -794,6 +835,27 @@ public class PolyCatClient implements CatalogPlugin {
         String urlPrefix = Constants.getTableUrlPrefix(catalogServerUrlPrefix, request);
         return CatalogClientHelper.listWithCatalogException(() -> getWithHeader(getListTableUrl(request, urlPrefix), request.getHeader(getToken())),
             Table.class);
+    }
+
+    @Override
+    public PagedList<Table> listTables(ListTableObjectsRequest request) throws CatalogException {
+        String urlPrefix = Constants.getTableUrlPrefix(catalogServerUrlPrefix, request) + Constants.LIST_TABLE_OBJECTS;
+        return CatalogClientHelper.listWithCatalogException(() -> postWithHeader(getListTableUrl(request, urlPrefix), request.getInput(), request.getHeader(getToken())),
+                Table.class);
+    }
+
+    private String getListTableUrl(ListTableObjectsRequest request, String urlPrefix) {
+        Map<String, String> params = new HashMap<>();
+        if (request.getIncludeDrop() != null) {
+            params.put(Constants.REQ_PARAM_INCLUDE_DROP, request.getIncludeDrop().toString());
+        }
+        if (request.getMaxResults() != null) {
+            params.put(Constants.REQ_PARAM_MAX_RESULTS, request.getMaxResults().toString());
+        }
+        if (request.getNextToken() != null) {
+            params.put(Constants.REQ_PARAM_PAGE_TOKEN, request.getNextToken());
+        }
+        return makeReqParamsWithPrefix(urlPrefix, params);
     }
 
     private String getListTableUrl(ListTablesRequest request, String urlPrefix) {
@@ -956,7 +1018,9 @@ public class PolyCatClient implements CatalogPlugin {
         throws CatalogException {
         //controller: listPartitionNames()
         String urlPrefix = Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request) + "/listNames";
-        String url = makeReqParamsWithPrefix(urlPrefix, request.getParams());
+        Map<String, String> params = request.getParams();
+        params.put(Constants.REQ_PARAM_ESCAPE, String.valueOf(request.isEscape()));
+        String url = makeReqParamsWithPrefix(urlPrefix, params);
         String[] partitionNames = withCatalogException(() -> postWithHeader(url, request.getInput(),
             request.getHeader(getToken())), String[].class);
         return Arrays.asList(partitionNames);
@@ -980,6 +1044,16 @@ public class PolyCatClient implements CatalogPlugin {
             Constants.LIST_PARTITIONS_PS_WITH_AUTH;
 //        String urlPrefix = Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request);
 //        String url = makeReqParamsWithPrefix(urlPrefix, request.getParams());
+        Partition[] partitions = withCatalogException(() -> postWithHeader(url, request.getInput(),
+            request.getHeader(getToken())), Partition[].class);
+        return Arrays.asList(partitions);
+    }
+
+    @Override
+    public List<Partition> listPartitionsByExpr(ListPartitionsByExprRequest request) throws CatalogException {
+        //controller: listPartitionsByExpr()
+        String url = Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request) +
+            Constants.LIST_PARTITIONS_BY_EXPR;
         Partition[] partitions = withCatalogException(() -> postWithHeader(url, request.getInput(),
             request.getHeader(getToken())), Partition[].class);
         return Arrays.asList(partitions);
@@ -1018,6 +1092,20 @@ public class PolyCatClient implements CatalogPlugin {
         Partition[] partitions = withCatalogException(() -> postWithHeader(url, request.getInput(),
             request.getHeader(getToken())), Partition[].class);
         return Arrays.asList(partitions);
+    }
+
+    @Override
+    public Integer getPartitionCount(GetPartitionCountRequest request) throws CatalogException {
+        String url = Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request) + Constants.GET_PARTITION_COUNT;
+        return withCatalogException(() -> postWithHeader(url, request.getInput(),
+                request.getHeader(getToken())), Integer.class);
+    }
+
+    @Override
+    public String getLatestPartitionName(GetLatestPartitionNameRequest request) throws CatalogException {
+        String url = Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request) + Constants.GET_LATEST_PARTITION_NAME;
+        return withCatalogException(() -> postWithHeader(url, request.getInput(),
+                request.getHeader(getToken())), String.class);
     }
 
     @Override
@@ -1085,7 +1173,7 @@ public class PolyCatClient implements CatalogPlugin {
 
     @Override
     public MetaObjectName getObjectFromNameMap(GetObjectMapRequest request) {
-        String urlPrefix = catalogServerUrlPrefix + request.getProjectId()
+        String urlPrefix = catalogServerUrlPrefix + Constants.getProjectId(request)
             + Constants.OBJECT_NAME_MAP
             + Constants.GET_OBJECT;
 
@@ -1116,17 +1204,9 @@ public class PolyCatClient implements CatalogPlugin {
     }
 
     @Override
-    public PolyCatProfile getPolyCatProfile(GetPolyCatProfileRequest request) {
-        String url = Constants.getPolyCatProfileUrlPrefix(catalogServerUrlPrefix, request);
-        return withCatalogException(() -> getWithHeader(url, request.getHeader(getToken())), PolyCatProfile.class);
-    }
-
-    @Override
-    public List<Partition> listPartitionNamesByExpr(ListPartitionsByExprRequest request) {
-        String urlPrefix = Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request);
-        String url = makeReqParamsWithPrefix(urlPrefix, request.getParams());
-        return Arrays.asList(withCatalogException(
-            () -> postWithHeader(url, request.getInput(), request.getHeader(getToken())), Partition[].class));
+    public LakeProfile getLakeProfile(GetLakeProfileRequest request) {
+        String url = Constants.getLakeProfileUrlPrefix(catalogServerUrlPrefix, request);
+        return withCatalogException(() -> getWithHeader(url, request.getHeader(getToken())), LakeProfile.class);
     }
 
     @Override
@@ -1164,21 +1244,21 @@ public class PolyCatClient implements CatalogPlugin {
 
     @Override
     public DelegateOutput createDelegate(CreateDelegateRequest request) throws CatalogException {
-        String url = catalogServerUrlPrefix + request.getProjectId() + Constants.DELEGATES;
+        String url = catalogServerUrlPrefix + Constants.getProjectId(request) + Constants.DELEGATES;
         return withCatalogException(() -> postWithHeader(url, request.getInput(), request.getHeader(getToken())),
             DelegateOutput.class);
     }
 
     @Override
     public DelegateOutput getDelegate(GetDelegateRequest request) throws CatalogException {
-        String url = catalogServerUrlPrefix + request.getProjectId() + Constants.DELEGATES
+        String url = catalogServerUrlPrefix + Constants.getProjectId(request) + Constants.DELEGATES
             + Constants.QUESTION + Constants.REQ_PARAM_DELEGATE + Constants.EQUAL + request.getDelegateName();
         return withCatalogException(() -> getWithHeader(url, request.getHeader(getToken())), DelegateOutput.class);
     }
 
     @Override
     public PagedList<DelegateBriefInfo> listDelegates(ListDelegatesRequest request) throws CatalogException {
-        String url = catalogServerUrlPrefix + request.getProjectId() + Constants.DELEGATES + Constants.LIST;
+        String url = catalogServerUrlPrefix +Constants.getProjectId(request) + Constants.DELEGATES + Constants.LIST;
         if (request.getPattern() != null) {
             url += Constants.QUESTION + Constants.REQ_PARAM_PATTERN + Constants.EQUAL + request.getPattern();
         }
@@ -1190,7 +1270,7 @@ public class PolyCatClient implements CatalogPlugin {
 
     @Override
     public void deleteDelegate(DeleteDelegateRequest request) throws CatalogException {
-        String url = catalogServerUrlPrefix + request.getProjectId() + Constants.DELEGATES
+        String url = catalogServerUrlPrefix + Constants.getProjectId(request) + Constants.DELEGATES
             + Constants.QUESTION + Constants.REQ_PARAM_DELEGATE + Constants.EQUAL + request.getDelegateName();
         withCatalogException(() -> deleteWithHeader(url, request.getHeader(getToken())));
     }
@@ -1259,7 +1339,7 @@ public class PolyCatClient implements CatalogPlugin {
     }
 
     @Override
-    public List<TableUsageProfile> getUsageProfileDetails(GetUsageProfileDetailsRequest request) throws CatalogException {
+    public PagedList<TableUsageProfile> getUsageProfileDetails(GetUsageProfileDetailsRequest request) throws CatalogException {
         String urlPrefix = Constants.getUsageProfileUrlPrefix(catalogServerUrlPrefix, request)
                 + Constants.GET_USAGE_PROFILE_DETAILS;
 
@@ -1277,7 +1357,15 @@ public class PolyCatClient implements CatalogPlugin {
         if (request.getRowCount() != 0) {
             params.put(Constants.REQ_PARAM_ROW_COUNT, String.valueOf(request.getRowCount()));
         }
-
+        if (StringUtils.isNotEmpty(request.getPageToken())) {
+            params.put(Constants.REQ_PARAM_PAGE_TOKEN, request.getPageToken());
+        }
+        if (StringUtils.isNotEmpty(request.getTag())) {
+            params.put(Constants.REQ_PARAM_TAG, request.getTag());
+        }
+        if (Objects.nonNull(request.getOperations()) && !request.getOperations().isEmpty()) {
+            params.put(Constants.REQ_PARAM_OPERATIONS, String.join(",", request.getOperations()));
+        }
         if (request.getStartTimestamp() != 0L) {
             params.put(Constants.REQ_PARAM_START_TIME, String.valueOf(request.getStartTimestamp()));
         }
@@ -1293,8 +1381,7 @@ public class PolyCatClient implements CatalogPlugin {
         }
         String url = makeReqParamsWithPrefix(urlPrefix, params);
 
-        TableUsageProfile[] tableUsageProfiles = withCatalogException(() -> getWithHeader(url, request.getHeader(getToken())), TableUsageProfile[].class);
-        return Arrays.asList(tableUsageProfiles);
+        return CatalogClientHelper.listWithCatalogException(() -> getWithHeader(url, request.getHeader(getToken())), TableUsageProfile.class);
     }
 
     @Override
@@ -1329,6 +1416,60 @@ public class PolyCatClient implements CatalogPlugin {
         return Arrays.asList(tableUsageProfiles);
     }
 
+    /**
+     * update data lineage
+     *
+     * @param request request
+     * @throws CatalogException
+     */
+    @Override
+    public void updateDataLineage(UpdateDataLineageRequest request) throws CatalogException {
+        String url = Constants.getDataLineageUrlPrefix(catalogServerUrlPrefix, request)
+                + Constants.UPDATE_DATA_LINEAGE;
+        withCatalogException(() -> postWithHeader(url, request.getInput(), request.getHeader(getToken())));
+    }
+
+    /**
+     * search lineage graph
+     *
+     * @param request request
+     * @return {@link LineageInfo}
+     * @throws CatalogException
+     */
+    @Override
+    public LineageInfo searchDataLineageGraph(SearchDataLineageRequest request) throws CatalogException {
+        StringBuilder builder = new StringBuilder(Constants.getDataLineageUrlPrefix(catalogServerUrlPrefix, request))
+                .append(Constants.SEARCH_DATA_LINEAGE)
+                .append(Constants.QUESTION);
+        appendUrlParam(builder, Constants.REQ_PARAM_DB_TYPE, request.getDbType(), true);
+        appendUrlParam(builder, Constants.REQ_PARAM_OBJECT_TYPE, request.getObjectType(), true);
+        appendUrlParam(builder, Constants.REQ_PARAM_QUALIFIED_NAME, request.getQualifiedName(), true);
+        appendUrlParam(builder, Constants.REQ_PARAM_DEPTH, request.getDepth(), false);
+        appendUrlParam(builder, Constants.REQ_PARAM_DIRECTION, request.getDirection(), false);
+        appendUrlParam(builder, Constants.REQ_PARAM_LINEAGE_TYPE, request.getLineageType(), false);
+        appendUrlParam(builder, Constants.REQ_PARAM_START_TIME, request.getStartTime(), false);
+        return withCatalogException(() -> getWithHeader(builder.toString(),
+                request.getHeader(getToken())), LineageInfo.class);
+    }
+
+    /**
+     * lineage job fact by job fact id.
+     *
+     * @param request request
+     * @return {@link LineageFact}
+     * @throws CatalogException
+     */
+    @Override
+    public LineageFact getDataLineageFact(GetDataLineageFactRequest request) throws CatalogException {
+        StringBuilder builder = new StringBuilder(Constants.getDataLineageUrlPrefix(catalogServerUrlPrefix, request))
+                .append(Constants.GET_DATA_LINEAGE_FACT)
+                .append(Constants.QUESTION);
+        appendUrlParam(builder, Constants.REQ_PARAM_FACT_ID, request.getFactId(), true);
+        return withCatalogException(() -> getWithHeader(builder.toString(),
+                request.getHeader(getToken())), LineageFact.class);
+    }
+
+/*
 
     @Override
     public void insertDataLineage(InsertDataLineageRequest request) throws CatalogException {
@@ -1349,6 +1490,7 @@ public class PolyCatClient implements CatalogPlugin {
         return CatalogClientHelper.listWithCatalogException(() -> getWithHeader(url, request.getHeader(getToken())),
             DataLineage.class);
     }
+*/
 
     @Override
     public void setTableProperty(SetTablePropertyRequest request) throws CatalogException {
@@ -1526,22 +1668,23 @@ public class PolyCatClient implements CatalogPlugin {
     }
 
     @Override
-    public PagedList<ColumnStatisticsObj> getTableColumnsStatistics(GetTableColumnStatisticRequest request) {
+    public ColumnStatisticsObj[] getTableColumnsStatistics(GetTableColumnStatisticRequest request) {
         String prefixUrl =
             Constants.getTableUrlPrefix(catalogServerUrlPrefix, request) + Constants.SLASH + request.getTableName()
                 + Constants.COLUMN_STATISTICS;
         String url = makeReqParamsWithPrefix(prefixUrl, request.getParams());
 
-        return CatalogClientHelper.listWithCatalogException(
-            () -> getWithHeader(url, request.getHeader(getToken())), ColumnStatisticsObj.class);
+        return withCatalogException(
+            () -> getWithHeader(url, request.getHeader(getToken())), ColumnStatisticsObj[].class);
     }
 
     @Override
-    public void updateTableColumnStatistics(UpdateTableColumnStatisticRequest request) {
+    public boolean updateTableColumnStatistics(UpdateTableColumnStatisticRequest request) {
         String urlPrefix = Constants.getTableUrlPrefix(catalogServerUrlPrefix, request)
             + Constants.SLASH + request.getTableName() + Constants.COLUMN_STATISTICS;
         String url = makeReqParamsWithPrefix(urlPrefix, request.getParams());
-        withCatalogException(() -> patchWithHeader(url, request.getInput(), request.getHeader(getToken())));
+        return withCatalogException(() -> patchWithHeader(url, request.getInput(), request.getHeader(getToken())),
+                Boolean.class);
     }
 
     @Override
@@ -1582,12 +1725,12 @@ public class PolyCatClient implements CatalogPlugin {
     }
 
     @Override
-    public void updatePartitionColumnStatistics(UpdatePartitionColumnStatisticRequest request) {
+    public boolean updatePartitionColumnStatistics(UpdatePartitionColumnStatisticRequest request) {
         String prefixUrl =
             Constants.getPartitionUrlPrefix(catalogServerUrlPrefix, request) + Constants.COLUMN_STATISTICS;
         String url = makeReqParamsWithPrefix(prefixUrl, request.getParams());
 
-        withCatalogException(() -> postWithHeader(url, request.getInput(), request.getHeader(getToken())));
+        return withCatalogException(() -> postWithHeader(url, request.getInput(), request.getHeader(getToken())), Boolean.class);
     }
 
     @Override
@@ -1689,6 +1832,115 @@ public class PolyCatClient implements CatalogPlugin {
         withCatalogException(()->postWithHeader(url, request.getInput(), request.getHeader(getToken())));
     }
 
+    /**
+     * discovery fulltext
+     *
+     * @param request
+     * @return
+     * @throws CatalogException
+     */
+    @Override
+    public PagedList<DiscoverySearchBase> search(SearchBaseRequest request) throws CatalogException {
+        return CatalogClientHelper.listWithCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.SEARCH), request.getInput(), request.getHeader(getToken())), DiscoverySearchBase.class);
+    }
+
+    private String getDiscoveryUrl(SearchBaseRequest request, String urlSuffix) {
+        StringBuilder sb = new StringBuilder(Constants.getDiscoveryUrlPrefix(catalogServerUrlPrefix, request))
+                .append(urlSuffix);
+        sb.append(Constants.QUESTION);
+        appendUrlParam(sb, request.getPageToken(), Constants.REQ_PARAM_PAGE_TOKEN);
+        appendUrlParam(sb, request.getCatalogName(), Constants.REQ_PARAM_CATALOG_NAME);
+        appendUrlParam(sb, request.getKeyword(), Constants.REQ_PARAM_KEYWORD);
+        appendUrlParam(sb, request.getOwner(), Constants.REQ_PARAM_OWNER);
+        if (request.getCategoryId() != null) {
+            appendUrlParam(sb, request.getCategoryId().toString(), Constants.REQ_CATEGORY_ID);
+        }
+        if (request.getObjectType() != null) {
+            appendUrlParam(sb, request.getObjectType().name(), Constants.REQ_PARAM_OBJECT_TYPE);
+        }
+        appendUrlParam(sb, request.getLogicalOperator().name(), Constants.REQ_PARAM_LOGICAL_OPERATOR);
+        sb.append(Constants.REQ_PARAM_EXACT_MATCH).append(Constants.EQUAL).append(request.isExactMatch()).append(Constants.AND);
+        sb.append(Constants.REQ_PARAM_WITH_CATEGORIES).append(Constants.EQUAL).append(request.isWithCategories()).append(Constants.AND);
+        sb.append(Constants.LIMIT).append(Constants.EQUAL).append(request.getLimit());
+        return sb.toString();
+    }
+
+    private String getCategoryRelationUrl(CategoryRelationBaseRequest request, String urlSuffix) {
+        StringBuilder sb = new StringBuilder(Constants.getDiscoveryUrlPrefix(catalogServerUrlPrefix, request))
+                .append(urlSuffix);
+        sb.append(Constants.QUESTION);
+        appendUrlParam(sb, request.getCategoryId().toString(), Constants.REQ_CATEGORY_ID);
+        appendUrlParam(sb, request.getQualifiedName(), Constants.REQ_PARAM_QUALIFIED_NAME);
+        return sb.toString();
+    }
+
+    /**
+     * table fulltext
+     *
+     * @param request
+     * @return
+     * @throws CatalogException
+     */
+    @Override
+    public PagedList<TableSearch> searchTable(TableSearchRequest request) throws CatalogException {
+        return CatalogClientHelper.listWithCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.SEARCH), request.getInput(), request.getHeader(getToken())), TableSearch.class);
+    }
+
+    @Override
+    public PagedList<TableCategories> searchTableWithCategories(TableSearchRequest request) throws CatalogException {
+        return CatalogClientHelper.listWithCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.SEARCH), request.getInput(), request.getHeader(getToken())), TableCategories.class);
+    }
+
+    @Override
+    public PagedList<DatabaseSearch> searchDatabase(DatabaseSearchRequest request) throws CatalogException {
+        return CatalogClientHelper.listWithCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.SEARCH), request.getInput(), request.getHeader(getToken())), DatabaseSearch.class);
+    }
+
+    @Override
+    public PagedList<String> searchDiscoveryNames(SearchDiscoveryNamesRequest request) throws CatalogException {
+        return CatalogClientHelper.listWithCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.MATCH_LIST_NAMES), request.getInput(), request.getHeader(getToken())), String.class);
+    }
+
+    @Override
+    public void addCategoryRelation(AddCategoryRelationRequest request) throws CatalogException {
+        withCatalogException(()->patchWithHeader(getCategoryRelationUrl(request, Constants.ADD_CATEGORY_RELATION), request.getInput(), request.getHeader(getToken())));
+    }
+
+    @Override
+    public void removeCategoryRelation(RemoveCategoryRelationRequest request) throws CatalogException {
+        withCatalogException(()->deleteWithHeader(getCategoryRelationUrl(request, Constants.REMOVE_CATEGORY_RELATION), request.getHeader(getToken())));
+    }
+
+    @Override
+    public ObjectCount getObjectCountByCategory(GetObjectCountRequest request) throws CatalogException {
+        return withCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.GET_OBJECT_COUNT_BY_CATEGORY), request.getInput(), request.getHeader(getToken())),
+                ObjectCount.class);
+    }
+
+    @Override
+    public List<CatalogTableCount> getTableCountByCatalog(GetCatalogTableCountRequest request) throws CatalogException {
+        final CatalogTableCount[] catalogTableCounts = withCatalogException(
+                () -> postWithHeader(getDiscoveryUrl(request, Constants.GET_TABLE_COUNT_BY_CATALOG), request.getInput(), request.getHeader(getToken())),
+                CatalogTableCount[].class);
+        return Arrays.asList(catalogTableCounts);
+    }
+
+    @Override
+    public TableCategories getTableCategories(GetTableCategoriesRequest request) throws CatalogException {
+        final StringBuilder url = new StringBuilder(Constants.getDiscoveryUrlPrefix(catalogServerUrlPrefix, request));
+        url.append(Constants.GET_TABLE_CATEGORIES).append(Constants.QUESTION);
+        appendUrlParam(url, request.getQualifiedName(), Constants.REQ_PARAM_QUALIFIED_NAME);
+        return withCatalogException(
+                () -> getWithHeader(url.toString(), request.getHeader(getToken())), TableCategories.class
+        );
+    }
+
     @Override
     public KerberosToken getToken(GetTokenRequest request) throws CatalogException {
         String prefixUrl = Constants.getTokenUrlPrefix(catalogServerUrlPrefix, request) + Constants.SLASH + request.getTokenType();
@@ -1698,4 +1950,94 @@ public class PolyCatClient implements CatalogPlugin {
             () -> getWithHeader(url, request.getHeader(getToken())), KerberosToken.class);
     }
 
+    private String getGlossaryUrl(GlossaryBaseRequest request, String urlSuffix) {
+        StringBuilder sb = new StringBuilder(Constants.getGlossaryUrlPrefix(catalogServerUrlPrefix, request))
+                .append(urlSuffix);
+        sb.append(Constants.QUESTION);
+        if (request.getId() != null) {
+            appendUrlParam(sb, request.getId().toString(), Constants.REQ_ID);
+        }
+        return sb.toString();
+    }
+
+    @Override
+    public Glossary createGlossary(CreateGlossaryRequest request) throws CatalogException {
+       return withCatalogException(()->postWithHeader(getGlossaryUrl(request, Constants.CREATE_GLOSSARY), request.getInput(), request.getHeader(getToken())), Glossary.class);
+    }
+
+    @Override
+    public void alterGlossary(AlterGlossaryRequest request) throws CatalogException {
+        withCatalogException(()->postWithHeader(getGlossaryUrl(request, Constants.ALTER_GLOSSARY), request.getInput(), request.getHeader(getToken())));
+    }
+
+    @Override
+    public void deleteGlossary(DeleteGlossaryRequest request) throws CatalogException {
+        withCatalogException(()->deleteWithHeader(getGlossaryUrl(request, Constants.DELETE_GLOSSARY), request.getHeader(getToken())));
+    }
+
+    @Override
+    public Glossary getGlossary(GetGlossaryRequest request) throws CatalogException {
+        StringBuilder url = new StringBuilder(getGlossaryUrl(request, Constants.GET_GLOSSARY));
+        if (request.getGlossaryName() != null && !request.getGlossaryName().isEmpty()) {
+            appendUrlParam(url, request.getGlossaryName(),  Constants.REQ_NAME);
+        }
+        return withCatalogException(()->getWithHeader(url.toString(), request.getHeader(getToken())), Glossary.class);
+    }
+
+    @Override
+    public PagedList<Glossary> listGlossaryWithoutCategory(ListGlossaryRequest request) throws CatalogException {
+        return CatalogClientHelper.listWithCatalogException(()->getWithHeader(getGlossaryUrl(request, Constants.LIST_GLOSSARY_WITHOUT_CATEGORY), request.getHeader(getToken())), Glossary.class);
+    }
+
+    @Override
+    public Category createCategory(CreateCategoryRequest request) throws CatalogException {
+        return withCatalogException(()->postWithHeader(getGlossaryUrl(request, Constants.CREATE_CATEGORY), request.getInput(), request.getHeader(getToken())), Category.class);
+    }
+
+    @Override
+    public void alterCategory(AlterCategoryRequest request) throws CatalogException {
+        withCatalogException(()->postWithHeader(getGlossaryUrl(request, Constants.ALTER_CATEGORY), request.getInput(), request.getHeader(getToken())));
+    }
+
+    @Override
+    public void deleteCategory(DeleteCategoryRequest request) throws CatalogException {
+        withCatalogException(()->deleteWithHeader(getGlossaryUrl(request, Constants.DELETE_CATEGORY), request.getHeader(getToken())));
+    }
+
+    @Override
+    public Category getCategory(GetCategoryRequest request) throws CatalogException {
+        return withCatalogException(()->getWithHeader(getGlossaryUrl(request, Constants.GET_CATEGORY), request.getHeader(getToken())), Category.class);
+    }
+
+    private String getLockUrl(LockBaseRequest request, String urlSuffix) {
+        StringBuilder sb = new StringBuilder(Constants.getLockUrlPrefix(catalogServerUrlPrefix, request))
+                .append(urlSuffix);
+        sb.append(Constants.QUESTION);
+        if (request.getLockId() != null) {
+            appendUrlParam(sb, request.getLockId().toString(), Constants.REQ_LOCK_ID);
+        }
+        return sb.toString();
+    }
+
+    public LockInfo lock(CreateLockRequest request) throws CatalogException {
+        return withCatalogException(() -> postWithHeader(getLockUrl(request, Constants.CREATE_LOCK), request.getInput(), request.getHeader(getToken())), LockInfo.class);
+    }
+
+
+    public void heartbeat(LockHeartbeatRequest request) throws CatalogException {
+        withCatalogException(() -> getWithHeader(getLockUrl(request, Constants.HEART_BEAT), request.getHeader(getToken())));
+    }
+
+    public LockInfo checkLock(CheckLockRequest request) throws CatalogException {
+        return withCatalogException(() -> getWithHeader(getLockUrl(request, Constants.CHECK_LOCK), request.getHeader(getToken())), LockInfo.class);
+    }
+
+    public void unlock(UnlockRequest request) throws CatalogException {
+        withCatalogException(() -> deleteWithHeader(getLockUrl(request, Constants.UNLOCK), request.getHeader(getToken())));
+    }
+
+    public List<LockInfo> showLocks(ShowLocksRequest request) throws CatalogException {
+        final LockInfo[] lockInfos = withCatalogException(() -> getWithHeader(getLockUrl(request, Constants.SHOW_LOCKS), request.getHeader(getToken())), LockInfo[].class);
+        return Arrays.asList(lockInfos);
+    }
 }

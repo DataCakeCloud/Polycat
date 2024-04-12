@@ -20,7 +20,6 @@ package io.polycat.catalog.common.plugin.request.input;
 import java.util.List;
 
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.model.TableUsageProfile;
 
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;

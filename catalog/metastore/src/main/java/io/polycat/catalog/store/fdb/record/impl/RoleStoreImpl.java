@@ -25,13 +25,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
-import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.CatalogInnerObject;
+import io.polycat.catalog.common.model.PrivilegeRolesObject;
 import io.polycat.catalog.common.model.RoleObject;
 import io.polycat.catalog.common.model.RolePrivilegeObject;
 import io.polycat.catalog.common.model.RoleUserObject;
 import io.polycat.catalog.common.model.ScanRecordCursorResult;
 import io.polycat.catalog.common.model.TransactionContext;
+import io.polycat.catalog.common.plugin.request.input.ShowRolePrivilegesInput;
 import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.store.api.RoleStore;
 import io.polycat.catalog.store.common.StoreMetadata;
@@ -369,7 +370,7 @@ public class RoleStoreImpl implements RoleStore {
     }
 
     @Override
-    public List<RoleObject> getAllRoleObjects(TransactionContext context, String projectId, String userId, String namePattern) {
+    public List<RoleObject> getAllRoleObjects(TransactionContext context, String projectId, String userId, String namePattern, boolean containOwner) {
         ArrayList<RoleObject> roleObjects = new ArrayList<>();
         makeOutBoundRoles(context, roleObjects, projectId, userId, namePattern);
         makeInBoundRoles(context, roleObjects, userId, projectId, namePattern);
@@ -400,6 +401,23 @@ public class RoleStoreImpl implements RoleStore {
     @Override
     public List<RolePrivilegeObject> getRoleByIds(TransactionContext context, String projectId, String objectType, List<String> roleIds) {
         //TODO
+        return null;
+    }
+
+    @Override
+    public List<RolePrivilegeObject> showRolePrivileges(TransactionContext context, String projectId, List<String> roleIds,
+        ShowRolePrivilegesInput input, int batchNum, long batchOffset) {
+        return null;
+    }
+
+    @Override
+    public List<PrivilegeRolesObject> showPrivilegeRoles(TransactionContext context, String projectId,
+        List<String> collect, ShowRolePrivilegesInput input, int batchNum, long batchOffset) {
+        return null;
+    }
+
+    @Override
+    public List<RoleObject> showRoleInfos(TransactionContext context, String projectId, ShowRolePrivilegesInput input) {
         return null;
     }
 

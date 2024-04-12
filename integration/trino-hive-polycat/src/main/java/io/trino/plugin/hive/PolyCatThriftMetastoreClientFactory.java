@@ -32,7 +32,7 @@ package io.trino.plugin.hive;
 
 import org.apache.thrift.transport.TTransportException;
 
-import io.polycat.hivesdk.impl.PolyCatMetaStoreClient;
+import io.polycat.hivesdk.hive3.impl.PolyCatMetaStoreClient;
 
 public class PolyCatThriftMetastoreClientFactory {
 

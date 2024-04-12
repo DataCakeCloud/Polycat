@@ -18,14 +18,17 @@
 package io.polycat.catalog.server.controller;
 
 import io.polycat.catalog.audit.api.UserLog;
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.ObjectType;
+import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.Catalog;
 import io.polycat.catalog.common.model.CatalogResponse;
-import io.polycat.catalog.server.util.ResponseUtil;
+import io.polycat.catalog.server.util.BaseResponseUtil;
 import io.polycat.catalog.service.api.CatalogResourceService;
 import io.swagger.annotations.*;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -60,13 +63,21 @@ public class TenantController extends BaseController {
             }
         });
     }
-/*
-    *//**
+
+    @ApiOperation(value = "list projects")
+    @PostMapping(value = "listProject", produces = "application/json;charset=UTF-8")
+    public CatalogResponse<List<String>> listProject(
+            @ApiParam(value = "authorization") @RequestHeader("Authorization") String token) {
+        return createResponse(token, () -> {
+            return ResponseUtil.responseSuccess(resourceService.listProjects());
+        });
+    }
+    /*
      * drop catalog By name
      *
      * @param projectId projectId
      * @return ResponseEntity
-     *//*
+     */
     @ApiOperation(value = "drop project by name")
     @DeleteMapping(value = "/{project-name}", produces = "application/json;charset=UTF-8")
     public BaseResponse dropProject(
@@ -76,5 +87,5 @@ public class TenantController extends BaseController {
             resourceService.dropResource(projectId);
             return BaseResponseUtil.responseSuccess();
         });
-    }*/
+    }
 }

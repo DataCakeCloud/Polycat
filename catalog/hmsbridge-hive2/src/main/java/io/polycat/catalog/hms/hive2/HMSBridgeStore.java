@@ -17,31 +17,59 @@
  */
 package io.polycat.catalog.hms.hive2;
 
-import io.polycat.catalog.common.Logger;
-import io.polycat.catalog.common.exception.CatalogException;
-import io.polycat.catalog.common.http.CatalogClientHelper;
-import io.polycat.catalog.common.plugin.response.CatalogWebServiceResult;
-
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.metastore.FileMetadataHandler;
-import org.apache.hadoop.hive.metastore.ObjectStore;
-import org.apache.hadoop.hive.metastore.RawStore;
-import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.*;
-import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
-import org.apache.thrift.TException;
-import org.eclipse.jetty.http.HttpStatus;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import io.polycat.catalog.common.Logger;
+import io.polycat.catalog.common.exception.CatalogException;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.metastore.FileMetadataHandler;
+import org.apache.hadoop.hive.metastore.ObjectStore;
+import org.apache.hadoop.hive.metastore.RawStore;
+import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.AggrStats;
+import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
+import org.apache.hadoop.hive.metastore.api.CurrentNotificationEventId;
+import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.FileMetadataExprType;
+import org.apache.hadoop.hive.metastore.api.Function;
+import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
+import org.apache.hadoop.hive.metastore.api.Index;
+import org.apache.hadoop.hive.metastore.api.InvalidInputException;
+import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
+import org.apache.hadoop.hive.metastore.api.InvalidPartitionException;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.NotificationEvent;
+import org.apache.hadoop.hive.metastore.api.NotificationEventRequest;
+import org.apache.hadoop.hive.metastore.api.NotificationEventResponse;
+import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PartitionEventType;
+import org.apache.hadoop.hive.metastore.api.PartitionValuesResponse;
+import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
+import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
+import org.apache.hadoop.hive.metastore.api.Role;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLForeignKey;
+import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
+import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TableMeta;
+import org.apache.hadoop.hive.metastore.api.Type;
+import org.apache.hadoop.hive.metastore.api.UnknownDBException;
+import org.apache.hadoop.hive.metastore.api.UnknownPartitionException;
+import org.apache.hadoop.hive.metastore.api.UnknownTableException;
+import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
+import org.apache.thrift.TException;
+import org.eclipse.jetty.http.HttpStatus;
 
 public class HMSBridgeStore implements RawStore {
 
@@ -52,7 +80,6 @@ public class HMSBridgeStore implements RawStore {
     public final static String DOUBLE_WRITE_CONFIG = "hive.hmsbridge.doubleWrite";
     public final static String DELEGATE_ONLY_CONFIG = "hive.hmsbridge.delegateOnly";
     private final static String DEFAULT_CATALOG_NAME = "hive.hmsbridge.defaultCatalogName";
-    private final static String CLOUD_RESOURCE_URI = "hive.hmsbridge.cloudResourceUri";
 
     private RawStore delegatedStore;
     private CatalogStore lmsStore;
@@ -61,7 +88,6 @@ public class HMSBridgeStore implements RawStore {
     private boolean doubleWrite;
     private boolean delegateOnly;
     private String defaultCatalogName;
-    private String cloudResourceUri;
 
     public HMSBridgeStore() throws IOException {
         this.delegatedStore = new ObjectStore();
@@ -108,12 +134,6 @@ public class HMSBridgeStore implements RawStore {
             return;
         }
         db.setParameters(checkAndGetLmsFlagParameters(db.getParameters()));
-        final String warehouseDir = getConf().get("hive.metastore.warehouse.dir");
-        LOG.info("warehouseDir: {}, dbLocationUri: {}", warehouseDir, db.getLocationUri());
-        if (warehouseDir == null || warehouseDir.equals(db.getLocationUri()) || StringUtils.isEmpty(db.getLocationUri())) {
-            LOG.info("get real default location from cloud resource");
-            db.setLocationUri(getDefaultDBLocation(db));
-        }
         lmsStore.createDatabase(db);
         if (doubleWrite) {
             try {
@@ -125,30 +145,6 @@ public class HMSBridgeStore implements RawStore {
                 throw e;
             }
         }
-    }
-
-    private String getDefaultDBLocation(Database db) {
-        if (StringUtils.isNotEmpty(cloudResourceUri)) {
-            final String url = cloudResourceUri + "/cluster-service/cloud/resource/search?name=" + defaultCatalogName;
-            final Map<String, String> header = new HashMap<>();
-            header.put("tenantId", lmsStore.getProjectId());
-            header.put("userName", lmsStore.getUserId());
-            try {
-                final CatalogWebServiceResult result = CatalogClientHelper.getWithHeader(url, header);
-                final String entity = result.getEntity();
-                final JSONObject entityJson = JSON.parseObject(entity);
-                final Integer code = entityJson.getInteger("code");
-                if (code == 0) {
-                    final JSONArray jsonArray = entityJson.getJSONObject("data").getJSONArray("list");
-                    if (jsonArray.size() > 0) {
-                        return jsonArray.getJSONObject(0).getString("storage") + "/" + db.getName();
-                    }
-                }
-            } catch (Exception e) {
-                LOG.warn("Failed to get db location ", e);
-            }
-        }
-        return db.getLocationUri();
     }
 
     private Map<String, String> checkAndGetLmsFlagParameters(Map<String, String> parameters) {
@@ -651,6 +647,10 @@ public class HMSBridgeStore implements RawStore {
     @Override
     public List<String> listTableNamesByFilter(String dbName, String filter, short max_tables)
         throws MetaException, UnknownDBException {
+        final MetaObjectName objectName = getObjectFromNameMap(dbName);
+        if (objectName != null) {
+            return lmsStore.listTableNamesByFilter(objectName.getCatalogName(), dbName, filter, max_tables);
+        }
         return delegatedStore.listTableNamesByFilter(dbName, filter, max_tables);
     }
 
@@ -808,6 +808,14 @@ public class HMSBridgeStore implements RawStore {
     @Override
     public boolean getPartitionsByExpr(String dbName, String tblName, byte[] expr,
         String defaultPartitionName, short maxParts, List<Partition> result) throws TException {
+        if (delegateOnly) {
+            return delegatedStore.getPartitionsByExpr(dbName, tblName, expr, defaultPartitionName, maxParts, result);
+        }
+        MetaObjectName objectName = getObjectFromNameMap(dbName, tblName);
+        if (objectName != null) {
+            return lmsStore.getPartitionsByExpr(objectName.getCatalogName(), objectName.getDatabaseName(),
+                objectName.getObjectName(), expr, defaultPartitionName, maxParts, result);
+        }
         return delegatedStore.getPartitionsByExpr(dbName, tblName, expr, defaultPartitionName, maxParts, result);
     }
 
@@ -1053,12 +1061,22 @@ public class HMSBridgeStore implements RawStore {
     @Override
     public boolean updateTableColumnStatistics(ColumnStatistics colStats)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        ColumnStatisticsDesc statsObj = colStats.getStatsDesc();
+        MetaObjectName objectName = getObjectFromNameMap(statsObj.getDbName(), statsObj.getTableName());
+        if (objectName != null) {
+            return lmsStore.updateTableColumnStatistics(objectName.getCatalogName(), colStats);
+        }
         return delegatedStore.updateTableColumnStatistics(colStats);
     }
 
     @Override
     public boolean updatePartitionColumnStatistics(ColumnStatistics statsObj, List<String> partVals)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        ColumnStatisticsDesc statsDesc = statsObj.getStatsDesc();
+        MetaObjectName objectName = getObjectFromNameMap(statsDesc.getDbName(), statsDesc.getTableName());
+        if (objectName != null) {
+            return lmsStore.updatePartitionColumnStatistics(objectName.getCatalogName(), statsObj, partVals);
+        }
         return delegatedStore.updatePartitionColumnStatistics(statsObj, partVals);
     }
 
@@ -1067,7 +1085,7 @@ public class HMSBridgeStore implements RawStore {
         List<String> colName) throws MetaException, NoSuchObjectException {
         MetaObjectName objectName = getObjectFromNameMap(dbName, tableName);
         if (objectName != null) {
-            return null;
+            return lmsStore.getTableColumnStatistics(objectName.getCatalogName(), dbName, tableName, colName);
         }
         return delegatedStore.getTableColumnStatistics(dbName, tableName, colName);
     }
@@ -1075,6 +1093,11 @@ public class HMSBridgeStore implements RawStore {
     @Override
     public List<ColumnStatistics> getPartitionColumnStatistics(String dbName, String tblName,
         List<String> partNames, List<String> colNames) throws MetaException, NoSuchObjectException {
+        MetaObjectName objectName = getObjectFromNameMap(dbName, tblName);
+        if (objectName != null) {
+            return lmsStore.getPartitionColumnStatistics(objectName.getCatalogName(), dbName,
+                    tblName, partNames, colNames);
+        }
         return delegatedStore.getPartitionColumnStatistics(dbName, tblName, partNames, colNames);
     }
 
@@ -1082,12 +1105,21 @@ public class HMSBridgeStore implements RawStore {
     public boolean deletePartitionColumnStatistics(String dbName, String tableName, String partName,
         List<String> partVals, String colName)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        MetaObjectName objectName = getObjectFromNameMap(dbName, tableName);
+        if (objectName != null) {
+            return lmsStore.deletePartitionColumnStatistics(objectName.getCatalogName(),
+                    dbName, tableName, partName, partVals, colName);
+        }
         return delegatedStore.deletePartitionColumnStatistics(dbName, tableName, partName, partVals, colName);
     }
 
     @Override
     public boolean deleteTableColumnStatistics(String dbName, String tableName, String colName)
         throws NoSuchObjectException, MetaException, InvalidObjectException, InvalidInputException {
+        MetaObjectName objectName = getObjectFromNameMap(dbName, tableName);
+        if (objectName != null) {
+            return lmsStore.deleteTableColumnStatistics(objectName.getCatalogName(), dbName, tableName, colName);
+        }
         return delegatedStore.deleteTableColumnStatistics(dbName, tableName, colName);
     }
 
@@ -1325,7 +1357,9 @@ public class HMSBridgeStore implements RawStore {
 
     @Override
     public List<Function> getAllFunctions() throws MetaException {
-        return delegatedStore.getAllFunctions();
+        List<Function> functions = lmsStore.getAllFunctions(defaultCatalogName);
+        functions.addAll(delegatedStore.getAllFunctions());
+        return functions;
     }
 
     @Override
@@ -1346,12 +1380,16 @@ public class HMSBridgeStore implements RawStore {
         if (pattern.equals("*")) {
             return "";
         }
-        return pattern;
+        return pattern.replaceAll("\\*", "%");
     }
 
     @Override
     public AggrStats get_aggr_stats_for(String dbName, String tblName, List<String> partNames,
         List<String> colNames) throws MetaException, NoSuchObjectException {
+        MetaObjectName objectName = getObjectFromNameMap(dbName, tblName);
+        if (objectName != null) {
+            return lmsStore.getAggrColStats(objectName.getCatalogName(), dbName, tblName, partNames, colNames);
+        }
         return delegatedStore.get_aggr_stats_for(dbName, tblName, partNames, colNames);
     }
 
@@ -1471,8 +1509,6 @@ public class HMSBridgeStore implements RawStore {
         String delegateOnlyConfig = configuration.get(DELEGATE_ONLY_CONFIG);
         delegateOnly = delegateOnlyConfig != null && delegateOnlyConfig.equalsIgnoreCase("true");
         defaultCatalogName = configuration.get(DEFAULT_CATALOG_NAME);
-
-        cloudResourceUri = configuration.get(CLOUD_RESOURCE_URI);
 
         if (lmsStore != null) {
             lmsStore.setConf(configuration);

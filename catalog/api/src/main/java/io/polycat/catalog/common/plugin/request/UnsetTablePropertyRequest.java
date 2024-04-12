@@ -18,8 +18,8 @@
 package io.polycat.catalog.common.plugin.request;
 
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
 import io.polycat.catalog.common.plugin.request.input.UnsetTablePropertyInput;
+import io.polycat.catalog.common.plugin.request.base.TableRequestBase;
 
 public class UnsetTablePropertyRequest extends TableRequestBase<UnsetTablePropertyInput> {
 

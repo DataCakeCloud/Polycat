@@ -44,7 +44,9 @@ public class DeletePartitionColumnStatisticsRequest extends TableRequestBase<Voi
     public Map<String, String> getParams() {
         Map<String, String> params = new HashMap<>();
         params.put(Constants.PARTITION_NAME, URLEncoder.encode(partName));
-        params.put(Constants.COLUMN_NAME, URLEncoder.encode(colName));
+        if (colName != null) {
+            params.put(Constants.COLUMN_NAME, URLEncoder.encode(colName));
+        }
         return params;
     }
     @Override

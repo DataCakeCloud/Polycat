@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionContext;
 import com.apple.foundationdb.subspace.Subspace;
 
+import io.polycat.catalog.common.MetaStoreException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import io.polycat.catalog.common.ErrorCode;
-import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.StoreObject;
 import io.polycat.catalog.store.api.StoreBase;
 

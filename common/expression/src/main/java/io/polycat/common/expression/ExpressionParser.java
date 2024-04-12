@@ -20,7 +20,7 @@ package io.polycat.common.expression;
 import io.polycat.sql.PolyCatSQLBaseVisitor;
 import io.polycat.sql.PolyCatSQLLexer;
 import io.polycat.sql.PolyCatSQLParser;
-import jdk.nashorn.internal.runtime.regexp.joni.exception.SyntaxException;
+
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 

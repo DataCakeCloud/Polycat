@@ -33,7 +33,8 @@ import java.util.List;
 @ConditionalOnProperty(name = "database.type", havingValue = "gauss")
 public class GlobalShareStoreImpl implements GlobalShareStore {
     @Override
-    public Boolean shareObjectNameExist(TransactionContext context, String projectId, String shareName) throws MetaStoreException {
+    public Boolean shareObjectNameExist(
+        TransactionContext context, String projectId, String shareName) throws MetaStoreException {
         return null;
     }
 

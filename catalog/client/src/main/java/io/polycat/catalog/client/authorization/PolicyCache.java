@@ -24,8 +24,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -42,8 +40,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import io.polycat.catalog.client.PolyCatClient;
-import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.Logger;
+import io.polycat.catalog.common.PolyCatConf;
 import io.polycat.catalog.common.model.MetaPrivilegePolicy;
 import io.polycat.catalog.common.model.Principal;
 import io.polycat.catalog.common.utils.GsonUtil;

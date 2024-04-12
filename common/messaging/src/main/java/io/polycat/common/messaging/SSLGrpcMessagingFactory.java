@@ -25,12 +25,13 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslProvider;
+import io.polycat.common.messaging.grpc.MessageClientGrpcImpl;
+import io.polycat.common.messaging.grpc.MessageServerGrpcImpl;
+
 import io.polycat.catalog.common.Address;
 import io.polycat.catalog.common.GlobalConfig;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.exception.CarbonSqlException;
-import io.polycat.common.messaging.grpc.MessageClientGrpcImpl;
-import io.polycat.common.messaging.grpc.MessageServerGrpcImpl;
 import io.polycat.common.messaging.grpc.generated.ServerGrpc;
 
 import javax.net.ssl.SSLException;

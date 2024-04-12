@@ -17,12 +17,15 @@
  */
 package io.polycat.catalog.store.fdb.record.impl;
 
+import com.google.common.collect.Lists;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.store.api.ResourceStore;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 @Configuration
 @ConditionalOnProperty(name = "database.type", havingValue = "fdb")
@@ -40,6 +43,16 @@ public class ResourceStoreImpl implements ResourceStore {
 
     @Override
     public void dropResource(TransactionContext context, String projectId) throws MetaStoreException {
+
+    }
+
+    @Override
+    public List<String> listProjects(TransactionContext context) {
+        return Lists.newArrayList();
+    }
+
+    @Override
+    public void resourceCheck(TransactionContext context) {
 
     }
 }

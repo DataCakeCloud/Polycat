@@ -20,6 +20,7 @@ package io.polycat.catalog.server.service.impl;
 import java.util.List;
 import java.util.Optional;
 
+import io.polycat.catalog.server.util.TransactionRunner;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
@@ -30,7 +31,6 @@ import io.polycat.catalog.common.model.TableBaseObject;
 import io.polycat.catalog.common.model.TableIdent;
 import io.polycat.catalog.common.model.TransactionContext;
 import io.polycat.catalog.common.model.TransactionIsolationLevel;
-import io.polycat.catalog.server.util.TransactionRunner;
 import io.polycat.catalog.store.api.TableMetaStore;
 import io.polycat.catalog.store.common.StoreConvertor;
 

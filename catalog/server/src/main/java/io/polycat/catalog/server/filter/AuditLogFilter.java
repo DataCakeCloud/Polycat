@@ -19,6 +19,7 @@ package io.polycat.catalog.server.filter;
 
 import io.polycat.catalog.audit.api.AuditLogService;
 import io.polycat.catalog.audit.impl.AuditLogHelper;
+import io.polycat.catalog.server.util.SpringContextUtils;
 import io.polycat.catalog.common.CatalogConstants;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.AuditLog;
@@ -27,7 +28,6 @@ import io.polycat.catalog.common.plugin.request.input.TableInput;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.polycat.catalog.server.util.SpringContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;

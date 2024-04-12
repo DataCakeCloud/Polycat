@@ -17,6 +17,7 @@
  */
 package io.polycat.catalog.server.controller;
 
+import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.Constants;
 import io.polycat.catalog.common.ErrorCode;
@@ -26,7 +27,6 @@ import io.polycat.catalog.common.model.KerberosToken;
 import io.polycat.catalog.common.model.PagedList;
 import io.polycat.catalog.common.plugin.request.input.TokenInput;
 import io.polycat.catalog.server.util.BaseResponseUtil;
-import io.polycat.catalog.server.util.ResponseUtil;
 import io.polycat.catalog.service.api.TokenService;
 
 import io.swagger.annotations.Api;

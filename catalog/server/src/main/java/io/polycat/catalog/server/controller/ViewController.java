@@ -17,11 +17,11 @@
  */
 package io.polycat.catalog.server.controller;
 
+import io.polycat.catalog.server.util.BaseResponseUtil;
 import io.polycat.catalog.common.model.BaseResponse;
 import io.polycat.catalog.common.model.DatabaseName;
 import io.polycat.catalog.common.model.ViewName;
 import io.polycat.catalog.common.plugin.request.input.ViewInput;
-import io.polycat.catalog.server.util.BaseResponseUtil;
 import io.polycat.catalog.service.api.ViewService;
 import io.polycat.catalog.store.common.StoreConvertor;
 
@@ -32,7 +32,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;

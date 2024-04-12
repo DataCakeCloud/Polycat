@@ -57,4 +57,8 @@ public class TableName {
         this.databaseName = src.databaseName;
         this.tableName = src.tableName;
     }
+
+    public String getQualifiedName() {
+        return String.format("%s.%s.%s", catalogName, databaseName, tableName);
+    }
 }

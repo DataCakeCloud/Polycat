@@ -251,15 +251,15 @@
   <select id="getTablePartitionInfoByFilter" resultMap="partitionInfoMap" >
     SELECT * FROM (SELECT * FROM schema_${projectId}.table_partition_info_${tableId} WHERE set_id = #{setId}
     ) AS p
-      ${filter}
+    ${filter}
     LIMIT ${maxParts}
   </select>
 
-  <select id="getTablePartitionInfoBySqlFilter" resultMap="partitionInfoMap" >
+ <!-- <select id="getTablePartitionInfoBySqlFilter" resultMap="partitionInfoMap" >
     SELECT * FROM schema_${projectId}.table_partition_info_${tableId}
     WHERE ${filter}
     LIMIT ${maxParts}
-  </select>
+  </select>-->
 
   <delete id="deletePartitionInfoByName">
     WITH
@@ -282,6 +282,18 @@
     AND
     c.table_id = #{tableId}-->
   </delete>
+
+  <select id="getPartitionCountByFilter" resultType="Integer">
+    select count(*) from schema_${projectId}.table_partition_info_${tableId}
+    <if test="filter != null and filter != ''">
+      ${filter}
+    </if>
+    ;
+  </select>
+
+  <select id="getLatestPartitionName" resultType="String">
+    select partition_name from schema_${projectId}.table_partition_info_${tableId} order by start_time desc limit 1;
+  </select>
 
   <select id="getTableIndexPartitionSet" resultType="io.polycat.catalog.store.gaussdb.pojo.TableIndexPartitionSetRecord">
     SELECT * from schema_${projectId}.table_index_partition_set_${tableId} WHERE set_id = #{setId}

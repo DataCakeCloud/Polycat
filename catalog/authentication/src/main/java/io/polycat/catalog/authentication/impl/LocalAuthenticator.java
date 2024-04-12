@@ -33,11 +33,11 @@ import java.util.LinkedList;
 import java.util.List;
 
 import io.polycat.catalog.authentication.api.Authenticator;
-import io.polycat.catalog.authentication.model.AuthenticationResult;
 import io.polycat.catalog.authentication.model.Identity;
 import io.polycat.catalog.authentication.model.LocalIdentity;
 import io.polycat.catalog.authentication.model.LocalToken;
 import io.polycat.catalog.authentication.model.TokenParseResult;
+import io.polycat.catalog.authentication.model.AuthenticationResult;
 import io.polycat.catalog.common.GlobalConfig;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.exception.CatalogException;

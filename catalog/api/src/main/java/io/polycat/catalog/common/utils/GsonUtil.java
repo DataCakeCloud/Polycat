@@ -21,8 +21,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.net.URLEncoder;
 
-import io.polycat.catalog.common.http.InterfaceAdapter;
 import io.polycat.catalog.common.types.DataType;
+import io.polycat.catalog.common.http.InterfaceAdapter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -43,6 +43,16 @@ public class GsonUtil {
         return new GsonBuilder()
                 .registerTypeAdapter(DataType.class, new InterfaceAdapter<DataType>())
                 .create();
+    }
+
+    public static Gson create(Type type, Object typeAdapter) {
+        if (type != null && typeAdapter != null) {
+            return new GsonBuilder()
+                    .registerTypeAdapter(type, typeAdapter)
+                    .registerTypeAdapter(DataType.class, new InterfaceAdapter<DataType>())
+                    .create();
+        }
+        return create(false);
     }
 
     public static String toJson(Object object) {

@@ -27,44 +27,28 @@ import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.ObjectType;
-import io.polycat.catalog.common.model.DatabaseIdent;
-import io.polycat.catalog.common.model.EffectType;
+import io.polycat.catalog.common.model.RolePrivilege;
 import io.polycat.catalog.common.model.MetaPrivilegePolicy;
 import io.polycat.catalog.common.model.ObjectPrivilege;
-import io.polycat.catalog.common.model.OperationPrivilege;
-import io.polycat.catalog.common.model.OperationPrivilegeType;
 import io.polycat.catalog.common.model.PolicyModifyType;
 import io.polycat.catalog.common.model.PrincipalSource;
 import io.polycat.catalog.common.model.PrincipalType;
 import io.polycat.catalog.common.model.Role;
 import io.polycat.catalog.common.model.RoleObject;
 import io.polycat.catalog.common.model.RolePrincipalObject;
-import io.polycat.catalog.common.model.ShareConsumerObject;
-import io.polycat.catalog.common.model.ShareObject;
-import io.polycat.catalog.common.model.TableIdent;
 import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.common.model.ViewIdent;
-import io.polycat.catalog.common.model.ViewRecordObject;
 import io.polycat.catalog.common.plugin.request.input.RoleInput;
 import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.service.api.NewRoleService;
-import io.polycat.catalog.store.api.NewRoleStore;
 import io.polycat.catalog.store.api.PolicyStore;
 import io.polycat.catalog.store.api.Transaction;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
-import io.polycat.catalog.store.fdb.record.impl.CatalogStoreImpl;
 import io.polycat.catalog.store.fdb.record.impl.NewRoleStoreImpl;
-import io.polycat.catalog.store.fdb.record.impl.PolicyStoreImpl;
-import io.polycat.catalog.store.fdb.record.impl.RoleStoreImpl;
-import io.polycat.catalog.store.fdb.record.impl.ShareStoreImpl;
-import io.polycat.catalog.store.fdb.record.impl.TransactionImpl;
-import io.polycat.catalog.store.fdb.record.impl.ViewStoreImpl;
 import io.polycat.catalog.util.CheckUtil;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Service;
 
 @Configuration
 @ConditionalOnProperty(name = "metastore.type", havingValue = "polyCat")
@@ -199,7 +183,7 @@ public class NewRoleServiceImpl implements NewRoleService {
         List<ObjectPrivilege> objectPrivilegeList) {
         Role role = new Role();
 
-        List<io.polycat.catalog.common.model.RolePrivilege> rolePrivilegeList = new ArrayList<>();
+        List<RolePrivilege> rolePrivilegeList = new ArrayList<>();
         role.setProjectId(roleObject.getProjectId());
         role.setRoleId(roleObject.getRoleId());
         role.setRoleName(roleObject.getRoleName());
@@ -211,14 +195,14 @@ public class NewRoleServiceImpl implements NewRoleService {
         role.setCreatedTime(SDF.format(date));
         for (int i = 0; i < objectPrivilegeList.size(); i++) {
             ObjectPrivilege objectPrivilege = objectPrivilegeList.get(i);
-            io.polycat.catalog.common.model.RolePrivilege rolePrivilege = new io.polycat.catalog.common.model.RolePrivilege();
+            RolePrivilege rolePrivilege = new RolePrivilege();
             rolePrivilege.setName(objectPrivilege.getObjectName());
             rolePrivilege.setPrivilege(objectPrivilege.getPrivilege());
             rolePrivilege.setGrantedOn(objectPrivilege.getObjectType());
             rolePrivilegeList.add(rolePrivilege);
 
         }
-        role.setRolePrivileges(rolePrivilegeList.toArray(new io.polycat.catalog.common.model.RolePrivilege[0]));
+        role.setRolePrivileges(rolePrivilegeList.toArray(new RolePrivilege[0]));
         return role;
     }
 

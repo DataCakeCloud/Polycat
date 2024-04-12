@@ -25,7 +25,6 @@ import io.polycat.catalog.service.api.TokenService;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Service;
 
 @Configuration
 @ConditionalOnProperty(name = "metastore.type", havingValue = "polyCat")

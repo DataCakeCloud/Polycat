@@ -20,16 +20,16 @@ package io.polycat.common.expression.comparison;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import io.polycat.common.expression.rule.ToExpressionVisitor;
+
 import io.polycat.catalog.common.exception.CarbonSqlException;
 import io.polycat.catalog.common.model.record.Field;
 import io.polycat.catalog.common.model.record.Record;
 import io.polycat.catalog.common.model.record.StringWritable;
-import io.polycat.catalog.common.types.DataType;
 import io.polycat.catalog.common.types.DataTypes;
 import io.polycat.common.expression.Attribute;
 import io.polycat.common.expression.Expression;
 import io.polycat.common.expression.ExpressionBase;
-import io.polycat.common.expression.rule.ToExpressionVisitor;
 
 public class LikeExpression extends ExpressionBase {
 

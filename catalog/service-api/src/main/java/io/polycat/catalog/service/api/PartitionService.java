@@ -72,7 +72,7 @@ public interface PartitionService {
 
     Partition getPartitionWithAuth(TableName tableName, GetPartitionWithAuthInput partitionInput);
 
-    String[] listPartitionNames(TableName tableName, int maxParts);
+    String[] listPartitionNames(TableName tableName, PartitionFilterInput filterInput, boolean escape);
 
     String[] listPartitionNamesByFilter(TableName tableName, PartitionFilterInput filterInput);
 
@@ -91,13 +91,20 @@ public interface PartitionService {
 
     TableStats getTableStats(TableName tableName);
 
+    /**
+     * Get the object based on partitionName, partName may need to be escaped.
+     *
+     * @param tableName
+     * @param partitionName
+     * @return
+     */
     Partition getPartitionByName(TableName tableName, String partitionName);
 
     Partition getPartitionByValue(TableName tableName, List<String> partVals);
 
-    void updatePartitionColumnStatistics(TableName tableName, ColumnStatisticsInput stats);
+    boolean updatePartitionColumnStatistics(TableName tableName, ColumnStatisticsInput stats);
 
-    PartitionStatisticData getPartitionColumnStatistic(TableName tableName, List<String> partNames, List<String> columns);
+    PartitionStatisticData getPartitionColumnStatistics(TableName tableName, List<String> partNames, List<String> colNames);
 
     void deletePartitionColumnStatistics(TableName tableName, String partName, String columnName);
 
@@ -106,4 +113,8 @@ public interface PartitionService {
     AggrStatisticData getAggrColStatsFor(TableName tableName, List<String> partNames, List<String> columns);
 
     boolean doesPartitionExists(TableName tableName, PartitionValuesInput partitionValuesInput);
+
+    Integer getTablePartitionCount(TableName tableName, PartitionFilterInput filterInput);
+
+    String getLatestPartitionName(TableName tableName);
 }

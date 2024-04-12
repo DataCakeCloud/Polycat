@@ -17,9 +17,6 @@
  */
 package io.polycat.catalog.common.plugin.request;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import io.polycat.catalog.common.Operation;
 import io.polycat.catalog.common.plugin.request.base.ProjectRequestBase;
 

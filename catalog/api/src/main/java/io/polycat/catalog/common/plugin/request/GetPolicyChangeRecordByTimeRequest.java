@@ -27,7 +27,7 @@ import lombok.Data;
  * @Create: 2022-05-07
  **/
 @Data
-public class GetPolicyChangeRecordByTimeRequest extends ProjectRequestBase<Void>{
+public class GetPolicyChangeRecordByTimeRequest extends ProjectRequestBase<Void> {
 
     private long updateTime;
 

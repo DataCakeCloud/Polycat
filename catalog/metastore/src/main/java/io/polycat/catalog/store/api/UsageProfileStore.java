@@ -24,7 +24,7 @@ import java.util.Set;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.*;
 
-public interface UsageProfileStore {
+public interface UsageProfileStore extends SubspaceStore {
 
     void createUsageProfileSubspace(TransactionContext context, String projectId);
 
@@ -59,5 +59,5 @@ public interface UsageProfileStore {
 
     List<String> getTableAccessUsers(TransactionContext context, String projectId, String catalogName, String databaseName, String tableName);
 
-    List<UsageProfileObject> getUsageProfileDetailsByCondition(TransactionContext context, String projectId, UsageProfileObject upo, long startTime, long endTime, int rowCount);
+    List<TableUsageProfile> getUsageProfileDetailsByCondition(TransactionContext context, String projectId, UsageProfileObject upo, List<String> operations, long startTime, long endTime, int rowCount, long offset);
 }

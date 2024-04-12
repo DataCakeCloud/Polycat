@@ -36,5 +36,5 @@ public class BooleanColumnStatsData{
     protected long numNulls; // required
 
     @ApiModelProperty(value = "bit vectors")
-    protected ByteBuffer bitVectors; // optional
+    protected byte[] bitVectors; // optional
 }

@@ -46,11 +46,11 @@ public class PGRoleServiceImplTest extends PGBaseServiceImplTest {
         valueAssertEquals(roleName, role.getRoleName());
         Role roleById = roleService.getRoleById(PROJECT_ID, role.getRoleId());
         valueAssertEquals(role, roleById);
-        valueAssertEquals(0, roleService.getRoleModels(PROJECT_ID, "test_user", "test").size());
-        valueAssertEquals(0, roleService.getRoleModels(PROJECT_ID, ownerUser, "test").size());
+        valueAssertEquals(0, roleService.getRoleModels(PROJECT_ID, "test_user", "test", true).size());
+        valueAssertEquals(0, roleService.getRoleModels(PROJECT_ID, ownerUser, "test", true).size());
         roleService.createRole(PROJECT_ID, makeRoleInput("test1", ownerUser, comment));
-        valueAssertEquals(1, roleService.getRoleModels(PROJECT_ID, ownerUser, "test").size());
-        valueAssertEquals(2, roleService.getRoleModels(PROJECT_ID, ownerUser, "").size());
+        valueAssertEquals(1, roleService.getRoleModels(PROJECT_ID, ownerUser, "test", true).size());
+        valueAssertEquals(2, roleService.getRoleModels(PROJECT_ID, ownerUser, "", true).size());
     }
 
     private RoleInput makeRoleInput(String roleName, String ownerUser, String comment) {

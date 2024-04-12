@@ -41,4 +41,14 @@ public class CatalogInnerObject extends DatabaseBase {
         this.databaseName = databaseName;
         this.objectName = objectName;
     }
+
+    @Override
+    public String toString() {
+        return "CatalogInnerObject{" +
+                "objectName='" + objectName + '\'' +
+                ", objectId='" + objectId + '\'' +
+                ", projectId='" + projectId + '\'' +
+                ", databaseName='" + databaseName + '\'' +
+                '}';
+    }
 }

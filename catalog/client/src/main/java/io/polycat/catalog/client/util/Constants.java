@@ -34,7 +34,7 @@ public class Constants {
 
     public static final String CATALOGS = "/catalogs";
 
-    public static final String POLYCATPROFILE = "/pcprofile";
+    public static final String LAKEPROFILE = "/lakeprofile";
 
     public static final String BRANCHS = "/sub-branches";
 
@@ -64,7 +64,7 @@ public class Constants {
 
     public static final String ALL = "all";
 
-    public static final String LIMITS = "limits";
+    public static final String LIMIT = "limit";
 
     public static final String PAGETOKEN = "pageToken";
 
@@ -88,6 +88,8 @@ public class Constants {
 
     public static final String LIST_TABLE_NAMES = "/listTableNames";
 
+    public static final String LIST_TABLE_OBJECTS = "/listTableObjects";
+
     public static final String NAMES = "/names";
 
     public static final String TABLES = "/tables";
@@ -103,6 +105,8 @@ public class Constants {
     public static final String LIST_PARTITION_NAMES_BY_FILTER = "/listPartitionNamesByFilter";
 
     public static final String LIST_PARTITIONS_PS_WITH_AUTH = "/listPartitionsPsWithAuth";
+
+    public static final String LIST_PARTITIONS_BY_EXPR = "/listByExpr";
 
     public static final String SHOW_PARTITIONS = "/showPartitions";
 
@@ -120,13 +124,30 @@ public class Constants {
 
     public static final String GET_PARTITION_WITH_AUTH = "/getPartitionWithAuth";
 
+    public static final String GET_PARTITION_COUNT = "/getPartitionCount";
+    public static final String GET_LATEST_PARTITION_NAME = "/getLatestPartitionName";
+
     public static final String RESTORE = "/restore";
 
     public static final String STAT = "/stats";
 
+    public static final String REQ_ID = "id";
+
+    public static final String REQ_NAME = "name";
+
+    public static final String REQ_CATEGORY_ID = "categoryId";
+    public static final String REQ_DISCOVERY_ID = "discoveryId";
+
+    public static final String REQ_PARAM_QUALIFIED_NAME = "qualifiedName";
+
     public static final String REQ_PARAM_IGNORE_UNKNOWN_OBJ = "ignoreUnknownObj";
 
     public static final String REQ_PARAM_OBJECT_TYPE = "objectType";
+
+    public static final String REQ_PARAM_EXACT_MATCH = "exactMatch";
+    public static final String REQ_PARAM_WITH_CATEGORIES = "withCategories";
+
+    public static final String REQ_PARAM_LOGICAL_OPERATOR = "logicalOperator";
 
     public static final String REQ_PARAM_OBJECT_NAME = "objectName";
 
@@ -142,7 +163,16 @@ public class Constants {
 
     public static final String REQ_PARAM_USER_ID = "userId";
 
+    public static final String REQ_PARAM_FACT_ID = "factId";
+    public static final String REQ_PARAM_DB_TYPE = "dbType";
+    public static final String REQ_PARAM_DEPTH = "depth";
+    public static final String REQ_PARAM_DIRECTION = "direction";
+
     public static final String REQ_PARAM_TASK_ID = "taskId";
+
+    public static final String REQ_PARAM_TAG = "tag";
+
+    public static final String REQ_PARAM_OPERATIONS = "operations";
 
     public static final String REQ_PARAM_ROLE_NAME = "roleName";
 
@@ -158,6 +188,10 @@ public class Constants {
 
     public static final String REQ_PARAM_KEYWORD = "keyword";
 
+    public static final String REQ_PARAM_OWNER = "owner";
+
+    public static final String REQ_PARAM_CONTAIN_OWNER = "containOwner";
+
     public static final String REQ_PARAM_FILTER_TYPE = "filterType";
 
     public static final String REQ_PARAM_VERSION = "version";
@@ -172,6 +206,8 @@ public class Constants {
 
     public static final String REQ_PARAM_TOP_TYPE = "topType";
 
+    public static final String REQ_PARAM_ESCAPE = "escape";
+
     public static final String REQ_PARAM_TOP_NUM = "topNum";
 
     public static final String REQ_PARAM_ROW_COUNT = "rowCount";
@@ -183,6 +219,8 @@ public class Constants {
     public static final String REQ_PARAM_LINEAGE_TYPE = "lineageType";
 
     public static final String REQ_PARAM_FUNCTION_NAME = "functionName";
+
+    public static final String REQ_LOCK_ID = "lockId";
 
     public static final String LATEST_VERSION = "/latestVersion";
 
@@ -212,7 +250,11 @@ public class Constants {
 
     public static final String REVOKE_PRIVILEGE = "/revokePrivilege";
 
-    public static final String SHOW_PRIVILEGE = "/showPrivilege";
+    public static final String SHOW_PRIVILEGES = "/showPrivileges";
+
+    public static final String SHOW_ROLE_PRIVILEGES = "/showRolePrivileges";
+
+    public static final String SHOW_PRIVILEGE_ROLES = "/showPrivilegeRoles";
 
     public static final String SHOW_ALL_ROLE_NAME = "/showAllRoleName";
 
@@ -229,6 +271,45 @@ public class Constants {
     public static final String ROLES = "/roles";
 
     public static final String POLICY = "/policy";
+
+    public static final String DISCOVERY = "/discovery";
+
+    public static final String GLOSSARY = "/glossary";
+
+    public static final String LOCK = "/lock";
+
+    public static final String CREATE_LOCK = "/createLock";
+
+    public static final String HEART_BEAT = "/heartbeat";
+
+    public static final String CHECK_LOCK = "/checkLock";
+
+    public static final String SHOW_LOCKS = "/showLocks";
+
+    public static final String UNLOCK = "/unlock";
+
+    public static final String CREATE_GLOSSARY = "/createGlossary";
+    public static final String ALTER_GLOSSARY = "/alterGlossary";
+    public static final String DELETE_GLOSSARY = "/deleteGlossary";
+    public static final String GET_GLOSSARY = "/getGlossary";
+    public static final String LIST_GLOSSARY_WITHOUT_CATEGORY = "/listGlossaryWithoutCategory";
+    public static final String CREATE_CATEGORY = "/createCategory";
+    public static final String ALTER_CATEGORY = "/alterCategory";
+    public static final String DELETE_CATEGORY = "/deleteCategory";
+    public static final String GET_CATEGORY = "/getCategory";
+
+    public static final String ADD_CATEGORY_RELATION = "/addCategoryRelation";
+    public static final String REMOVE_CATEGORY_RELATION = "/removeCategoryRelation";
+    public static final String GET_OBJECT_COUNT_BY_CATEGORY = "/getObjectCountByCategory";
+
+    public static final String GET_TABLE_COUNT_BY_CATALOG = "/getTableCountByCatalog";
+    public static final String GET_TABLE_CATEGORIES = "/getTableCategories";
+
+
+
+    public static final String SEARCH = "/search";
+
+    public static final String MATCH_LIST_NAMES = "/matchListNames";
 
     public static final String REQ_PARAM_PRINCIPAL_TYPE = "principalType";
 
@@ -261,6 +342,12 @@ public class Constants {
     public static final String GET_USAGE_PROFILE_GROUP_BY_USER = "/getUsageProfileGroupByUser";
 
     public static final String RECORD_DATA_LINEAGE = "/recordDataLineage";
+
+    public static final String UPDATE_DATA_LINEAGE = "/updateDataLineage";
+
+    public static final String SEARCH_DATA_LINEAGE = "/lineageGraph";
+
+    public static final String GET_DATA_LINEAGE_FACT = "/getLineageFact";
 
     public static final String GET_DATA_LINEAGES_BY_TABLE = "/getDataLineagesByTable";
 
@@ -295,34 +382,49 @@ public class Constants {
 
     public static final String REQ_PARAM_MV_NAME = "mvName";
 
+
+    public static final String POLYCAT_CLIENT_HOST = "polycat.client.host";
+    public static final String POLYCAT_CLIENT_PORT = "polycat.client.port";
+    public static final String POLYCAT_CLIENT_USERNAME = "polycat.client.userName";
+    public static final String POLYCAT_CLIENT_PASSWORD = "polycat.client.password";
+    public static final String POLYCAT_CLIENT_PROJECT_ID = "polycat.client.projectId";
+
     public static <T extends ProjectRequestBase> String getPolicyUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId() + Constants.POLICY;
+        return catalogServerUrlPrefix + getProjectId(request) + Constants.POLICY;
+    }
+
+    public static <T extends ProjectRequestBase> String getDiscoveryUrlPrefix(String catalogServerUrlPrefix, T request) {
+        return catalogServerUrlPrefix + getProjectId(request) + Constants.DISCOVERY;
+    }
+
+    public static <T extends ProjectRequestBase> String getGlossaryUrlPrefix(String catalogServerUrlPrefix, T request) {
+        return catalogServerUrlPrefix + getProjectId(request) + Constants.GLOSSARY;
     }
 
     public static <T extends ProjectRequestBase> String getRoleUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId() + Constants.ROLES;
+        return catalogServerUrlPrefix + getProjectId(request) + Constants.ROLES;
     }
 
     public static <T extends ProjectRequestBase> String getShareUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId() + Constants.SHARES;
+        return catalogServerUrlPrefix + getProjectId(request) + Constants.SHARES;
     }
 
     public static <T extends ProjectRequestBase> String getCatalogUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId() + CATALOGS;
+        return catalogServerUrlPrefix + getProjectId(request) + CATALOGS;
     }
 
-    public static <T extends  ProjectRequestBase> String getPolyCatProfileUrlPrefix(String catalogServerUrlPrefix, T request ) {
-        return catalogServerUrlPrefix + request.getProjectId() + POLYCATPROFILE;
+    public static <T extends  ProjectRequestBase> String getLakeProfileUrlPrefix(String catalogServerUrlPrefix, T request ) {
+        return catalogServerUrlPrefix + getProjectId(request) + LAKEPROFILE;
     }
 
     public static <T extends CatalogRequestBase> String getDatabaseUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES;
     }
 
     public static <T extends DatabaseRequestBase> String getTableUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES + SLASH + request.getDatabaseName()
             + TABLES;
@@ -330,7 +432,7 @@ public class Constants {
 
     public static <T extends DatabaseRequestBase> String getAcceleratorUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES + SLASH + request.getDatabaseName()
             + ACCELERATORS;
@@ -338,7 +440,7 @@ public class Constants {
 
     public static <T extends TableRequestBase> String getPartitionUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES + SLASH + request.getDatabaseName()
             + TABLES + SLASH + request.getTableName()
@@ -347,19 +449,26 @@ public class Constants {
 
     public static <T extends ProjectRequestBase> String getDataLineageUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + DATA_LINEAGES;
+    }
+
+    public static <T extends ProjectRequestBase> String getProjectId(T request) {
+        if (request.getProjectId() == null) {
+            throw new NullPointerException("Request param: projectId is null.");
+        }
+        return request.getProjectId();
     }
 
     public static <T extends CatalogRequestBase> String getUsageProfileUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + USAGE_PROFILES;
     }
 
     public static <T extends DatabaseRequestBase> String getFunctionUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES + SLASH + request.getDatabaseName()
             + FUNCTIONS;
@@ -367,7 +476,7 @@ public class Constants {
 
     public static <T extends DatabaseRequestBase> String getMVUrlPrefix(
         String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES + SLASH + request.getDatabaseName()
             + INDEX + MATERIALIZED_VIEW;
@@ -375,22 +484,26 @@ public class Constants {
 
     public static <T extends CatalogRequestBase> String getFunctionUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + FUNCTIONS;
     }
 
     public static <T extends ProjectRequestBase> String getTokenUrlPrefix(String catalogServerUrlPrefix,
         T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + MRS_TOKEN;
     }
 
     public static <T extends TableRequestBase> String getConstraintUrlPrefix(String catalogServerUrlPrefix, T request) {
-        return catalogServerUrlPrefix + request.getProjectId()
+        return catalogServerUrlPrefix + getProjectId(request)
             + CATALOGS + SLASH + request.getCatalogName()
             + DATABASES + SLASH + request.getDatabaseName()
             + TABLES + SLASH + request.getTableName()
             + CONSTRAINTS;
+    }
+
+    public static <T extends ProjectRequestBase> String getLockUrlPrefix(String catalogServerUrlPrefix, T request) {
+        return catalogServerUrlPrefix + getProjectId(request) + Constants.LOCK;
     }
 }

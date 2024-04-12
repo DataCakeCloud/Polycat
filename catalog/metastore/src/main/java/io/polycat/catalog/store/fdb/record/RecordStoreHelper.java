@@ -29,7 +29,6 @@ import java.util.function.Supplier;
 
 import io.polycat.catalog.common.Logger;
 import io.polycat.catalog.common.model.ScanRecordCursorResult;
-import io.polycat.catalog.common.utils.UuidUtil;
 import io.polycat.catalog.store.common.StoreMetadata;
 
 import com.apple.foundationdb.record.ExecuteProperties;

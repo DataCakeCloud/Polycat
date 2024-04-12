@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import io.polycat.catalog.server.util.TransactionFrameRunner;
 import io.polycat.catalog.common.CatalogServerException;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.Logger;
@@ -58,7 +59,6 @@ import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.GsonUtil;
 import io.polycat.catalog.common.utils.PartitionUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
-import io.polycat.catalog.server.util.TransactionFrameRunner;
 import io.polycat.catalog.service.api.PartitionService;
 import io.polycat.catalog.store.api.*;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
@@ -964,10 +964,10 @@ public class PartitionServiceImpl implements PartitionService {
     }
 
     @Override
-    public String[] listPartitionNames(TableName tableName, int maxParts) {
+    public String[] listPartitionNames(TableName tableName, PartitionFilterInput filterInput, boolean escape) {
         List<PartitionObject> partitions = listPartitions(tableName);
-        if (maxParts > 0) {
-            return partitions.stream().limit(maxParts).map(PartitionObject::getName).toArray(String[]::new);
+        if (filterInput.getMaxParts() > 0) {
+            return partitions.stream().limit(filterInput.getMaxParts()).map(PartitionObject::getName).toArray(String[]::new);
         }
         return partitions.stream().map(PartitionObject::getName).toArray(String[]::new);
     }
@@ -1450,15 +1450,15 @@ public class PartitionServiceImpl implements PartitionService {
     }
 
     @Override
-    public void updatePartitionColumnStatistics(TableName tableName,
+    public boolean updatePartitionColumnStatistics(TableName tableName,
         ColumnStatisticsInput stats) {
         throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "updatePartitionColumnStatistics");
     }
 
     @Override
-    public PartitionStatisticData getPartitionColumnStatistic(TableName tableName, List<String> partNames,
+    public PartitionStatisticData getPartitionColumnStatistics(TableName tableName, List<String> partNames,
         List<String> columns) {
-        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getPartitionColumnStatistic");
+        throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "getPartitionColumnStatistics");
     }
 
     @Override
@@ -1479,5 +1479,15 @@ public class PartitionServiceImpl implements PartitionService {
     @Override
     public boolean doesPartitionExists(TableName tableName, PartitionValuesInput partitionValuesInput) {
         throw new CatalogServerException(ErrorCode.FEATURE_NOT_SUPPORT, "doesPartitionExists");
+    }
+
+    @Override
+    public Integer getTablePartitionCount(TableName tableName, PartitionFilterInput filterInput) {
+        return null;
+    }
+
+    @Override
+    public String getLatestPartitionName(TableName tableName) {
+        return null;
     }
 }

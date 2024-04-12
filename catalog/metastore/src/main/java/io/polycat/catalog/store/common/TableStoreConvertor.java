@@ -23,8 +23,6 @@ import java.util.List;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import io.polycat.catalog.common.ErrorCode;
-import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.ColumnObject;
 import io.polycat.catalog.common.model.DataFileObject;
 import io.polycat.catalog.common.model.DataPartitionSetObject;
@@ -40,6 +38,9 @@ import io.polycat.catalog.common.model.TablePartitionSetType;
 import io.polycat.catalog.common.model.TablePartitionType;
 import io.polycat.catalog.common.model.TableSchemaObject;
 import io.polycat.catalog.common.model.TableStorageObject;
+import io.polycat.catalog.common.ErrorCode;
+import io.polycat.catalog.common.MetaStoreException;
+import io.polycat.catalog.common.model.SkewedInfo;
 import io.polycat.catalog.common.types.DataTypes;
 import io.polycat.catalog.common.utils.CodecUtil;
 import io.polycat.catalog.common.utils.UuidUtil;
@@ -51,12 +52,12 @@ import io.polycat.catalog.store.protos.common.FileStats;
 import io.polycat.catalog.store.protos.common.Order;
 import io.polycat.catalog.store.protos.common.Partition;
 import io.polycat.catalog.store.protos.common.PartitionFileInfo;
-import io.polycat.catalog.store.protos.common.PartitionFileInfo.Builder;
 import io.polycat.catalog.store.protos.common.PartitionSetType;
 import io.polycat.catalog.store.protos.common.PartitionType;
 import io.polycat.catalog.store.protos.common.SchemaInfo;
 import io.polycat.catalog.store.protos.common.SerDeInfo;
 import io.polycat.catalog.store.protos.common.StorageInfo;
+import io.polycat.catalog.store.protos.common.StringList;
 import io.polycat.catalog.store.protos.common.TableBaseInfo;
 import io.polycat.catalog.store.protos.common.TableDataInfo;
 import io.polycat.catalog.store.protos.common.TableDataPartitionSetInfo;
@@ -95,6 +96,21 @@ public class TableStoreConvertor {
                 .setNumberOfBuckets(tableStorageObject.getNumberOfBuckets())
                 .addAllBucketColumns(tableStorageObject.getBucketColumns())
                 .setStoredAsSubDirectories(tableStorageObject.getStoredAsSubDirectories());
+                //.setSkewedInfo(tableStorageObject.getSkewedInfo());
+        if (tableStorageObject.getSkewedInfo() != null) {
+            final SkewedInfo skewedInfo = tableStorageObject.getSkewedInfo();
+            io.polycat.catalog.store.protos.common.SkewedInfo.Builder skewedInfoBuilder = io.polycat.catalog.store.protos.common.SkewedInfo.newBuilder();
+            final List<String> skewedColumnNames = skewedInfo.getSkewedColumnNames();
+            skewedColumnNames.forEach(skewedInfoBuilder::addSkewedColumnNames);
+            final List<List<String>> skewedColumnValues = skewedInfo.getSkewedColumnValues();
+            skewedColumnValues.forEach(values -> {
+                final StringList.Builder stringListBuilder = StringList.newBuilder();
+                stringListBuilder.addAllValues(values);
+                skewedInfoBuilder.addSkewedColumnValues(stringListBuilder);
+            });
+            skewedInfoBuilder.putAllSkewedColumnValueLocationMaps(skewedInfo.getSkewedColumnValueLocationMaps());
+            storageInfo.setSkewedInfo(skewedInfoBuilder);
+        }
         if (tableStorageObject.getLocation() != null) {
             storageInfo.setLocation(tableStorageObject.getLocation());
         }
@@ -327,6 +343,7 @@ public class TableStoreConvertor {
 
     public static PartitionObject convertToPartitionObject(PartitionInfo partitionInfo) {
         final PartitionObject partitionObject = new PartitionObject();
+        partitionObject.setSetId(partitionInfo.getSetId());
         partitionObject.setName(partitionInfo.getName());
         partitionObject.setType(TablePartitionType.values()[partitionInfo.getType()-1]);
         partitionObject.setPartitionId(partitionInfo.getId());

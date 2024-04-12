@@ -18,13 +18,9 @@
 package io.polycat.catalog.store.api;
 
 import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.model.TransactionContext;
-
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
 public interface UserGroupStore {
 

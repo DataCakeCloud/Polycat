@@ -17,7 +17,6 @@
  */
 package io.polycat.catalog.store.mapper;
 
-import io.polycat.catalog.common.model.RoleObject;
 import io.polycat.catalog.store.gaussdb.pojo.*;
 import org.apache.ibatis.annotations.*;
 import org.springframework.stereotype.Component;

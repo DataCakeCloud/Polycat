@@ -22,16 +22,15 @@ import java.util.Optional;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.expressions.Query;
+import io.polycat.catalog.store.api.ObjectNameMapStore;
 import io.polycat.catalog.common.ErrorCode;
 import io.polycat.catalog.common.MetaStoreException;
 import io.polycat.catalog.common.ObjectType;
 import io.polycat.catalog.common.model.ObjectNameMap;
 import io.polycat.catalog.common.model.TransactionContext;
-import io.polycat.catalog.store.api.ObjectNameMapStore;
 import io.polycat.catalog.store.common.StoreMetadata;
 import io.polycat.catalog.store.fdb.record.DirectoryStoreHelper;
 import io.polycat.catalog.store.fdb.record.RecordStoreHelper;
-import io.polycat.catalog.store.fdb.record.StoreTypeUtil;
 import io.polycat.catalog.store.fdb.record.TransactionContextUtil;
 import io.polycat.catalog.store.protos.ObjectNameMapRecord;
 
@@ -62,9 +61,9 @@ public class ObjectNameMapStoreImpl implements ObjectNameMapStore {
         return Tuple.from(objectType.name(), upperObjectName, objectName);
     }
 
-    private void checkObjectType(io.polycat.catalog.common.ObjectType objectType) {
-        if (objectType != io.polycat.catalog.common.ObjectType.DATABASE
-            && objectType != io.polycat.catalog.common.ObjectType.TABLE) {
+    private void checkObjectType(ObjectType objectType) {
+        if (objectType != ObjectType.DATABASE
+            && objectType != ObjectType.TABLE) {
             throw new MetaStoreException(ErrorCode.OBJECT_NAME_MAP_TYPE_ERROR, objectType);
         }
     }
@@ -115,7 +114,7 @@ public class ObjectNameMapStoreImpl implements ObjectNameMapStore {
 
     @Override
     public void deleteObjectNameMap(TransactionContext context, String projectId,
-        io.polycat.catalog.common.ObjectType objectType,
+        ObjectType objectType,
         String upperObjectName, String objectName) throws MetaStoreException {
         checkObjectType(objectType);
         FDBRecordContext fdbRecordContext = TransactionContextUtil.getFDBRecordContext(context);
@@ -126,7 +125,7 @@ public class ObjectNameMapStoreImpl implements ObjectNameMapStore {
 
     @Override
     public List<ObjectNameMap> listObjectNameMap(TransactionContext context, String projectId,
-        io.polycat.catalog.common.ObjectType objectType, String upperObjectName, String topObjectId) throws MetaStoreException {
+        ObjectType objectType, String upperObjectName, String topObjectId) throws MetaStoreException {
         FDBRecordContext fdbRecordContext = TransactionContextUtil.getFDBRecordContext(context);
         FDBRecordStore objectNameMapStore = DirectoryStoreHelper.getObjectNameMapStore(fdbRecordContext, projectId);
         QueryComponent filter = Query

@@ -19,14 +19,14 @@ package io.polycat.common.expression;
 
 import com.google.common.collect.Lists;
 
+import io.polycat.common.VectorBatch;
+import io.polycat.common.expression.rule.ToExpressionVisitor;
+import io.polycat.common.expression.rule.ToRexCallVisitor;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.calcite.rex.RexNode;
 import io.polycat.catalog.common.types.DataType;
 import io.polycat.catalog.common.model.record.Field;
 import io.polycat.catalog.common.model.record.Record;
-import io.polycat.common.VectorBatch;
-import io.polycat.common.expression.rule.ToExpressionVisitor;
-import io.polycat.common.expression.rule.ToRexCallVisitor;
 
 import java.util.Collections;
 import java.util.List;

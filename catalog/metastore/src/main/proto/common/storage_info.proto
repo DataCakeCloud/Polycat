@@ -15,6 +15,16 @@ message Order {
   optional int32 sort_order = 2;
 }
 
+message StringList {
+  repeated string values = 1;
+}
+
+message SkewedInfo {
+  repeated string skewed_column_names = 1;
+  repeated StringList skewed_column_values = 2;
+  map<string, string> skewed_column_value_location_maps = 3;
+}
+
 message StorageInfo {
   required string location = 1;
   required string source_short_name = 2 [default = "carbon"];
@@ -29,4 +39,5 @@ message StorageInfo {
   optional SerDeInfo serde_info = 11;
   repeated Order sort_columns = 12;
   optional bool stored_as_sub_directories = 13;
+  optional SkewedInfo skewed_info = 14;
 }

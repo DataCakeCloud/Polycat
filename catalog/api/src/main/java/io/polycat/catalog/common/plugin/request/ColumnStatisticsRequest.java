@@ -20,8 +20,8 @@ package io.polycat.catalog.common.plugin.request;
 import java.util.List;
 
 import io.polycat.catalog.common.Operation;
-import io.polycat.catalog.common.model.stats.ColumnStatistics;
 import io.polycat.catalog.common.plugin.request.base.StatisticsRequestBase;
+import io.polycat.catalog.common.model.stats.ColumnStatistics;
 
 import lombok.Data;
 

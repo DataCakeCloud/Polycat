@@ -26,7 +26,7 @@
     <!--<Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS}|%-5p|%t|%F:%L|%replace{%msg}{${UNSAFE_CHAR}}{}%n-->
     <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS}|%-5p|%t|%c{1.}:%L|%replace{%msg}{${UNSAFE_CHAR}}{}%n
     </Property>
-    <Property name="LOG_DIR">/data/logs/polycat</Property>
+    <Property name="LOG_DIR">logs/polycat</Property>
     <Property name="SERVER_LOG_PREFIX">server_${hostName}</Property>
     <Property name="AUDIT_LOG_PREFIX">audit_${hostName}</Property>
     <Property name="LOG_PATTERN_AUDIT_LOG">%m%n</Property>

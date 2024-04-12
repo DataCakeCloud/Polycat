@@ -22,13 +22,13 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
-      <artifactId>polycat-parent</artifactId>
-      <groupId>io.polycat</groupId>
-      <version>0.1-SNAPSHOT</version>
+    <artifactId>polycat-parent</artifactId>
+    <groupId>io.polycat</groupId>
+    <version>0.1-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>polycat-metrics</artifactId>
+  <artifactId>polycat-metrics</artifactId>
 
   <dependencies>
     <!-- Prometheus dependencies -->
@@ -54,12 +54,12 @@
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
     </dependency>
-      <dependency>
-          <groupId>io.polycat</groupId>
-          <artifactId>polycat-catalog-api</artifactId>
-          <version>${project.version}</version>
-          <scope>compile</scope>
-      </dependency>
+    <dependency>
+      <groupId>io.polycat</groupId>
+      <artifactId>polycat-catalog-api</artifactId>
+      <version>${project.version}</version>
+      <scope>compile</scope>
+    </dependency>
     <dependency>
       <groupId>org.foundationdb</groupId>
       <artifactId>fdb-record-layer-core-pb3</artifactId>
@@ -100,7 +100,7 @@
         <configuration>
           <archive>
             <manifest>
-                <mainClass>io.polycat.metrics.FdbExporter</mainClass>
+              <mainClass>io.polycat.metrics.FdbExporter</mainClass>
               <useUniqueVersions>false</useUniqueVersions>
               <addClasspath>true</addClasspath>
               <classpathPrefix>lib/</classpathPrefix>
@@ -120,7 +120,7 @@
         <configuration>
           <archive>
             <manifest>
-                <mainClass>io.polycat.metrics.FdbExporter</mainClass>
+              <mainClass>io.polycat.metrics.FdbExporter</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>
