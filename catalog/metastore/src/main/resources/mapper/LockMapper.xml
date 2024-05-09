@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.LockMapper">
+    <update id="createLockSubspace">
+        CREATE TABLE IF NOT EXISTS system.lock_info
+        (
+        lock_id bigint PRIMARY KEY,
+        object_name varchar(64) NOT NULL,
+        lock_state VARCHAR(16),
+        lock_level VARCHAR(16),
+        create_time timestamp,
+        last_heartbeat timestamp,
+        user_name varchar(64),
+        hostname varchar(64),
+        project_id varchar(64)
+        );
+        CREATE INDEX IF NOT EXISTS system_lock_info_index ON system.lock_info (project_id);
+        CREATE SEQUENCE IF NOT EXISTS system.lock_sequence;
+    </update>
+
+    <insert id="insertLockInfo" useGeneratedKeys="true" keyProperty="data.lockId" parameterType="io.polycat.catalog.store.gaussdb.pojo.LockRecord">
+        INSERT INTO system.lock_info
+        VALUES (nextval('system.lock_sequence'), #{data.objectName}, #{data.lockState}, #{data.lockLevel},
+        current_timestamp, current_timestamp, #{data.userName}, #{data.hostname}, #{data.projectId})
+    </insert>
+
+    <select id="getLocksByObjectName" resultType="io.polycat.catalog.store.gaussdb.pojo.LockRecord">
+        SELECT * FROM system.lock_info
+        WHERE object_name = #{objectName} AND project_id = #{projectId}
+    </select>
+
+    <select id="getLockById" resultType="io.polycat.catalog.store.gaussdb.pojo.LockRecord">
+        SELECT * FROM system.lock_info
+        WHERE lock_id = #{lockId} AND project_id = #{projectId}
+    </select>
+
+    <update id="updateLockState">
+        UPDATE system.lock_info SET lock_state = #{lockState}
+        WHERE lock_id = #{lockId} and project_id = #{projectId}
+    </update>
+
+    <update id="updateLastHeartbeat">
+        UPDATE system.lock_info SET last_heartbeat = current_timestamp
+        WHERE lock_id = #{lockId} and project_id = #{projectId}
+    </update>
+
+    <delete id="deleteLock">
+        DELETE FROM system.lock_info
+        WHERE lock_id = #{lockId} and project_id = #{projectId}
+    </delete>
+
+    <select id="getTimeoutLocks" resultType="Long">
+        SELECT lock_id FROM system.lock_info
+        WHERE last_heartbeat &lt; current_timestamp - INTERVAL '${timeout} seconds'
+    </select>
+
+    <delete id="deleteLocks">
+        DELETE FROM system.lock_info
+        WHERE lock_id IN (
+        <foreach collection="timeoutLocks" item="data"  separator=",">
+            #{data}
+        </foreach>
+        )
+    </delete>
+
+    <select id="getLocks" resultType="io.polycat.catalog.store.gaussdb.pojo.LockRecord">
+        SELECT * FROM system.lock_info
+        WHERE project_id = #{projectId}
+    </select>
+</mapper>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.GlossaryMapper">
+    <update id="createGlossarySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.glossary;
+        DROP SEQUENCE IF EXISTS schema_${projectId}.glossary_sequence;
+        CREATE TABLE schema_${projectId}.glossary
+        (
+        id int PRIMARY KEY,
+        name varchar(64) NOT NULL UNIQUE,
+        description VARCHAR(255),
+        create_time timestamp,
+        update_time timestamp,
+        delete_status boolean
+        );
+        CREATE SEQUENCE schema_${projectId}.glossary_sequence;
+    </update>
+
+    <update id="createCategorySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.category;
+        DROP SEQUENCE IF EXISTS schema_${projectId}.category_sequence;
+        CREATE TABLE schema_${projectId}.category
+        (
+        id int PRIMARY KEY,
+        name varchar(64) NOT NULL ,
+        description VARCHAR(255),
+        parent_id int,
+        glossary_id int,
+        create_time timestamp,
+        update_time timestamp,
+        delete_status boolean
+        );
+        CREATE SEQUENCE schema_${projectId}.category_sequence;
+    </update>
+
+    <insert id="insertGlossary" useGeneratedKeys="true" keyProperty="data.id" parameterType="io.polycat.catalog.store.gaussdb.pojo.GlossaryRecord">
+        INSERT INTO schema_${projectId}.glossary
+        VALUES (cast(nextval('schema_${projectId}.glossary_sequence') as int), #{data.name}, #{data.description}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)
+    </insert>
+
+    <delete id="deleteGlossary">
+        DELETE FROM schema_${projectId}.glossary WHERE id = #{id};
+        DELETE FROM schema_${projectId}.category WHERE glossary_id = #{id};
+    </delete>
+
+    <update id="updateGlossary">
+        UPDATE schema_${projectId}.glossary
+        SET
+        <if test="name != null and name != ''">
+            name = #{name},
+        </if>
+        <if test="description != null and description != ''">
+            description = #{description},
+        </if>
+        update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <select id="listGlossaryWithoutCategory" resultType="io.polycat.catalog.store.gaussdb.pojo.GlossaryRecord">
+        SELECT * FROM schema_${projectId}.glossary
+        WHERE delete_status = false
+    </select>
+
+    <insert id="insertCategory" useGeneratedKeys="true" keyProperty="data.id" parameterType="io.polycat.catalog.store.gaussdb.pojo.CategoryRecord">
+        INSERT INTO schema_${projectId}.category
+        VALUES (cast(nextval('schema_${projectId}.category_sequence') as int), #{data.name}, #{data.description}, #{data.parentId}, #{data.glossaryId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)
+    </insert>
+
+    <update id="updateCategory">
+        UPDATE schema_${projectId}.category
+        SET
+        <if test="data.name != null and data.name != ''">
+            name = #{data.name},
+        </if>
+        <if test="data.description != null and data.description != ''">
+            description = #{data.description},
+        </if>
+        <if test="data.parentId != null and data.parentId != ''">
+            parent_id = #{data.parentId},
+        </if>
+        <if test="data.glossaryId != null and data.glossaryId != ''">
+            glossary_id = #{data.glossaryId},
+        </if>
+        update_time = CURRENT_TIMESTAMP
+        WHERE id = #{data.id}
+    </update>
+
+    <update id="deleteCategory">
+        WITH RECURSIVE CategoryUpdate AS (
+        UPDATE schema_${projectId}.category
+        SET delete_status = true
+        WHERE id = #{id}
+        RETURNING id, parent_id
+        )
+        UPDATE schema_${projectId}.category c
+        SET delete_status = true
+        FROM CategoryUpdate cu
+        WHERE c.parent_id = cu.id;
+    </update>
+
+    <select id="getCategoryById" resultType="io.polycat.catalog.store.gaussdb.pojo.CategoryRecord">
+        SELECT * FROM schema_${projectId}.category
+        WHERE delete_status = false AND id = #{id}
+    </select>
+
+    <select id="getGlossaryById" resultType="io.polycat.catalog.store.gaussdb.pojo.GlossaryRecord">
+        SELECT * FROM schema_${projectId}.glossary
+        WHERE delete_status = false AND id = #{id}
+    </select>
+
+    <select id="listCategoryByGlossaryName" resultType="io.polycat.catalog.store.gaussdb.pojo.CategoryRecord">
+        SELECT c.* FROM schema_${projectId}.category c
+        JOIN schema_${projectId}.glossary ON c.glossary_id = g.id
+        WHERE
+        <if test="glossaryId != null and glossaryId != ''">
+            glossary_id = #{glossaryId} AND
+        </if>
+        <if test="glossaryName != null and glossaryName != ''">
+            glossary_name = #{glossaryName} AND
+        </if>
+        delete_status = false
+    </select>
+
+    <resultMap type="io.polycat.catalog.store.gaussdb.pojo.GlossaryRecord" id="GlossaryRecordWithCategoryRecords">
+        <result property="id" column="g_id" jdbcType="INTEGER"/>
+        <result property="name" column="g_name" jdbcType="VARCHAR"/>
+        <result property="description" column="g_desc" jdbcType="VARCHAR"/>
+        <result property="createTime" column="g_create_time" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="g_update_time" jdbcType="TIMESTAMP"/>
+        <collection property="categoryRecords" ofType="io.polycat.catalog.store.gaussdb.pojo.CategoryRecord">
+            <result property="id" column="c_id" jdbcType="INTEGER"/>
+            <result property="name" column="c_name" jdbcType="VARCHAR"/>
+            <result property="description" column="c_desc" jdbcType="VARCHAR"/>
+            <result property="parentId" column="parent_id" jdbcType="INTEGER"/>
+            <result property="glossaryId" column="glossary_id" jdbcType="INTEGER"/>
+            <result property="createTime" column="c_create_time" jdbcType="TIMESTAMP"/>
+            <result property="updateTime" column="c_update_time" jdbcType="TIMESTAMP"/>
+        </collection>
+    </resultMap>
+
+    <select id="getGlossaryRecordWithCategories" resultMap="GlossaryRecordWithCategoryRecords">
+        SELECT g.id g_id, g.name g_name, g.description g_desc, g.create_time g_create_time, g.update_time g_update_time,
+        c.id c_id, c.name c_name, c.description c_desc, c.parent_id parent_id, c.glossary_id, glossary_id, c.create_time c_create_time, c.update_time c_update_time
+        FROM schema_${projectId}.glossary g
+        LEFT JOIN schema_${projectId}.category c ON g.id = c.glossary_id AND c.delete_status = false
+        WHERE
+        <if test="glossaryId != null and glossaryId != ''">
+            g.id = #{glossaryId} AND
+        </if>
+        <if test="glossaryName != null and glossaryName != ''">
+            g.name = #{glossaryName} AND
+        </if>
+        g.delete_status = false
+        ORDER BY c.create_time
+    </select>
+
+    <select id="getCategoryRecordAndChildren" resultType="io.polycat.catalog.store.gaussdb.pojo.CategoryRecord">
+        WITH RECURSIVE CategoryHierarchy AS (
+        SELECT id, name, description, parent_id, glossary_id, create_time, update_time, delete_status
+        FROM schema_${projectId}.category
+        WHERE id = #{id} AND delete_status = false
+
+        UNION ALL
+
+        SELECT c.id, c.name, c.description, c.parent_id, c.glossary_id, c.create_time, c.update_time, c.delete_status
+        FROM schema_${projectId}.category c
+        JOIN CategoryHierarchy ch ON c.parent_id = ch.id
+        WHERE c.delete_status = false AND ch.delete_status = false
+        )
+        SELECT * FROM CategoryHierarchy order by update_time desc;
+    </select>
+
+    <select id="getCategoryRecordAndParents" resultType="io.polycat.catalog.store.gaussdb.pojo.CategoryRecord">
+        WITH RECURSIVE CategoryHierarchy AS (
+        SELECT id, name, description, parent_id, glossary_id, create_time, update_time, delete_status
+        FROM schema_${projectId}.category
+        WHERE id = #{id}
+        <if test="ignoreDelete == false">
+        AND delete_status = false
+        </if>
+        UNION ALL
+
+        SELECT c.id, c.name, c.description, c.parent_id, c.glossary_id, c.create_time, c.update_time, c.delete_status
+        FROM schema_${projectId}.category c
+        JOIN CategoryHierarchy ch ON c.id = ch.parent_id
+        <if test="ignoreDelete == false">
+        WHERE c.delete_status = false AND ch.delete_status = false
+        </if>
+        )
+        SELECT * FROM CategoryHierarchy;
+    </select>
+</mapper>

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.DiscoveryMapper">
+    <update id="createDiscoverySubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.discovery_info;
+        CREATE TABLE schema_${projectId}.discovery_info
+        (
+        id VARCHAR(64) PRIMARY KEY,
+        qualified_name VARCHAR(2000) NOT NULL,
+        owner VARCHAR(255),
+        object_type smallint NOT NULL,
+        catalog_name VARCHAR(128),
+        create_time BIGINT NOT NULL,
+        update_time BIGINT NOT NULL,
+        keywords text,
+        search_info jsonb,
+        ts_tokens tsvector,
+        CONSTRAINT schema_${projectId}_uniqidx_discovery UNIQUE (object_type,qualified_name)
+        );
+        CREATE INDEX schema_${projectId}_ts_ditokens ON schema_${projectId}.discovery_info USING GIN (ts_tokens)
+    </update>
+
+    <update id="createCategoryRelationSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.discovery_category;
+        CREATE TABLE schema_${projectId}.discovery_category
+        (
+        id SERIAL PRIMARY KEY,
+        qualified_name VARCHAR(2000) NOT NULL,
+        category_id int NOT NULL
+        )
+    </update>
+
+    <insert id="upsertDiscoveryInfo">
+        INSERT INTO schema_${projectId}.discovery_info
+        VALUES (#{data.id}, #{data.qualifiedName}, #{data.owner}, #{data.objectType},
+        #{data.catalogName}, #{data.createTime}, #{data.updateTime}, #{data.keywords},
+        #{data.searchInfo,jdbcType=OTHER,typeHandler=io.polycat.catalog.store.gaussdb.handler.JsonbTypeHandler},
+            (setweight(coalesce(#{data.tsASetIndexTokens}, '')::tsvector || to_tsvector('simple', coalesce(#{data.tsATokens}, '')), 'A')
+            || setweight(to_tsvector('simple', coalesce(#{data.tsBTokens}, '')), 'B')
+            || setweight(to_tsvector('simple', coalesce(#{data.tsCTokens}, '')), 'C')
+            || setweight(to_tsvector('simple', coalesce(#{data.tsDTokens}, '')), 'D'))
+        )
+        ON CONFLICT ON CONSTRAINT schema_${projectId}_uniqidx_discovery DO UPDATE
+        SET owner = #{data.owner}, keywords = #{data.keywords}, search_info = #{data.searchInfo,jdbcType=OTHER,typeHandler=io.polycat.catalog.store.gaussdb.handler.JsonbTypeHandler},
+        ts_tokens = (setweight(coalesce(#{data.tsASetIndexTokens}, '')::tsvector || to_tsvector('simple', coalesce(#{data.tsATokens}, '')), 'A')
+            || setweight(to_tsvector('simple', coalesce(#{data.tsBTokens}, '')), 'B')
+            || setweight(to_tsvector('simple', coalesce(#{data.tsCTokens}, '')), 'C')
+            || setweight(to_tsvector('simple', coalesce(#{data.tsDTokens}, '')), 'D')),
+        update_time = #{data.updateTime}
+    </insert>
+
+    <select id="search" resultType="io.polycat.catalog.store.gaussdb.pojo.DiscoverySearchRecord">
+        select t1.search_info, t1.object_type, t1.score, coalesce(t2.sum_count,0) recent_visit_count, t2.last_access_time from (SELECT *, ${rankScore} score FROM schema_${projectId}.discovery_info WHERE ${filter} ) t1
+        left join (select * from schema_${projectId}.mv_table_profile_hotstat where ${isTable}) t2
+        on t1.qualified_name=t2.qualified_name
+        <if test="categoryId != null and categoryId != ''">
+            JOIN schema_${projectId}.discovery_category dc ON t1.qualified_name = dc.qualified_name
+            JOIN (select id from schema_${projectId}.category where id = #{categoryId}) c ON c.id = dc.category_id
+        </if>
+        ORDER BY score desc, coalesce(t2.sum_count,0) DESC, create_time DESC LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="searchWithCategories" resultType="io.polycat.catalog.store.gaussdb.pojo.DiscoverySearchWithCategoriesRecord">
+        SELECT s.qualified_name, search_info, object_type, score, recent_visit_count, last_access_time,  c.id as category_id, c.name as category_name, c.parent_id as parent_id, c.glossary_id as glossary_id
+        FROM (
+            select t1.qualified_name, t1.search_info, t1.object_type, t1.score, coalesce(t2.sum_count,0) recent_visit_count, t2.last_access_time from (SELECT *, ${rankScore} score FROM schema_${projectId}.discovery_info WHERE ${filter} ) t1
+            left join (select * from schema_${projectId}.mv_table_profile_hotstat where ${isTable}) t2
+            on t1.qualified_name=t2.qualified_name
+            <if test="categoryId != null and categoryId != ''">
+                JOIN schema_${projectId}.discovery_category dc ON t1.qualified_name = dc.qualified_name
+                JOIN (select id from schema_${projectId}.category where id = #{categoryId}) c ON c.id = dc.category_id
+            </if>
+        ORDER BY score DESC, coalesce(t2.sum_count,0) DESC, create_time DESC LIMIT #{limit} OFFSET #{offset}
+        ) s
+        LEFT JOIN schema_${projectId}.discovery_category dc ON s.qualified_name = dc.qualified_name
+        LEFT JOIN schema_${projectId}.category c ON c.id = dc.category_id
+        ORDER BY s.score DESC, s.recent_visit_count DESC, create_time DESC
+    </select>
+
+    <select id="countByCategorySearch" resultType="io.polycat.catalog.store.gaussdb.pojo.CountByCategoryRecord">
+        WITH RECURSIVE CategoryHierarchy AS (
+        SELECT id, name, parent_id, update_time, delete_status
+        FROM schema_${projectId}.category
+        WHERE id = #{categoryId} AND delete_status = false
+
+        UNION ALL
+
+        SELECT c.id, c.name, c.parent_id, c.update_time, c.delete_status
+        FROM schema_${projectId}.category c
+        JOIN CategoryHierarchy ch ON c.parent_id = ch.id
+        WHERE c.delete_status = false AND ch.delete_status = false
+        )
+        SELECT ch.id as category_id, ch.name as category_name, ch.parent_id as parent_id, count(*) as count
+        FROM CategoryHierarchy ch
+        JOIN schema_${projectId}.discovery_category dc ON ch.id = dc.category_id
+        JOIN (select qualified_name from schema_${projectId}.discovery_info where ${filter}) di ON dc.qualified_name = di.qualified_name
+        GROUP BY
+        ch.id, ch.name, ch.parent_id, ch.update_time
+        ORDER BY ch.update_time DESC
+    </select>
+
+    <select id="countByCatalogAndDatabaseSearch" resultType="io.polycat.catalog.store.gaussdb.pojo.CountByCatalogRecord">
+        SELECT catalog_name, search_info->>'databaseName' AS database_name, count(*) as count
+        FROM schema_${projectId}.discovery_info
+        WHERE ${filter}
+        GROUP BY
+        catalog_name, database_name
+    </select>
+
+    <select id="searchSimpleLikeNames" resultType="java.lang.String">
+        SELECT qualified_name FROM schema_${projectId}.discovery_info WHERE ${filter} order by qualified_name LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="getDiscoveryInfoByQualifiedName" resultType="io.polycat.catalog.store.gaussdb.pojo.DiscoverySearchRecord">
+        SELECT * FROM schema_${projectId}.discovery_info WHERE qualified_name = #{qualifiedName}
+    </select>
+
+
+    <insert id="addCategoryRelation">
+        INSERT INTO schema_${projectId}.discovery_category (qualified_name, category_id)
+        VALUES
+        <foreach collection="categoryIds" item="data"  separator=",">
+            (#{qualifiedName}, #{data})
+        </foreach>
+    </insert>
+
+    <select id="getCategoryRelationByQualifiedName" resultType="io.polycat.catalog.store.gaussdb.pojo.CategoryRelationRecord">
+        SELECT * FROM schema_${projectId}.discovery_category WHERE qualified_name = #{qualifiedName}
+    </select>
+
+    <update id="removeCategoryRelation">
+        DELETE FROM schema_${projectId}.discovery_category
+        WHERE qualified_name = #{qualifiedName} AND (
+        <foreach collection="categoryIds" item="data"  separator=" OR ">
+             category_id = #{data}
+        </foreach>
+        )
+    </update>
+
+    <select id="getDiscoveryCategories" resultType="io.polycat.catalog.store.gaussdb.pojo.DiscoveryCategoryRecord">
+        SELECT di.qualified_name as qualified_name, c.id as category_id, c.name as category_name, c.description as description, c.parent_id as parent_id, c.glossary_id as glossary_id
+        FROM (select qualified_name from schema_${projectId}.discovery_info where qualified_name = #{qualifiedName}) di
+        JOIN schema_${projectId}.discovery_category dc ON di.qualified_name = dc.qualified_name
+        JOIN schema_${projectId}.category c ON dc.category_id = c.id
+        ORDER BY c.create_time
+    </select>
+
+</mapper>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.DataLineageMapper">
+    <update id="createSubspace">
+        DROP TABLE IF EXISTS schema_${projectId}.t_vertex;
+        CREATE TABLE schema_${projectId}.t_vertex
+        (
+            id SERIAL PRIMARY KEY,
+            qualified_name VARCHAR(500) NOT NULL,
+            db_type SMALLINT NOT NULL,
+            object_type SMALLINT NOT NULL,
+            source_type SMALLINT NOT NULL,
+            tmp_flag BOOLEAN NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT true,
+            update_count INT NOT NULL DEFAULT 0,
+            delete_count INT NOT NULL DEFAULT 0,
+            last_del_time BIGINT NOT NULL DEFAULT 0,
+            create_time BIGINT NOT NULL DEFAULT 0,
+            fact_id VARCHAR(32) NOT NULL,
+            params JSONB NOT NULL,
+            CONSTRAINT schema_${projectId}_udx_t_vertex UNIQUE (db_type, object_type, qualified_name)
+        );
+        CREATE INDEX schema_${projectId}_idx_t_vertex_qn ON schema_${projectId}.t_vertex (qualified_name);
+
+        DROP TABLE IF EXISTS schema_${projectId}.t_edge;
+        CREATE TABLE schema_${projectId}.t_edge
+        (
+            upstream_id INT NOT NULL,
+            downstream_id INT NOT NULL,
+            lineage_type SMALLINT NOT NULL,
+            update_count INT NOT NULL DEFAULT 0 ,
+            edge_info JSONB NOT NULL,
+            CONSTRAINT schema_${projectId}_udx_t_edge UNIQUE (upstream_id, downstream_id)
+        );
+        CREATE INDEX schema_${projectId}_idx_t_edge_up ON schema_${projectId}.t_edge (upstream_id);
+        CREATE INDEX schema_${projectId}_idx_t_edge_down ON schema_${projectId}.t_edge (downstream_id);
+        CREATE INDEX schema_${projectId}_idx_t_edge_lt ON schema_${projectId}.t_edge (lineage_type);
+        CREATE INDEX schema_${projectId}_idx_t_edge_eict ON schema_${projectId}.t_edge (COALESCE(((edge_info->> 'ct')::bigint), 0));
+
+        DROP TABLE IF EXISTS schema_${projectId}.t_edge_fact;
+        CREATE TABLE schema_${projectId}.t_edge_fact
+        (
+            id VARCHAR(32) PRIMARY KEY,
+            execute_user VARCHAR(64) ,
+            job_status SMALLINT NOT NULL,
+            job_type VARCHAR(64),
+            job_id VARCHAR(255),
+            job_name VARCHAR(255),
+            process_type VARCHAR(64),
+            error_msg TEXT,
+            sql TEXT NOT NULL,
+            cluster VARCHAR(255),
+            start_time BIGINT NOT NULL,
+            end_time BIGINT NOT NULL,
+            create_time BIGINT NOT NULL,
+            params JSONB NOT NULL
+        );
+    </update>
+
+    <update id="createOrReplaceLineageSearchFunction">
+        CREATE OR REPLACE FUNCTION f_lineage_search(
+            table_name VARCHAR,
+            base_node INT,
+            lt SMALLINT,
+            start_time BIGINT,
+            lt_flag BOOLEAN,
+            st_flag BOOLEAN,
+            direct_flag INT=1,
+            max_depth INT=1
+        ) RETURNS TABLE (
+            upstream_id INT,
+            downstream_id INT,
+            lineage_type SMALLINT,
+            update_count INT,
+            edge_info JSONB
+        ) AS $$
+        BEGIN
+            RETURN QUERY EXECUTE '
+                WITH RECURSIVE downstream AS (
+                    SELECT 1 AS curr_depth, r.upstream_id, r.downstream_id, ARRAY[]::int[] || r.upstream_id || r.downstream_id AS trace, r.lineage_type, r.update_count, r.edge_info
+                    FROM ' || table_name || ' r
+                    WHERE r.upstream_id = ' || base_node || ' AND ' || direct_flag || ' IN (0, 1) AND ( ' || lt_flag || ' OR r.lineage_type = ' || lt || ' ) AND r.downstream_id != r.upstream_id AND ( ' || st_flag || ' OR (r.edge_info->>''ct'')::bigint &gt;= ' || start_time || ')
+                    UNION ALL
+                    SELECT ds.curr_depth + 1, r.upstream_id, r.downstream_id, ds.trace || r.downstream_id, r.lineage_type, r.update_count, r.edge_info
+                    FROM ' || table_name || ' r
+                    JOIN downstream ds ON r.upstream_id = ds.downstream_id
+                    WHERE NOT r.downstream_id = ANY(ds.trace) AND ds.curr_depth &lt; ' || max_depth || '
+                ),
+                upstream AS (
+                    SELECT 1 AS curr_depth, r.upstream_id, r.downstream_id, ARRAY[]::int[] || r.upstream_id || r.downstream_id AS trace, r.lineage_type, r.update_count, r.edge_info
+        FROM ' || table_name || ' r
+                    WHERE r.downstream_id = ' || base_node || ' AND ' || direct_flag || ' IN (0, -1) AND ( ' || lt_flag || ' OR r.lineage_type = ' || lt || ' ) AND r.downstream_id != r.upstream_id AND ( ' || st_flag || ' OR (r.edge_info->>''ct'')::bigint &gt;= ' || start_time || ')
+                    UNION ALL
+                    SELECT us.curr_depth + 1, r.upstream_id, r.downstream_id, r.upstream_id || us.trace, r.lineage_type, r.update_count, r.edge_info
+                    FROM ' || table_name || ' r
+                    JOIN upstream us ON r.downstream_id = us.upstream_id
+                    WHERE NOT r.upstream_id = ANY(us.trace) AND us.curr_depth &lt; ' || max_depth || '
+                ),
+                nodeself AS (
+                    SELECT 1 AS curr_depth, r.upstream_id, r.downstream_id, ARRAY[]::int[] || r.upstream_id || r.downstream_id AS trace, r.lineage_type, r.update_count, r.edge_info
+                    FROM ' || table_name || ' r
+                    WHERE r.upstream_id = ' || base_node || ' AND r.downstream_id = ' || base_node || ' AND ( ' || lt_flag || ' OR r.lineage_type = ' || lt || ' ) AND ( ' || st_flag || ' OR (r.edge_info->>''ct'')::bigint &gt;= ' || start_time || ')
+                )
+                SELECT upstream_id, downstream_id, lineage_type, update_count, edge_info  FROM (
+                    SELECT us.* FROM upstream us
+                    UNION ALL
+                    SELECT ds.* FROM downstream ds
+                    UNION ALL
+                    SELECT ns.* FROM nodeself ns
+                ) t
+                GROUP BY upstream_id, downstream_id, lineage_type, update_count, edge_info
+            ';
+        END;
+        $$ LANGUAGE plpgsql STRICT;
+
+    </update>
+
+
+
+    <update id="upsertVertexAndGetId" parameterType="java.util.List" keyProperty="list.id" useGeneratedKeys="true">
+        INSERT INTO schema_${projectId}.t_vertex
+        (qualified_name, db_type, object_type, source_type, tmp_flag, active, delete_count, last_del_time, create_time, fact_id, params)
+        VALUES
+        <foreach collection="list" item="data" separator=",">
+            (#{data.qualifiedName}, #{data.dbType}, #{data.objectType}, #{data.sourceType}, #{data.tmpFlag}, #{data.active}, #{data.deleteCount}, #{data.lastDelTime}, #{data.createTime}, #{data.factId}, #{data.params,jdbcType=OTHER,typeHandler=io.polycat.catalog.store.gaussdb.handler.JsonbTypeHandler} )
+        </foreach>
+        ON CONFLICT ON CONSTRAINT schema_${projectId}_udx_t_vertex DO UPDATE
+        SET update_count = schema_${projectId}.t_vertex.update_count + 1
+        RETURNING id
+    </update>
+
+    <insert id="insertLineageEdgeFact" parameterType="io.polycat.catalog.common.model.LineageEdgeFact">
+        INSERT INTO schema_${projectId}.t_edge_fact
+        (id, execute_user, job_status, job_type, job_id, job_name, process_type, error_msg, sql, cluster, start_time, end_time, create_time, params)
+        VALUES (
+            #{data.id}, #{data.executeUser}, #{data.jobStatus}, #{data.jobType}, #{data.jobId}, #{data.jobName}, #{data.processType}, #{data.errorMsg}, #{data.sql}, #{data.cluster}, #{data.startTime}, #{data.endTime}, #{data.createTime}, #{data.params,jdbcType=OTHER,typeHandler=io.polycat.catalog.store.gaussdb.handler.JsonbTypeHandler}
+        )
+    </insert>
+
+
+    <insert id="upsertLineageEdge" parameterType="java.util.List">
+        INSERT INTO schema_${projectId}.t_edge
+        (upstream_id, downstream_id, lineage_type, update_count, edge_info)
+        VALUES
+        <foreach collection="list" item="data" separator=",">
+            (#{data.upstreamId}, #{data.downstreamId}, #{data.lineageType}, #{data.updateCount}, #{data.edgeInfo,jdbcType=OTHER,typeHandler=io.polycat.catalog.store.gaussdb.handler.JsonbTypeHandler} )
+        </foreach>
+        ON CONFLICT ON CONSTRAINT schema_${projectId}_udx_t_edge DO UPDATE
+        SET update_count = schema_${projectId}.t_edge.update_count + 1, lineage_type = EXCLUDED.lineage_type, edge_info = EXCLUDED.edge_info
+    </insert>
+
+    <select id="getLineageEdgeFact" resultType="io.polycat.catalog.common.model.LineageEdgeFact">
+        SELECT * FROM schema_${projectId}.t_edge_fact WHERE id = #{factId}
+    </select>
+
+    <select id="getLineageVertex" resultType="io.polycat.catalog.common.model.LineageVertex">
+        SELECT * FROM schema_${projectId}.t_vertex WHERE ${filter}
+    </select>
+
+    <select id="getLineageGraph" resultType="io.polycat.catalog.common.model.LineageEdge">
+        select * from f_lineage_search(#{tableName}, #{nodeId}, #{lineageType}::SMALLINT, #{startTime}, #{lineageTypeFlag}, #{startTimeFlag}, #{lineageDirection}, #{depth})
+    </select>
+</mapper>

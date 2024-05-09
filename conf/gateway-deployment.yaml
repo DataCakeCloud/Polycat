@@ -1,0 +1,56 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: gateway
+  labels:
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: gateway
+        version: v1
+    spec:
+      volumes:
+      - name: gatewayconf
+        configMap:
+          name: gateway-configmap
+          items:
+          - key: gateway.conf
+            path: gateway.conf
+      containers:
+      - name: containers-gateway
+        image: xxxxxx/gateway-server:v1
+        env: 
+        - name: CATALOG_HOST
+          value: catalog
+        volumeMounts:
+        - name: gatewayconf
+          mountPath: /opt/dash/polycat-gateway-server/conf/gateway.conf
+          subPath: gateway.conf
+                
+
+

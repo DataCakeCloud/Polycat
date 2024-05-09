@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "<http://mybatis.org/dtd/mybatis-3-mapper.dtd>">
+<mapper namespace="io.polycat.catalog.store.mapper.ColumnStatisticsMapper">
+  <update id="createColumnStatisticsSubspace">
+    DROP TABLE IF EXISTS schema_${projectId}.table_column_statistics;
+    CREATE TABLE schema_${projectId}.table_column_statistics
+    (
+    tcs_id VARCHAR(64) PRIMARY KEY,
+    table_id VARCHAR(64) NOT NULL,
+    catalog_name VARCHAR(64) NOT NULL,
+    database_name VARCHAR(64) NOT NULL,
+    table_name VARCHAR(128) NOT NULL,
+    column_name VARCHAR(128) NOT NULL,
+    column_type VARCHAR(128) NOT NULL,
+    long_low_value BIGINT DEFAULT NULL,
+    long_high_value BIGINT DEFAULT NULL,
+    double_low_value DOUBLE PRECISION DEFAULT NULL,
+    double_high_value DOUBLE PRECISION DEFAULT NULL,
+    decimal_low_value VARCHAR(128) DEFAULT NULL,
+    decimal_high_value VARCHAR(128) DEFAULT NULL,
+    num_nulls BIGINT DEFAULT NULL,
+    num_distincts BIGINT DEFAULT NULL,
+    bit_vector BYTEA DEFAULT NULL,
+    avg_col_len DOUBLE PRECISION DEFAULT NULL,
+    max_col_len DOUBLE PRECISION DEFAULT NULL,
+    num_trues BIGINT DEFAULT NULL,
+    num_falses BIGINT DEFAULT NULL,
+    last_analyzed BIGINT DEFAULT NULL,
+    CONSTRAINT table_column_statistics_unique_key UNIQUE (catalog_name, database_name, table_name, column_name)
+    );
+    DROP TABLE IF EXISTS schema_${projectId}.pcs_table_meta;
+    CREATE TABLE schema_${projectId}.pcs_table_meta
+    (
+    id VARCHAR(64) PRIMARY KEY,
+    table_id VARCHAR(64) NOT NULL,
+    catalog_name VARCHAR(64) NOT NULL,
+    database_name VARCHAR(64) NOT NULL,
+    table_name VARCHAR(128) NOT NULL,
+    table_meta_name VARCHAR(128) NOT NULL,
+    create_time BIGINT NOT NULL,
+    CONSTRAINT pcs_table_meta_uk UNIQUE (catalog_name, database_name, table_name)
+    )
+  </update>
+
+  <insert id="insertTableColumnStatistics" parameterType="java.util.List">
+    INSERT INTO schema_${projectId}.table_column_statistics
+    VALUES
+    <foreach collection="tcsList" item="tcs"  separator=",">
+      (#{tcs.tcsId}, #{tcs.tableId}, #{tcs.catalogName}, #{tcs.databaseName},
+      #{tcs.tableName}, #{tcs.columnName}, #{tcs.columnType}, #{tcs.longLowValue},
+      #{tcs.longHighValue}, #{tcs.doubleLowValue}, #{tcs.doubleHighValue}, #{tcs.decimalLowValue},
+      #{tcs.decimalHighValue}, #{tcs.numNulls}, #{tcs.numDistincts}, #{tcs.bitVector}, #{tcs.avgColLen},
+      #{tcs.maxColLen}, #{tcs.numTrues}, #{tcs.numFalses}, #{tcs.lastAnalyzed})
+    </foreach>
+  </insert>
+
+  <select id="getPartitionStatisticsTableMeta" resultType="io.polycat.catalog.store.gaussdb.pojo.PartitionColumnStatisticsTableMetaRecord">
+    SELECT * from schema_${projectId}.pcs_table_meta
+    WHERE ${filter}
+  </select>
+
+  <update id="updatePartitionStatisticsTableMeta">
+    INSERT INTO schema_${projectId}.pcs_table_meta
+    VALUES
+    (#{pcs.id}, #{pcs.tableId}, #{pcs.catalogName}, #{pcs.databaseName},
+    #{pcs.tableName}, #{pcs.tableMetaName}, #{pcs.createTime})
+    ON CONFLICT ON CONSTRAINT pcs_table_meta_uk DO NOTHING
+  </update>
+
+  <select id="getTableColumnStatistics" resultType="io.polycat.catalog.store.gaussdb.pojo.ColumnStatisticsRecord">
+    SELECT * from schema_${projectId}.table_column_statistics
+    WHERE ${filter}
+  </select>
+
+  <update id="updateTableColumnStatistics" parameterType="java.util.List">
+    INSERT INTO schema_${projectId}.table_column_statistics
+    VALUES
+    <foreach collection="tcsList" item="tcs"  separator=",">
+      (#{tcs.tcsId}, #{tcs.tableId}, #{tcs.catalogName}, #{tcs.databaseName},
+      #{tcs.tableName}, #{tcs.columnName}, #{tcs.columnType}, #{tcs.longLowValue},
+      #{tcs.longHighValue}, #{tcs.doubleLowValue}, #{tcs.doubleHighValue}, #{tcs.decimalLowValue},
+      #{tcs.decimalHighValue}, #{tcs.numNulls}, #{tcs.numDistincts}, #{tcs.bitVector}, #{tcs.avgColLen},
+      #{tcs.maxColLen}, #{tcs.numTrues}, #{tcs.numFalses}, #{tcs.lastAnalyzed})
+    </foreach>
+    ON CONFLICT ON CONSTRAINT table_column_statistics_unique_key DO UPDATE SET
+    table_id=excluded.table_id,
+    column_type=excluded.column_type,
+    long_low_value=excluded.long_low_value,
+    long_high_value=excluded.long_high_value,
+    double_low_value=excluded.double_low_value,
+    double_high_value=excluded.double_high_value,
+    decimal_low_value=excluded.decimal_low_value,
+    decimal_high_value=excluded.decimal_high_value,
+    num_nulls=excluded.num_nulls,
+    num_distincts=excluded.num_distincts,
+    bit_vector=excluded.bit_vector,
+    avg_col_len=excluded.avg_col_len,
+    max_col_len=excluded.max_col_len,
+    num_trues=excluded.num_trues,
+    num_falses=excluded.num_falses,
+    last_analyzed=excluded.last_analyzed
+  </update>
+
+  <delete id="deleteTableColumnStatistics">
+    DELETE from schema_${projectId}.table_column_statistics
+    WHERE ${filter}
+  </delete>
+
+  <update id="createPartitionStatisticsTable">
+    DROP TABLE IF EXISTS schema_${projectId}.${pcsTableName};
+    CREATE TABLE schema_${projectId}.${pcsTableName}
+    (
+    pcsId VARCHAR(64) PRIMARY KEY,
+    partition_name VARCHAR(1024) NOT NULL,
+    partition_id VARCHAR(64) NOT NULL,
+    column_name VARCHAR(128) NOT NULL,
+    column_type VARCHAR(128) NOT NULL,
+    long_low_value BIGINT DEFAULT NULL,
+    long_high_value BIGINT DEFAULT NULL,
+    double_low_value DOUBLE PRECISION DEFAULT NULL,
+    double_high_value DOUBLE PRECISION DEFAULT NULL,
+    decimal_low_value VARCHAR(128) DEFAULT NULL,
+    decimal_high_value VARCHAR(128) DEFAULT NULL,
+    num_nulls BIGINT DEFAULT NULL,
+    num_distincts BIGINT DEFAULT NULL,
+    bit_vector BYTEA DEFAULT NULL,
+    avg_col_len DOUBLE PRECISION DEFAULT NULL,
+    max_col_len DOUBLE PRECISION DEFAULT NULL,
+    num_trues BIGINT DEFAULT NULL,
+    num_falses BIGINT DEFAULT NULL,
+    last_analyzed BIGINT DEFAULT NULL,
+    CONSTRAINT ${pcsTableName}_uk UNIQUE (partition_name, column_name)
+    )
+  </update>
+
+  <update id="updatePartitionColumnStatistics" parameterType="java.util.List">
+    INSERT INTO schema_${projectId}.${pcsTableName}
+    VALUES
+    <foreach collection="list" item="tcs"  separator=",">
+      (#{tcs.pcsId}, #{tcs.partitionName}, #{tcs.partitionId} ,
+      #{tcs.columnName}, #{tcs.columnType}, #{tcs.longLowValue},
+      #{tcs.longHighValue}, #{tcs.doubleLowValue}, #{tcs.doubleHighValue}, #{tcs.decimalLowValue},
+      #{tcs.decimalHighValue}, #{tcs.numNulls}, #{tcs.numDistincts}, #{tcs.bitVector}, #{tcs.avgColLen},
+      #{tcs.maxColLen}, #{tcs.numTrues}, #{tcs.numFalses}, #{tcs.lastAnalyzed})
+    </foreach>
+    ON CONFLICT ON CONSTRAINT ${pcsTableName}_uk DO UPDATE SET
+    partition_id=excluded.partition_id,
+    column_type=excluded.column_type,
+    long_low_value=excluded.long_low_value,
+    long_high_value=excluded.long_high_value,
+    double_low_value=excluded.double_low_value,
+    double_high_value=excluded.double_high_value,
+    decimal_low_value=excluded.decimal_low_value,
+    decimal_high_value=excluded.decimal_high_value,
+    num_nulls=excluded.num_nulls,
+    num_distincts=excluded.num_distincts,
+    bit_vector=excluded.bit_vector,
+    avg_col_len=excluded.avg_col_len,
+    max_col_len=excluded.max_col_len,
+    num_trues=excluded.num_trues,
+    num_falses=excluded.num_falses,
+    last_analyzed=excluded.last_analyzed
+  </update>
+
+  <select id="getPartitionColumnStatistics" resultType="io.polycat.catalog.store.gaussdb.pojo.ColumnStatisticsRecord">
+    SELECT * from schema_${projectId}.${pcsTableName}
+    WHERE ${filter}
+  </select>
+
+  <delete id="deletePartitionColumnStatistics">
+    DELETE from schema_${projectId}.${pcsTableName}
+    WHERE ${filter}
+  </delete>
+
+  <select id="getAggrColStatsFor" resultType="io.polycat.catalog.store.gaussdb.pojo.ColumnStatisticsAggrRecord">
+    SELECT
+    column_name,
+    column_type,
+    min(long_low_value) long_low_value,
+    max(long_high_value) long_high_value,
+    avg((long_high_value-long_low_value)/num_distincts) estimation_long_num_distincts,
+    min(double_low_value) double_low_value,
+    max(double_high_value) double_high_value,
+    avg((double_high_value-double_low_value)/num_distincts) estimation_double_num_distincts,
+    min(cast(decimal_low_value as decimal)) decimal_low_value,
+    max(cast(decimal_high_value as decimal)) decimal_high_value,
+    avg((cast(decimal_high_value as decimal)-cast(decimal_low_value as decimal))/num_distincts) estimation_decimal_num_distincts,
+    min(decimal_low_value) decimal_low_value,
+    sum(num_nulls) num_nulls,
+    max(num_distincts) lower_num_distincts,
+    sum(num_distincts) higher_num_distincts,
+    max(avg_col_len) avg_col_len,
+    max(max_col_len) max_col_len,
+    sum(num_trues) num_trues,
+    sum(num_falses) num_falses
+    from schema_${projectId}.${pcsTableName}
+    WHERE ${filter} GROUP BY column_name, column_type
+  </select>
+
+</mapper>
